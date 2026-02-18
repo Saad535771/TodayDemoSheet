@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, storeToken } from "../api/api.js";
-import Logo from "../assets/logo-white.png"; // Yeh add karein
-// --- CSS Styles (Injected via JS for easy copy-paste) ---
+import Logo from "../assets/logo-white.png"; 
 const styles = {
   container: {
     display: "flex",
