@@ -4,7 +4,7 @@ import TargetBoard from "../components/TargetBoard.jsx";
 import StaffManager from "../components/StaffManager.jsx";
 import TrashBin from "../components/TrashBin.jsx"; // 👈 IMPORT TRASH BIN
 import { api, clearToken, getStoredToken, setAuthToken } from "../api/api.js";
-import Logo from "../assets/Logo-1-Blue.png"; // Yeh add karein
+import Logo from "../assets/logo-blue.png"; // Yeh add karein
 // --- STYLES (Modern & Unique) ---
 const styles = {
   dashboardContainer: {
