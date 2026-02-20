@@ -10,7 +10,7 @@ const styles = {
     overflow: "hidden",
     marginBottom: "24px",
     border: "1px solid #eef0f3",
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: "'Calibri', sans-serif", // Font changed to Calibri
   },
   header: (isOpen, roleColor) => ({
     background: isOpen 
@@ -38,53 +38,57 @@ const styles = {
   },
   tableWrapper: {
     overflowX: "auto",
-    background: "#fdfdfd",
+    background: "#ffffff",
     maxHeight: "500px",
   },
   table: {
     width: "100%",
-    borderCollapse: "collapse",
+    borderCollapse: "collapse", // Ensures no gaps between boxes
     fontSize: "14px",
     whiteSpace: "nowrap",
   },
   th: {
-    background: "#f8f9fc",
-    color: "#6b7280",
+    background: "#f3f2f1", // Excel header color
+    color: "#323130",
     fontWeight: "600",
-    padding: "14px 16px",
+    padding: "8px 10px",
     textAlign: "left",
-    borderBottom: "2px solid #eef0f3",
+    border: "1px solid #c8c6c4", // Excel grid borders
     position: "sticky",
     top: 0,
     zIndex: 10,
   },
   td: {
-    padding: "12px 16px",
-    borderBottom: "1px solid #f0f0f0",
+    padding: "0", // 0 padding so input completely fills the box like Excel
+    border: "1px solid #c8c6c4", // Standard Excel borders for every cell
     verticalAlign: "middle",
   },
   input: {
     width: "100%",
+    boxSizing: "border-box", // Prevents input from overflowing the cell
     padding: "8px 10px",
-    borderRadius: "6px",
-    border: "1px solid transparent",
+    borderRadius: "0", // Removed radius for boxy Excel look
+    border: "none", 
     background: "transparent",
-    transition: "all 0.2s",
+    transition: "all 0.1s",
     fontSize: "14px",
     outline: "none",
+    fontFamily: "'Calibri', sans-serif",
   },
   inputFocus: {
     background: "#ffffff",
-    border: "1px solid #d1d5db",
-    boxShadow: "0 2px 5px rgba(0,0,0,0.05)",
+    boxShadow: "inset 0 0 0 2px #107c41", // Excel specific green focus ring
   },
   select: {
     width: "100%",
-    padding: "8px",
-    borderRadius: "6px",
-    border: "1px solid #e5e7eb",
-    background: "#fff",
-    fontSize: "13px",
+    boxSizing: "border-box",
+    padding: "8px 10px",
+    borderRadius: "0",
+    border: "none",
+    background: "transparent",
+    fontSize: "14px",
+    fontFamily: "'Calibri', sans-serif",
+    outline: "none",
   },
   badge: (color, fontColor) => ({
     background: color || "#eff6ff",
@@ -97,46 +101,31 @@ const styles = {
   }),
   btn: (loading) => ({
     padding: "6px 16px",
-    background: loading ? "#ccc" : "#10b981", // Green for save
+    background: loading ? "#ccc" : "#10b981", 
     color: "white",
     border: "none",
-    borderRadius: "6px",
-    fontSize: "12px",
+    borderRadius: "4px",
+    fontSize: "13px",
     fontWeight: "600",
     cursor: loading ? "not-allowed" : "pointer",
     transition: "transform 0.1s",
+    fontFamily: "'Calibri', sans-serif",
   }),
-  // Modal Styles
+  // Modal Styles remain same
   modalOverlay: {
-    position: "fixed",
-    top: 0, left: 0, right: 0, bottom: 0,
-    background: "rgba(0,0,0,0.6)",
-    backdropFilter: "blur(5px)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1000,
+    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+    background: "rgba(0,0,0,0.6)", backdropFilter: "blur(5px)",
+    display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000,
   },
   modalCard: {
-    background: "white",
-    padding: "30px",
-    borderRadius: "16px",
-    width: "90%",
-    maxWidth: "400px",
-    textAlign: "center",
+    background: "white", padding: "30px", borderRadius: "16px",
+    width: "90%", maxWidth: "400px", textAlign: "center",
     boxShadow: "0 20px 50px rgba(0,0,0,0.2)",
   },
-  lockIcon: {
-    fontSize: "40px",
-    marginBottom: "15px",
-    display: "block",
-  },
+  lockIcon: { fontSize: "40px", marginBottom: "15px", display: "block" },
   lockedPlaceholder: {
-    padding: "40px",
-    textAlign: "center",
-    background: "#f9fafb",
-    color: "#6b7280",
-    cursor: "pointer",
+    padding: "40px", textAlign: "center", background: "#f9fafb",
+    color: "#6b7280", cursor: "pointer",
   }
 };
 
@@ -146,18 +135,17 @@ function adjustColor(color, amount) {
 }
 
 const DEMO_RATING_VALUES = ["", "Average Demo", "Strong Demo", "Weak Demo"];
-const PASSWORD_SECRET = "admin123"; // Hardcoded Password
+const PASSWORD_SECRET = "admin123"; 
 
 export default function SlotTable({ slot, onChanged, isProtected }) {
   const [open, setOpen] = useState(slot.items?.length > 0);
   const [savingId, setSavingId] = useState(null);
+  const [zoom, setZoom] = useState(1); 
   const items = slot.items || [];
   
-  // Role Detection (Simulated)
-  const role = "admin"; // Replace with localStorage.getItem('role') or similar
-  const themeColor = role === "admin" ? "#1e3c72" : "#7b4397"; // Matches Login
+  const role = "admin"; 
+  const themeColor = role === "admin" ? "#1e3c72" : "#7b4397"; 
 
-  // Lock Logic
   const [isUnlocked, setIsUnlocked] = useState(!isProtected);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
@@ -173,7 +161,6 @@ export default function SlotTable({ slot, onChanged, isProtected }) {
     }
   }
 
-  // Handle Unlock
   const handleUnlock = (e) => {
     e.preventDefault();
     if (passwordInput === PASSWORD_SECRET) {
@@ -193,10 +180,19 @@ export default function SlotTable({ slot, onChanged, isProtected }) {
     }
   };
 
+  const handleZoom = (e, factor) => {
+    e.stopPropagation(); 
+    setZoom((prev) => {
+      let newZoom = prev + factor;
+      if (newZoom < 0.5) newZoom = 0.5; 
+      if (newZoom > 2) newZoom = 2;     
+      return newZoom;
+    });
+  };
+
   return (
     <>
       <div style={styles.card}>
-        {/* Accordion Header */}
         <div style={styles.header(open, themeColor)} onClick={handleHeaderClick}>
           <div>
             <h3 style={styles.headerTitle}>
@@ -206,53 +202,66 @@ export default function SlotTable({ slot, onChanged, isProtected }) {
               {slot.displayRange} • {items.length} records
             </span>
           </div>
-          <div style={{ fontSize: "14px", opacity: 0.8 }}>
-            {open ? "▲ Collapse" : "▼ Expand"}
+          <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+            {open && isUnlocked && (
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(255, 255, 255, 0.2)", padding: "4px 10px", borderRadius: "20px" }}>
+                <button onClick={(e) => handleZoom(e, -0.1)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: "18px", fontWeight: "bold" }}>-</button>
+                <span style={{ fontSize: "13px", fontWeight: "600", minWidth: "40px", textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
+                <button onClick={(e) => handleZoom(e, 0.1)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: "16px", fontWeight: "bold" }}>+</button>
+              </div>
+            )}
+            <div style={{ fontSize: "14px", opacity: 0.8 }}>
+              {open ? "▲ Collapse" : "▼ Expand"}
+            </div>
           </div>
         </div>
 
-        {/* Content Area */}
         {open && isUnlocked ? (
           <div style={styles.tableWrapper}>
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <TH>Date</TH>
-                  <TH>Tuition Name</TH>
-                  <TH>ID</TH>
-                  <TH>Rejected Tutor</TH>
-                  <TH>Tutor Name</TH>
-                  <TH>Status</TH>
-                  <TH>Subjects</TH>
-                  <TH>Class</TH>
-                  <TH>Feedback</TH>
-                  <TH>Filter</TH>
-                  <TH>Time</TH>
-                  <TH>Satisfaction</TH>
-                  <TH>Rating</TH>
-                  <TH>Contact</TH>
-                  <TH>Source</TH>
-                  <TH style={{textAlign: 'center'}}>Action</TH>
-                </tr>
-              </thead>
-              <tbody>
-                {items.length === 0 ? (
-                  <tr><td colSpan="16" style={{...styles.td, textAlign: "center", color: "#999"}}>No records in this slot</td></tr>
-                ) : items.map((it, idx) => (
-                  <Row 
-                    key={it.tuitionId} 
-                    it={it} 
-                    onSave={save} 
-                    saving={savingId === it.tuitionId} 
-                    isEven={idx % 2 === 0}
-                  />
-                ))}
-              </tbody>
-            </table>
+            <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", transition: "transform 0.2s ease", width: `${100 / zoom}%` }}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <TH>Date</TH>
+                    <TH>Demo Time</TH>
+                    <TH>Tuition Name</TH>
+                    <TH>Source</TH>
+                    <TH>Country</TH>
+                    <TH>Parent Contact</TH>
+                    <TH>Class</TH>
+                    <TH>Subject</TH>
+                    <TH>Days per week</TH>
+                    <TH>Estimated Fee</TH>
+                    <TH>Tutor Name</TH>
+                    <TH>Tutor Fees</TH>
+                    <TH>Class Time</TH>
+                    <TH style={{ color: "#d32f2f" }}>Rejected Tutor</TH>
+                    <TH>Status</TH>
+                    <TH>Feedback</TH>
+                    <TH>Demo Date</TH>
+                    <TH>Tuition Id</TH>
+                    <TH>Demo Rating</TH>
+                    <TH>Sync</TH>
+                    <TH style={{textAlign: 'center'}}>Action</TH>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.length === 0 ? (
+                    <tr><td colSpan="21" style={{...styles.td, textAlign: "center", color: "#999", padding: "15px"}}>No records in this slot</td></tr>
+                  ) : items.map((it, idx) => (
+                    <Row 
+                      key={it.tuitionId || idx} 
+                      it={it} 
+                      onSave={save} 
+                      saving={savingId === it.tuitionId} 
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : null}
 
-        {/* Locked State Placeholder (Visible if protected & closed, or protected & open but locked) */}
         {open && !isUnlocked && isProtected ? (
            <div style={styles.lockedPlaceholder} onClick={() => setShowPasswordModal(true)}>
               <span style={{fontSize: "24px"}}>🔒</span>
@@ -262,7 +271,6 @@ export default function SlotTable({ slot, onChanged, isProtected }) {
         ) : null}
       </div>
 
-      {/* Password Modal */}
       {showPasswordModal && (
         <div style={styles.modalOverlay} onClick={() => setShowPasswordModal(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
@@ -276,7 +284,7 @@ export default function SlotTable({ slot, onChanged, isProtected }) {
                 type="password" 
                 autoFocus
                 placeholder="Enter Password" 
-                style={{...styles.input, ...styles.inputFocus, textAlign: "center", fontSize: "16px", padding: "12px", marginBottom: "10px"}}
+                style={{...styles.input, ...styles.inputFocus, textAlign: "center", fontSize: "16px", padding: "12px", marginBottom: "10px", border: "1px solid #ccc"}}
                 value={passwordInput}
                 onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(""); }}
               />
@@ -292,75 +300,70 @@ export default function SlotTable({ slot, onChanged, isProtected }) {
   );
 }
 
-// Simple Helper for Table Header
 const TH = ({ children, style }) => <th style={{ ...styles.th, ...style }}>{children}</th>;
 
-function Row({ it, onSave, saving, isEven }) {
+function Row({ it, onSave, saving }) {
   const [edit, setEdit] = useState({
-    demoDate: it.demoDate || "",
+    date: it.date || "",
+    demoTime: it.demoTime || "",
     tuitionName: it.tuitionName || "",
-    tuitionId: it.tuitionId,
-    rejectedTutor: it.rejectedTutor || "",
+    source: it.source || "",
+    country: it.country || "",
+    parentContact: it.parentsContact || it.parentContact || "",
+    className: it.className || it.class || "",
+    subject: it.subjects || it.subject || "",
+    daysPerWeek: it.daysPerWeek || "",
+    estimatedFee: it.estimatedFee || "",
     tutorName: it.tutorName || "",
+    tutorFees: it.tutorFees || "",
+    classTime: it.classTime || it.timePretty || "",
+    rejectedTutor: it.rejectedTutor || "",
     status: it.status || "",
-    subjects: it.subjects || "",
-    className: it.className || "",
     feedback: it.feedback || "",
-    satisfactionRating: it.satisfactionRating || "",
-    demoRating: it.demoRating || ""
+    demoDate: it.demoDate || "",
+    tuitionId: it.tuitionId || "",
+    demoRating: it.demoRating || "",
+    sync: it.sync || ""
   });
 
   function setField(k, v) { setEdit(prev => ({ ...prev, [k]: v })); }
 
-  const rowStyle = {
-    background: isEven ? "#ffffff" : "#fafafa",
-  };
-
   return (
-    <tr style={rowStyle} className="hover-row">
-      <td style={styles.td}>
-         <StyledInput value={edit.demoDate} onChange={(e) => setField("demoDate", e.target.value)} placeholder="YYYY-MM-DD" width={110} />
+    <tr style={{ background: "#ffffff" }}>
+      <td style={styles.td}><StyledInput value={edit.date} onChange={(e) => setField("date", e.target.value)} placeholder="YYYY-MM-DD" width={100} /></td>
+      <td style={styles.td}><StyledInput value={edit.demoTime} onChange={(e) => setField("demoTime", e.target.value)} width={100} /></td>
+      <td style={styles.td}><StyledInput value={edit.tuitionName} onChange={(e) => setField("tuitionName", e.target.value)} width={150} /></td>
+      <td style={styles.td}><StyledInput value={edit.source} onChange={(e) => setField("source", e.target.value)} width={100} /></td>
+      <td style={styles.td}><StyledInput value={edit.country} onChange={(e) => setField("country", e.target.value)} width={100} /></td>
+      <td style={styles.td}><StyledInput value={edit.parentContact} onChange={(e) => setField("parentContact", e.target.value)} width={130} /></td>
+      <td style={styles.td}><StyledInput value={edit.className} onChange={(e) => setField("className", e.target.value)} width={100} /></td>
+      <td style={styles.td}><StyledInput value={edit.subject} onChange={(e) => setField("subject", e.target.value)} width={120} /></td>
+      <td style={styles.td}><StyledInput value={edit.daysPerWeek} onChange={(e) => setField("daysPerWeek", e.target.value)} width={100} /></td>
+      <td style={styles.td}><StyledInput value={edit.estimatedFee} onChange={(e) => setField("estimatedFee", e.target.value)} width={100} /></td>
+      <td style={styles.td}><StyledInput value={edit.tutorName} onChange={(e) => setField("tutorName", e.target.value)} width={140} /></td>
+      <td style={styles.td}><StyledInput value={edit.tutorFees} onChange={(e) => setField("tutorFees", e.target.value)} width={100} /></td>
+      <td style={styles.td}><StyledInput value={edit.classTime} onChange={(e) => setField("classTime", e.target.value)} width={100} /></td>
+      
+      <td style={{ ...styles.td, backgroundColor: "#ffebee" }}> 
+        <StyledInput value={edit.rejectedTutor} onChange={(e) => setField("rejectedTutor", e.target.value)} width={120} />
       </td>
-      <td style={styles.td} title={it.tuitionName}>{it.tuitionName || <span className="muted">--</span>}</td>
-      <td style={styles.td}><b>{it.tuitionId}</b></td>
-      <td style={styles.td}>{it.rejectedTutor || "--"}</td>
+
+      <td style={styles.td}><StyledInput value={edit.status} onChange={(e) => setField("status", e.target.value)} width={100} /></td>
+      <td style={styles.td}><StyledInput value={edit.feedback} onChange={(e) => setField("feedback", e.target.value)} width={180} /></td>
+      <td style={styles.td}><StyledInput value={edit.demoDate} onChange={(e) => setField("demoDate", e.target.value)} placeholder="YYYY-MM-DD" width={110} /></td>
+      <td style={styles.td}><StyledInput value={edit.tuitionId} onChange={(e) => setField("tuitionId", e.target.value)} width={100} /></td>
       <td style={styles.td}>
-        <StyledInput value={edit.tutorName} onChange={(e) => setField("tutorName", e.target.value)} />
-      </td>
-      <td style={styles.td}>
-        <StyledInput value={edit.status} onChange={(e) => setField("status", e.target.value)} />
-      </td>
-      <td style={styles.td}>{it.subjects}</td>
-      <td style={styles.td}>{it.className}</td>
-      <td style={styles.td}>
-        <StyledInput value={edit.feedback} onChange={(e) => setField("feedback", e.target.value)} width={200} />
-      </td>
-      <td style={styles.td}>
-        <span style={styles.badge(it.filterColor, it.filterFontColor)}>{it.filterStatus || "None"}</span>
-      </td>
-      <td style={styles.td}>{it.timePretty}</td>
-      <td style={styles.td}>
-        <StyledInput value={edit.satisfactionRating} onChange={(e) => setField("satisfactionRating", e.target.value)} width={120} />
-      </td>
-      <td style={styles.td}>
-        <select style={styles.select} value={edit.demoRating || ""} onChange={(e) => setField("demoRating", e.target.value)}>
+        <select style={{...styles.select, width: "120px"}} value={edit.demoRating || ""} onChange={(e) => setField("demoRating", e.target.value)}>
           {DEMO_RATING_VALUES.map(v => <option key={v} value={v}>{v || "--"}</option>)}
         </select>
       </td>
-      <td style={styles.td}>{it.parentsContact}</td>
-      <td style={styles.td}>{it.source}</td>
-      <td style={{...styles.td, textAlign: "center"}}>
+      <td style={styles.td}><StyledInput value={edit.sync} onChange={(e) => setField("sync", e.target.value)} width={80} /></td>
+      
+      <td style={{...styles.td, textAlign: "center", padding: "4px"}}>
         <button
           style={styles.btn(saving)}
           disabled={saving}
-          onClick={() => onSave(it.tuitionId, {
-            demoDate: edit.demoDate,
-            tutorName: edit.tutorName,
-            status: edit.status,
-            feedback: edit.feedback,
-            satisfactionRating: edit.satisfactionRating,
-            demoRating: edit.demoRating
-          })}
+          onClick={() => onSave(it.tuitionId, { ...edit })}
         >
           {saving ? "..." : "Save"}
         </button>
@@ -369,15 +372,15 @@ function Row({ it, onSave, saving, isEven }) {
   );
 }
 
-// Styled Input Component to handle Focus effects cleanly
-function StyledInput({ value, onChange, placeholder, width }) {
+function StyledInput({ value, onChange, placeholder, width, style }) {
   const [focused, setFocused] = useState(false);
   return (
     <input 
       style={{
         ...styles.input, 
         ...(focused ? styles.inputFocus : {}),
-        minWidth: width || 140
+        minWidth: width || 140,
+        ...style 
       }} 
       value={value} 
       onChange={onChange}
