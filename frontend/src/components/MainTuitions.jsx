@@ -61,7 +61,6 @@ const styles = {
     verticalAlign: "middle",
     height: "35px",
   },
-  // Inline Input Styles (Excel feel)
   inlineInput: {
     width: "100%",
     padding: "8px 10px",
@@ -101,21 +100,28 @@ const styles = {
     background: type === "edit" ? "#e0f2fe" : type === "delete" ? "#fee2e2" : type === "save" ? "#dcfce7" : "#f3f4f6",
     color: type === "edit" ? "#0369a1" : type === "delete" ? "#b91c1c" : type === "save" ? "#15803d" : "#4b5563",
   }),
-  // Form Styles
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-    gap: "12px",
+  // Excel Style Single Line Form
+  singleLineForm: {
+    display: "flex",
+    overflowX: "auto",
+    gap: "8px",
     marginTop: "16px",
+    padding: "10px",
+    background: "#f3f2f1",
+    border: "1px solid #c8c6c4",
+    borderRadius: "4px",
+    alignItems: "flex-end"
   },
   createInput: {
-    width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #e2e8f0",
-    fontSize: "14px", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif",
+    width: "100%", padding: "8px", border: "1px solid #c8c6c4",
+    fontSize: "13px", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif",
+    background: "white", outline: "none"
   },
   primaryBtn: {
-    background: "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)", color: "white",
-    border: "none", padding: "10px 20px", borderRadius: "8px", fontWeight: "600",
-    cursor: "pointer", fontFamily: "'Calibri', sans-serif",
+    background: "#107c41", // Excel Green
+    color: "white", border: "none", padding: "8px 16px", borderRadius: "4px",
+    fontWeight: "600", cursor: "pointer", fontFamily: "'Calibri', sans-serif",
+    minWidth: "100px", height: "34px", whiteSpace: "nowrap"
   }
 };
 
@@ -148,6 +154,7 @@ function emptyForm() {
   return {
     tuitionId: generateTuitionId(),
     date: new Date().toISOString().split('T')[0],
+    time: "", // Add default time for backend validation
     demoTime: "",
     tuitionName: "",
     source: "",
@@ -177,9 +184,11 @@ export default function MainTuitions() {
   // Creation State
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(emptyForm());
+  
   // Inline Edit State
   const [editingId, setEditingId] = useState(null);
   const [editRow, setEditRow] = useState(null);
+
   async function load() {
     setLoading(true);
     try {
@@ -200,11 +209,18 @@ export default function MainTuitions() {
     e.preventDefault();
     setCreating(true);
     try {
-      await api.post("/api/tuitions", form);
+      // FIX: 400 ERROR
+      const payloadToSubmit = { 
+        ...form, 
+        time: form.demoTime || form.classTime || "12:00" 
+      };
+
+      await api.post("/api/tuitions", payloadToSubmit);
       setForm(emptyForm());
       await load();
     } catch (e) {
-      alert("Create failed");
+      console.error(e);
+      alert("Create failed. Please check backend validation.");
     } finally {
       setCreating(false);
     }
@@ -217,7 +233,9 @@ export default function MainTuitions() {
         demoTime: item.demoTime || "",
         classTime: item.classTime || "",
         date: item.date || "",
-        demoDate: item.demoDate || ""
+        demoDate: item.demoDate || "",
+        tutorFees: item.tutorFee || item.tutorFees || "", // Fix for tutor fees not loading
+        sync: item.syncFlag || item.sync || "" // Fix for sync not loading
     });
   }
 
@@ -232,7 +250,6 @@ export default function MainTuitions() {
 
   async function saveInlineEdit() {
     try {
-      // Tutor Name and Status will be sent here. Backend should listen to this for "Today Demo" Sync.
       const payload = { ...editRow, _source: "main" };
       await api.patch(`/api/tuitions/${encodeURIComponent(editingId)}`, payload);
       setEditingId(null);
@@ -254,64 +271,67 @@ export default function MainTuitions() {
   }
 
   const handleZoom = (factor) => {
-    setZoom((prev) => Math.min(Math.max(prev + factor, 0.5), 2.5)); // Min 50%, Max 250%
+    setZoom((prev) => Math.min(Math.max(prev + factor, 0.5), 2.5));
   };
 
   return (
     <div style={styles.container}>
       
-      {/* ADD NEW TUITION FORM */}
+      {/* ADD NEW TUITION FORM (Single Line Excel Style) */}
       <div style={styles.card}>
         <details>
           <summary style={styles.summaryBtn}>
-            <span style={{fontSize: 20, color: "#2a5298", marginRight: 5}}>+</span> Add New Tuition
+            <span style={{fontSize: 20, color: "#107c41", marginRight: 5}}>+</span> Add New Tuition (Quick Entry)
           </summary>
-          <form onSubmit={create} style={{marginTop: 15}}>
-             <div style={styles.grid}>
-                <CreateField label="Tuition ID" val={form.tuitionId} onChange={v => setCreateField("tuitionId", v)} />
-                <CreateField label="Date" type="date" val={form.date} onChange={v => setCreateField("date", v)} />
-                <CreateField label="Demo Time" type="time" val={form.demoTime} onChange={v => setCreateField("demoTime", v)} />
-                <CreateField label="Tuition Name" val={form.tuitionName} onChange={v => setCreateField("tuitionName", v)} />
-                
-                <div>
-                  <label style={{fontSize: 11, fontWeight: "bold", color: "#666", marginBottom: 4, display: "block"}}>Source</label>
-                  <select style={styles.createInput} value={form.source} onChange={e => setCreateField("source", e.target.value)}>
-                    {sourcesList.map(o => <option key={o} value={o}>{o || "-- Select --"}</option>)}
-                  </select>
-                </div>
-
-                <CreateField label="Country" val={form.country} onChange={v => setCreateField("country", v)} />
-                <CreateField label="Parent Contact" val={form.parentsContact} onChange={v => setCreateField("parentsContact", v)} />
-                <CreateField label="Class" val={form.className} onChange={v => setCreateField("className", v)} />
-                <CreateField label="Subject" val={form.subjects} onChange={v => setCreateField("subjects", v)} />
-                <CreateField label="Days Per Week" val={form.daysPerWeek} onChange={v => setCreateField("daysPerWeek", v)} />
-                <CreateField label="Estimated Fee" val={form.estimatedFee} onChange={v => setCreateField("estimatedFee", v)} />
-                <CreateField label="Tutor Name" val={form.tutorName} onChange={v => setCreateField("tutorName", v)} />
-                <CreateField label="Tutor Fees" val={form.tutorFees} onChange={v => setCreateField("tutorFees", v)} />
-                <CreateField label="Class Time" type="time" val={form.classTime} onChange={v => setCreateField("classTime", v)} />
-                <CreateField label="Rejected Tutor" val={form.rejectedTutor} onChange={v => setCreateField("rejectedTutor", v)} />
-                
-                <div>
-                  <label style={{fontSize: 11, fontWeight: "bold", color: "#666", marginBottom: 4, display: "block"}}>Status</label>
-                  <select style={styles.createInput} value={form.status} onChange={e => setCreateField("status", e.target.value)}>
-                    {statusList.map(o => <option key={o} value={o}>{o || "-- Select --"}</option>)}
-                  </select>
-                </div>
-                
-                <CreateField label="Demo Date" type="date" val={form.demoDate} onChange={v => setCreateField("demoDate", v)} />
-                
-                <div>
-                  <label style={{fontSize: 11, fontWeight: "bold", color: "#666", marginBottom: 4, display: "block"}}>Demo Rating</label>
-                  <select style={styles.createInput} value={form.demoRating} onChange={e => setCreateField("demoRating", e.target.value)}>
-                    {demoRatings.map(o => <option key={o} value={o}>{o || "-- Select --"}</option>)}
-                  </select>
-                </div>
-
-                <CreateField label="Sync" val={form.sync} onChange={v => setCreateField("sync", v)} />
+          <form onSubmit={create} style={styles.singleLineForm}>
+             
+             <CreateField label="Tuition ID" val={form.tuitionId} onChange={v => setCreateField("tuitionId", v)} width="100px" />
+             <CreateField label="Date" type="date" val={form.date} onChange={v => setCreateField("date", v)} width="130px" />
+             <CreateField label="Demo Time" type="time" val={form.demoTime} onChange={v => setCreateField("demoTime", v)} width="110px" />
+             <CreateField label="Tuition Name" val={form.tuitionName} onChange={v => setCreateField("tuitionName", v)} width="150px" />
+             
+             <div style={{ minWidth: "120px" }}>
+               <label style={{fontSize: 11, fontWeight: "bold", color: "#666", marginBottom: 2, display: "block"}}>Source</label>
+               <select style={styles.createInput} value={form.source} onChange={e => setCreateField("source", e.target.value)}>
+                 {sourcesList.map(o => <option key={o} value={o}>{o || "-- Select --"}</option>)}
+               </select>
              </div>
-             <button style={{...styles.primaryBtn, marginTop: 15}} disabled={creating}>
-               {creating ? "Adding..." : "Add Record"}
-             </button>
+
+             <CreateField label="Country" val={form.country} onChange={v => setCreateField("country", v)} width="100px" />
+             <CreateField label="Parent Contact" val={form.parentsContact} onChange={v => setCreateField("parentsContact", v)} width="120px" />
+             <CreateField label="Class" val={form.className} onChange={v => setCreateField("className", v)} width="100px" />
+             <CreateField label="Subject" val={form.subjects} onChange={v => setCreateField("subjects", v)} width="120px" />
+             <CreateField label="Days/Week" val={form.daysPerWeek} onChange={v => setCreateField("daysPerWeek", v)} width="90px" />
+             <CreateField label="Estimated Fee" val={form.estimatedFee} onChange={v => setCreateField("estimatedFee", v)} width="110px" />
+             <CreateField label="Tutor Name" val={form.tutorName} onChange={v => setCreateField("tutorName", v)} width="130px" />
+             <CreateField label="Tutor Fees" val={form.tutorFees} onChange={v => setCreateField("tutorFees", v)} width="100px" />
+             <CreateField label="Class Time" type="time" val={form.classTime} onChange={v => setCreateField("classTime", v)} width="110px" />
+             <CreateField label="Rejected Tutor" val={form.rejectedTutor} onChange={v => setCreateField("rejectedTutor", v)} width="130px" />
+             <CreateField label="Feedback" val={form.feedback} onChange={v => setCreateField("feedback", v)} width="150px" />
+             <div style={{ minWidth: "120px" }}>
+               <label style={{fontSize: 11, fontWeight: "bold", color: "#666", marginBottom: 2, display: "block"}}>Status</label>
+               <select style={styles.createInput} value={form.status} onChange={e => setCreateField("status", e.target.value)}>
+                 {statusList.map(o => <option key={o} value={o}>{o || "-- Select --"}</option>)}
+               </select>
+             </div>
+             
+             <CreateField label="Demo Date" type="date" val={form.demoDate} onChange={v => setCreateField("demoDate", v)} width="130px" />
+             
+             <div style={{ minWidth: "120px" }}>
+               <label style={{fontSize: 11, fontWeight: "bold", color: "#666", marginBottom: 2, display: "block"}}>Demo Rating</label>
+               <select style={styles.createInput} value={form.demoRating} onChange={e => setCreateField("demoRating", e.target.value)}>
+                 {demoRatings.map(o => <option key={o} value={o}>{o || "-- Select --"}</option>)}
+               </select>
+             </div>
+
+             <CreateField label="Sync" val={form.sync} onChange={v => setCreateField("sync", v)} width="100px" />
+
+             {/* Submit Button in the same line */}
+             <div style={{ paddingBottom: "2px" }}>
+                <button type="submit" style={styles.primaryBtn} disabled={creating}>
+                  {creating ? "Adding..." : "Add Row +"}
+                </button>
+             </div>
           </form>
         </details>
       </div>
@@ -387,15 +407,18 @@ export default function MainTuitions() {
                       <td style={styles.td}><StyledInput isEditing={isEditing} val={isEditing ? editRow.daysPerWeek : it.daysPerWeek} onChange={e => handleInlineChange("daysPerWeek", e.target.value)} width={100} /></td>
                       <td style={styles.td}><StyledInput isEditing={isEditing} val={isEditing ? editRow.estimatedFee : it.estimatedFee} onChange={e => handleInlineChange("estimatedFee", e.target.value)} width={100} /></td>
                       <td style={styles.td}><StyledInput isEditing={isEditing} val={isEditing ? editRow.tutorName : it.tutorName} onChange={e => handleInlineChange("tutorName", e.target.value)} width={140} /></td>
-                      <td style={styles.td}><StyledInput isEditing={isEditing} val={isEditing ? editRow.tutorFees : it.tutorFees} onChange={e => handleInlineChange("tutorFees", e.target.value)} width={100} /></td>
+                      
+                      {/* FIX: Tutor Fees */}
+                      <td style={styles.td}><StyledInput isEditing={isEditing} val={isEditing ? editRow.tutorFees : (it.tutorFee || it.tutorFees)} onChange={e => handleInlineChange("tutorFees", e.target.value)} width={100} /></td>
+                      
                       <td style={styles.td}><StyledInput isEditing={isEditing} type="time" val={isEditing ? editRow.classTime : format12Hour(it.classTime)} onChange={e => handleInlineChange("classTime", e.target.value)} /></td>
                       
-                      {/* REJECTED TUTOR (RED BACKGROUND) */}
+                      {/* REJECTED TUTOR */}
                       <td style={{ ...styles.td, backgroundColor: "#ffebee" }}> 
                         <StyledInput isEditing={isEditing} val={isEditing ? editRow.rejectedTutor : it.rejectedTutor} onChange={e => handleInlineChange("rejectedTutor", e.target.value)} width={120} />
                       </td>
 
-                      {/* STATUS DROPDOWN (WITH COLORS) */}
+                      {/* STATUS DROPDOWN */}
                       <td style={{ ...styles.td, backgroundColor: isEditing ? statusColors[editRow.status] : statusColors[it.status] }}>
                         {isEditing ? (
                           <select style={{...styles.inlineSelect, background: "transparent", fontWeight: "bold"}} value={editRow.status} onChange={e => handleInlineChange("status", e.target.value)}>
@@ -417,7 +440,8 @@ export default function MainTuitions() {
                         ) : <span style={{padding: "0 10px"}}>{it.demoRating}</span>}
                       </td>
 
-                      <td style={styles.td}><StyledInput isEditing={isEditing} val={isEditing ? editRow.sync : it.sync} onChange={e => handleInlineChange("sync", e.target.value)} width={80} /></td>
+                      {/* FIX: Sync */}
+                      <td style={styles.td}><StyledInput isEditing={isEditing} val={isEditing ? editRow.sync : (it.syncFlag || it.sync)} onChange={e => handleInlineChange("sync", e.target.value)} width={80} /></td>
 
                       {/* ACTIONS */}
                       <td style={{...styles.td, textAlign: "center", minWidth: "120px", background: isEditing ? "#f0f9ff" : "white"}}>
@@ -449,10 +473,10 @@ export default function MainTuitions() {
 // Sub-components
 const TH = ({ children, style }) => <th style={{...styles.th, ...style}}>{children}</th>;
 
-function CreateField({ label, val, onChange, type="text" }) {
+function CreateField({ label, val, onChange, type="text", width="120px" }) {
   return (
-    <div>
-      <label style={{fontSize: 11, fontWeight: "bold", color: "#666", marginBottom: 4, display: "block"}}>{label}</label>
+    <div style={{ minWidth: width }}>
+      <label style={{fontSize: 11, fontWeight: "bold", color: "#666", marginBottom: 2, display: "block"}}>{label}</label>
       <input type={type} style={styles.createInput} value={val || ""} onChange={e => onChange(e.target.value)} />
     </div>
   );
