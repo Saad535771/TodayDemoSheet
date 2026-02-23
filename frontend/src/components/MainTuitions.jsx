@@ -349,7 +349,7 @@ export default function MainTuitions() {
             <button onClick={() => handleZoom(0.1)} style={{ cursor: "pointer", fontSize: "16px", border: "none", background: "none", fontWeight: "bold" }}>+</button>
           </div>
         </div>
-        
+      
         <div style={styles.tableWrapper}>
           <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", transition: "transform 0.2s ease", width: `${100 / zoom}%` }}>
             <table style={styles.table}>
@@ -383,7 +383,6 @@ export default function MainTuitions() {
                   <tr><td colSpan="21" style={{padding: 20, textAlign: "center", color: "#888"}}>No records found</td></tr>
                 ) : items.map((it) => {
                   const isEditing = editingId === it.tuitionId;
-                  
                   return (
                     <tr key={it.tuitionId} style={{ background: isEditing ? "#f0f9ff" : "white" }}>
                       
