@@ -173,15 +173,13 @@ export default function MainTuitions() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [zoom, setZoom] = useState(1);
-  
+
   // Creation State
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(emptyForm());
-
   // Inline Edit State
   const [editingId, setEditingId] = useState(null);
   const [editRow, setEditRow] = useState(null);
-
   async function load() {
     setLoading(true);
     try {
