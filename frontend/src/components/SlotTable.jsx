@@ -1,147 +1,138 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { api } from "../api/api.js";
 
-// --- CSS Styles (Injected for portability) ---
 const styles = {
-  card: {
-    background: "#ffffff",
-    borderRadius: "16px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
-    overflow: "hidden",
-    marginBottom: "24px",
-    border: "1px solid #eef0f3",
-    fontFamily: "'Calibri', sans-serif", // Font changed to Calibri
-  },
+  card: { background: "#ffffff", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)", overflow: "hidden", marginBottom: "24px", border: "1px solid #eef0f3", fontFamily: "'Calibri', sans-serif" },
   header: (isOpen, roleColor) => ({
-    background: isOpen 
-      ? `linear-gradient(135deg, ${roleColor} 0%, ${adjustColor(roleColor, -20)} 100%)` 
-      : "#ffffff",
-    color: isOpen ? "#ffffff" : "#333",
-    padding: "16px 24px",
-    cursor: "pointer",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    transition: "all 0.3s ease",
-    borderBottom: isOpen ? "none" : "1px solid #eee",
+    background: isOpen ? `linear-gradient(135deg, ${roleColor} 0%, ${adjustColor(roleColor, -20)} 100%)` : "#ffffff",
+    color: isOpen ? "#ffffff" : "#333", padding: "16px 24px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "all 0.3s ease", borderBottom: isOpen ? "none" : "1px solid #eee",
   }),
-  headerTitle: {
-    fontSize: "18px",
-    fontWeight: "700",
-    margin: 0,
-  },
-  headerMeta: {
-    fontSize: "13px",
-    opacity: 0.85,
-    marginTop: "4px",
-    display: "block",
-  },
-  tableWrapper: {
-    overflowX: "auto",
-    background: "#ffffff",
-    maxHeight: "500px",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse", // Ensures no gaps between boxes
-    fontSize: "14px",
-    whiteSpace: "nowrap",
-  },
-  th: {
-    background: "#f3f2f1", // Excel header color
-    color: "#323130",
-    fontWeight: "600",
-    padding: "8px 10px",
-    textAlign: "left",
-    border: "1px solid #c8c6c4", // Excel grid borders
-    position: "sticky",
-    top: 0,
-    zIndex: 10,
-  },
-  td: {
-    padding: "0", // 0 padding so input completely fills the box like Excel
-    border: "1px solid #c8c6c4", // Standard Excel borders for every cell
-    verticalAlign: "middle",
-  },
-  input: {
-    width: "100%",
-    boxSizing: "border-box", // Prevents input from overflowing the cell
-    padding: "8px 10px",
-    borderRadius: "0", // Removed radius for boxy Excel look
-    border: "none", 
-    background: "transparent",
-    transition: "all 0.1s",
-    fontSize: "14px",
-    outline: "none",
-    fontFamily: "'Calibri', sans-serif",
-  },
-  inputFocus: {
-    background: "#ffffff",
-    boxShadow: "inset 0 0 0 2px #107c41", // Excel specific green focus ring
-  },
-  select: {
-    width: "100%",
-    boxSizing: "border-box",
-    padding: "8px 10px",
-    borderRadius: "0",
-    border: "none",
-    background: "transparent",
-    fontSize: "14px",
-    fontFamily: "'Calibri', sans-serif",
-    outline: "none",
-  },
-  badge: (color, fontColor) => ({
-    background: color || "#eff6ff",
-    color: fontColor || "#1e40af",
-    padding: "4px 10px",
-    borderRadius: "20px",
-    fontSize: "12px",
-    fontWeight: "600",
-    display: "inline-block",
-  }),
-  btn: (loading) => ({
-    padding: "6px 16px",
-    background: loading ? "#ccc" : "#10b981", 
-    color: "white",
-    border: "none",
-    borderRadius: "4px",
-    fontSize: "13px",
-    fontWeight: "600",
-    cursor: loading ? "not-allowed" : "pointer",
-    transition: "transform 0.1s",
-    fontFamily: "'Calibri', sans-serif",
-  }),
-  // Modal Styles remain same
-  modalOverlay: {
-    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-    background: "rgba(0,0,0,0.6)", backdropFilter: "blur(5px)",
-    display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000,
-  },
-  modalCard: {
-    background: "white", padding: "30px", borderRadius: "16px",
-    width: "90%", maxWidth: "400px", textAlign: "center",
-    boxShadow: "0 20px 50px rgba(0,0,0,0.2)",
-  },
+  headerTitle: { fontSize: "18px", fontWeight: "700", margin: 0 },
+  headerMeta: { fontSize: "13px", opacity: 0.85, marginTop: "4px", display: "block" },
+  tableWrapper: { overflowX: "auto", background: "#ffffff", maxHeight: "500px" },
+  table: { width: "100%", borderCollapse: "collapse", fontSize: "14px", whiteSpace: "nowrap" },
+  th: { background: "#f3f2f1", color: "#323130", fontWeight: "600", padding: "8px 10px", textAlign: "left", border: "1px solid #c8c6c4", position: "sticky", top: 0, zIndex: 10 },
+  td: { padding: "0", border: "1px solid #c8c6c4", verticalAlign: "middle", height: "35px" },
+  inlineInput: { width: "100%", height: "100%", padding: "8px 10px", border: "none", borderRadius: "0", fontSize: "14px", background: "transparent", outline: "none", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif" },
+  inlineSelect: { width: "100%", height: "100%", padding: "8px 10px", border: "none", borderRadius: "0", fontSize: "14px", background: "transparent", outline: "none", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif", cursor: "pointer" },
+  actionBtn: { padding: "6px 10px", borderRadius: "4px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: "#fee2e2", color: "#b91c1c", fontFamily: "'Calibri', sans-serif" },
+  moveBtn: { cursor: "pointer", border: "none", background: "transparent", fontSize: "14px", padding: "2px 6px", color: "#555" },
+  colorPicker: { width: "22px", height: "22px", padding: "0", border: "none", cursor: "pointer", background: "transparent", borderRadius: "50%", overflow: "hidden" },
+  modalOverlay: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(5px)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 },
+  modalCard: { background: "white", padding: "30px", borderRadius: "16px", width: "90%", maxWidth: "400px", textAlign: "center", boxShadow: "0 20px 50px rgba(0,0,0,0.2)" },
   lockIcon: { fontSize: "40px", marginBottom: "15px", display: "block" },
-  lockedPlaceholder: {
-    padding: "40px", textAlign: "center", background: "#f9fafb",
-    color: "#6b7280", cursor: "pointer",
-  }
+  lockedPlaceholder: { padding: "40px", textAlign: "center", background: "#f9fafb", color: "#6b7280", cursor: "pointer" },
+  btn: (loading) => ({ padding: "6px 16px", background: loading ? "#ccc" : "#10b981", color: "white", border: "none", borderRadius: "4px", fontSize: "13px", fontWeight: "600", cursor: loading ? "not-allowed" : "pointer", transition: "transform 0.1s", fontFamily: "'Calibri', sans-serif" })
 };
 
-// Helper to darken colors for gradients
 function adjustColor(color, amount) {
-    return '#' + color.replace(/^#/, '').replace(/../g, color => ('0'+Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
+  return '#' + color.replace(/^#/, '').replace(/../g, color => ('0'+Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
+}
+
+// FIX: YEH FUNCTION MISSING THA, ADD KAR DIYA
+function format12Hour(time24) {
+  if (!time24) return "";
+  const [h, m] = time24.split(':');
+  let hours = parseInt(h, 10);
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  return `${hours}:${m} ${ampm}`;
 }
 
 const DEMO_RATING_VALUES = ["", "Average Demo", "Strong Demo", "Weak Demo"];
+const sourcesList = ["", "mahad", "areeba", "sibgha"];
+const statusList = ["", "1st Demo Done", "2nd Demo Done", "payment Process", "Tuition Done", "Tuition Cancelled", "irrelevant", "Not available", "Pending"];
+const columnColors = { "Rejected Tutor": "#ffebee" };
 const PASSWORD_SECRET = "admin123"; 
 
-export default function SlotTable({ slot, onChanged, isProtected }) {
+const getStatusStyle = (status) => {
+  switch (status) {
+    case "1st Demo Done": return { backgroundColor: "black", color: "white", border: "1px solid black" };
+    case "2nd Demo Done": return { backgroundColor: "#8B4513", color: "white", border: "1px solid #8B4513" }; 
+    case "payment Process": return { backgroundColor: "#fef08a", color: "black", border: "1px solid #fef08a" }; 
+    case "Tuition Done": return { backgroundColor: "#22c55e", color: "white", border: "1px solid #22c55e" }; 
+    case "Tuition Cancelled": return { backgroundColor: "#ef4444", color: "white", border: "1px solid #ef4444" }; 
+    case "irrelevant": return { backgroundColor: "white", color: "black", border: "1px solid #9ca3af" }; 
+    case "Not available": return { backgroundColor: "#4c1d95", color: "white", border: "1px solid #4c1d95" }; 
+    case "Pending": return { backgroundColor: "#3b82f6", color: "white", border: "1px solid #3b82f6" }; 
+    default: return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
+  }
+};
+
+const getDemoRatingStyle = (rating) => {
+  switch (rating) {
+    case "Average Demo": return { backgroundColor: "#ca8a04", color: "white", border: "1px solid #ca8a04" }; 
+    case "Strong Demo": return { backgroundColor: "#22c55e", color: "white", border: "1px solid #22c55e" }; 
+    case "Weak Demo": return { backgroundColor: "#ef4444", color: "white", border: "1px solid #ef4444" }; 
+    default: return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
+  }
+};
+
+const getSourceStyle = (source) => {
+  switch (source) {
+    case "mahad": return { backgroundColor: "#0ea5e9", color: "white", border: "1px solid #0ea5e9" }; 
+    case "areeba": return { backgroundColor: "#ec4899", color: "white", border: "1px solid #ec4899" }; 
+    case "sibgha": return { backgroundColor: "#14b8a6", color: "white", border: "1px solid #14b8a6" }; 
+    default: return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
+  }
+};
+
+const renderPill = (val, styleFn) => {
+  if (!val) return "";
+  const style = styleFn(val);
+  return (
+    <span style={{ padding: "4px 10px", borderRadius: "12px", fontSize: "12px", fontWeight: "bold", display: "inline-block", ...style }}>
+      {val}
+    </span>
+  );
+};
+
+export const handleGridKeyDown = (e) => {
+  const td = e.currentTarget;
+  if (['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(e.key)) {
+    e.preventDefault();
+    let target = null;
+    if (e.key === 'ArrowRight') target = td.nextElementSibling;
+    else if (e.key === 'ArrowLeft') target = td.previousElementSibling;
+    else if (e.key === 'ArrowDown') {
+      const nextTr = td.parentElement.nextElementSibling;
+      if (nextTr) target = nextTr.children[td.cellIndex];
+    }
+    else if (e.key === 'ArrowUp') {
+      const prevTr = td.parentElement.previousElementSibling;
+      if (prevTr) target = prevTr.children[td.cellIndex];
+    }
+    if (target && target.tagName === 'TD') target.focus();
+  }
+};
+
+// Skeleton Loader Component
+const TableSkeleton = () => {
+  const rows = Array.from({ length: 3 }); // 3 dummy rows
+  const cols = Array.from({ length: 18 }); // Columns
+  
+  return (
+    <>
+      {rows.map((_, rIdx) => (
+        <tr key={rIdx}>
+          {cols.map((_, cIdx) => (
+            <td key={cIdx} style={{ ...styles.td, padding: "8px" }}>
+              <div className="skeleton-box"></div>
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
+  );
+};
+
+export default function SlotTable({ slot, onChanged, isProtected, isLoadingData }) {
+  // Added isLoadingData prop checking. If API logic happens outside, pass it down, or manage inside.
+  // Assuming if items array length is undefined or loading state passed.
   const [open, setOpen] = useState(slot.items?.length > 0);
-  const [savingId, setSavingId] = useState(null);
   const [zoom, setZoom] = useState(1); 
-  const items = slot.items || [];
+  const [localItems, setLocalItems] = useState([]);
+  const [isUpdating, setIsUpdating] = useState(false); // internal loading state
   
   const role = "admin"; 
   const themeColor = role === "admin" ? "#1e3c72" : "#7b4397"; 
@@ -151,15 +142,56 @@ export default function SlotTable({ slot, onChanged, isProtected }) {
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
-  async function save(tuitionId, patch) {
-    setSavingId(tuitionId);
+  useEffect(() => {
+    setLocalItems(slot.items || []);
+  }, [slot.items]);
+
+  const updateRecord = async (item, field, newValue) => {
     try {
-      await api.patch(`/api/target/${encodeURIComponent(tuitionId)}`, patch);
+      setLocalItems(prev => prev.map(x => x.tuitionId === item.tuitionId ? { ...x, [field]: newValue } : x));
+      const payload = { ...item, [field]: newValue, _source: "target" };
+      await api.patch(`/api/target/${encodeURIComponent(item.tuitionId)}`, payload);
       if (onChanged) await onChanged();
+    } catch(e) {
+      alert("Update failed.");
+      if (onChanged) await onChanged(); 
+    }
+  };
+
+  async function removeItem(tuitionId) {
+    if (!window.confirm("Delete this row?")) return;
+    try {
+      setIsUpdating(true);
+      await api.delete(`/api/tuitions/${encodeURIComponent(tuitionId)}`);
+      if (onChanged) await onChanged();
+    } catch (e) {
+      alert("Delete failed");
     } finally {
-      setSavingId(null);
+      setIsUpdating(false);
     }
   }
+
+  const moveRow = async (index, direction) => {
+    if (direction === 'up' && index === 0) return; 
+    if (direction === 'down' && index === localItems.length - 1) return; 
+
+    const newItems = [...localItems];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+
+    [newItems[index], newItems[targetIndex]] = [newItems[targetIndex], newItems[index]];
+    setLocalItems(newItems);
+
+    try {
+      const reorderPayload = newItems.map((item, idx) => ({
+        tuitionId: item.tuitionId,
+        orderIndex: idx
+      }));
+      await api.post("/api/target/reorder", { items: reorderPayload });
+    } catch (error) {
+      alert("Nayi tarteeb save nahi ho saki. Backend check karein.");
+      if (onChanged) await onChanged();
+    }
+  };
 
   const handleUnlock = (e) => {
     e.preventDefault();
@@ -190,16 +222,42 @@ export default function SlotTable({ slot, onChanged, isProtected }) {
     });
   };
 
+  // Determine if we should show skeleton. Either passed via prop or internal updating state
+  const showSkeleton = isLoadingData || isUpdating;
+
   return (
     <>
       <div style={styles.card}>
+        <style>{`
+          .excel-cell:focus {
+            outline: 2px solid #107c41;
+            outline-offset: -2px;
+          }
+          input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+          input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
+          
+          /* Glow Animation for Skeleton */
+          .skeleton-box {
+            height: 20px;
+            width: 100%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+          }
+          @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+          }
+        `}</style>
+
         <div style={styles.header(open, themeColor)} onClick={handleHeaderClick}>
           <div>
             <h3 style={styles.headerTitle}>
                {isProtected && !isUnlocked ? "🔒 " : ""} {slot.slotHeader}
             </h3>
             <span style={styles.headerMeta}>
-              {slot.displayRange} • {items.length} records
+              {slot.displayRange} • {localItems.length} records
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
@@ -222,7 +280,10 @@ export default function SlotTable({ slot, onChanged, isProtected }) {
               <table style={styles.table}>
                 <thead>
                   <tr>
-                    <TH>Date</TH>
+                    <TH style={{ width: "40px", textAlign: "center", background: "#e5e7eb" }}>Sort</TH>
+                    <TH style={{ width: "30px", textAlign: "center", background: "#e5e7eb" }}>🎨</TH>
+                    
+                    {/* NEW SEQUENCE AS REQUESTED (4 fields hidden) */}
                     <TH>Demo Time</TH>
                     <TH>Tuition Name</TH>
                     <TH>Source</TH>
@@ -230,11 +291,8 @@ export default function SlotTable({ slot, onChanged, isProtected }) {
                     <TH>Parent Contact</TH>
                     <TH>Class</TH>
                     <TH>Subject</TH>
-                    <TH>Days per week</TH>
-                    <TH>Estimated Fee</TH>
                     <TH>Tutor Name</TH>
                     <TH>Tutor Fees</TH>
-                    <TH>Class Time</TH>
                     <TH style={{ color: "#d32f2f" }}>Rejected Tutor</TH>
                     <TH>Status</TH>
                     <TH>Feedback</TH>
@@ -242,19 +300,64 @@ export default function SlotTable({ slot, onChanged, isProtected }) {
                     <TH>Tuition Id</TH>
                     <TH>Demo Rating</TH>
                     <TH>Sync</TH>
-                    <TH style={{textAlign: 'center'}}>Action</TH>
+                    <TH style={{ textAlign: "center" }}>Action</TH>
                   </tr>
                 </thead>
                 <tbody>
-                  {items.length === 0 ? (
-                    <tr><td colSpan="21" style={{...styles.td, textAlign: "center", color: "#999", padding: "15px"}}>No records in this slot</td></tr>
-                  ) : items.map((it, idx) => (
-                    <Row 
-                      key={it.tuitionId || idx} 
-                      it={it} 
-                      onSave={save} 
-                      saving={savingId === it.tuitionId} 
-                    />
+                  {showSkeleton ? (
+                    <TableSkeleton />
+                  ) : localItems.length === 0 ? (
+                    <tr><td colSpan="19" style={{...styles.td, textAlign: "center", color: "#999", padding: "15px"}}>No records in this slot</td></tr>
+                  ) : localItems.map((it, index) => (
+                    <tr 
+                      key={it.tuitionId || index}
+                      style={{ backgroundColor: it.rowColor || "inherit", transition: "background 0.2s" }}
+                    >
+                      <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                          <button onClick={() => moveRow(index, 'up')} disabled={index === 0} style={{...styles.moveBtn, opacity: index === 0 ? 0.3 : 1}}>▲</button>
+                          <button onClick={() => moveRow(index, 'down')} disabled={index === localItems.length - 1} style={{...styles.moveBtn, opacity: index === localItems.length - 1 ? 0.3 : 1}}>▼</button>
+                        </div>
+                      </td>
+
+                      <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
+                        <input 
+                          type="color" 
+                          value={it.rowColor || "#ffffff"} 
+                          onChange={(e) => updateRecord(it, "rowColor", e.target.value)} 
+                          style={styles.colorPicker}
+                          title="Row ka color change karein"
+                        />
+                      </td>
+
+                      {/* NEW SEQUENCE (Hidden: Date, Estimated Fee, Class Time, Days Per Week) */}
+                      <EditableCell val={it.demoTime} type="time" onSave={(val) => updateRecord(it, "demoTime", val)} width={100} />
+                      <EditableCell val={it.tuitionName} onSave={(val) => updateRecord(it, "tuitionName", val)} width={150} />
+                      <EditableCell val={it.source} options={sourcesList} onSave={(val) => updateRecord(it, "source", val)} width={110} customRender={(val) => renderPill(val, getSourceStyle)} />
+                      <EditableCell val={it.country} onSave={(val) => updateRecord(it, "country", val)} width={100} />
+                      <EditableCell val={it.parentsContact || it.parentContact} onSave={(val) => updateRecord(it, "parentsContact", val)} width={130} />
+                      <EditableCell val={it.className || it.class} onSave={(val) => updateRecord(it, "className", val)} width={100} />
+                      <EditableCell val={it.subjects || it.subject} onSave={(val) => updateRecord(it, "subjects", val)} width={120} />
+                      
+                      <EditableCell val={it.tutorName} onSave={(val) => updateRecord(it, "tutorName", val)} width={140} />
+                      <EditableCell val={it.tutorFees || it.tutorFee} onSave={(val) => updateRecord(it, "tutorFees", val)} width={100} />
+                      
+                      <EditableCell val={it.rejectedTutor} onSave={(val) => updateRecord(it, "rejectedTutor", val)} bg={columnColors["Rejected Tutor"]} width={120} />
+                      <EditableCell val={it.status} options={statusList} onSave={(val) => updateRecord(it, "status", val)} width={140} customRender={(val) => renderPill(val, getStatusStyle)} />
+                      <EditableCell val={it.feedback} onSave={(val) => updateRecord(it, "feedback", val)} width={180} />
+                      <EditableCell val={it.demoDate} type="date" onSave={(val) => updateRecord(it, "demoDate", val)} width={120} />
+                      
+                      <td tabIndex={0} onKeyDown={handleGridKeyDown} className="excel-cell" style={{...styles.td, padding: "0 10px", fontWeight: "bold", color: "#555", backgroundColor: "inherit"}}>
+                        {it.tuitionId}
+                      </td>
+                      
+                      <EditableCell val={it.demoRating} options={DEMO_RATING_VALUES} onSave={(val) => updateRecord(it, "demoRating", val)} width={130} customRender={(val) => renderPill(val, getDemoRatingStyle)} />
+                      <EditableCell val={it.syncFlag || it.sync} onSave={(val) => updateRecord(it, "syncFlag", val)} width={80} />
+                      
+                      <td tabIndex={0} onKeyDown={handleGridKeyDown} className="excel-cell" style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
+                        <button style={styles.actionBtn} onClick={() => removeItem(it.tuitionId)}>Del</button>
+                      </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
@@ -284,7 +387,7 @@ export default function SlotTable({ slot, onChanged, isProtected }) {
                 type="password" 
                 autoFocus
                 placeholder="Enter Password" 
-                style={{...styles.input, ...styles.inputFocus, textAlign: "center", fontSize: "16px", padding: "12px", marginBottom: "10px", border: "1px solid #ccc"}}
+                style={{...styles.inlineInput, ...styles.inputFocus, textAlign: "center", fontSize: "16px", padding: "12px", marginBottom: "10px", border: "1px solid #ccc"}}
                 value={passwordInput}
                 onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(""); }}
               />
@@ -300,93 +403,64 @@ export default function SlotTable({ slot, onChanged, isProtected }) {
   );
 }
 
-const TH = ({ children, style }) => <th style={{ ...styles.th, ...style }}>{children}</th>;
+const TH = ({ children, style }) => <th style={{...styles.th, ...style}}>{children}</th>;
 
-function Row({ it, onSave, saving }) {
-  const [edit, setEdit] = useState({
-    date: it.date || "",
-    demoTime: it.demoTime || "",
-    tuitionName: it.tuitionName || "",
-    source: it.source || "",
-    country: it.country || "",
-    parentContact: it.parentsContact || it.parentContact || "",
-    className: it.className || it.class || "",
-    subject: it.subjects || it.subject || "",
-    daysPerWeek: it.daysPerWeek || "",
-    estimatedFee: it.estimatedFee || "",
-    tutorName: it.tutorName || "",
-    tutorFees: it.tutorFees || "",
-    classTime: it.classTime || it.timePretty || "",
-    rejectedTutor: it.rejectedTutor || "",
-    status: it.status || "",
-    feedback: it.feedback || "",
-    demoDate: it.demoDate || "",
-    tuitionId: it.tuitionId || "",
-    demoRating: it.demoRating || "",
-    sync: it.sync || ""
-  });
+function EditableCell({ val, type = "text", options = [], onSave, bg, width, customRender }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentVal, setCurrentVal] = useState(val || "");
+  const tdRef = useRef(null);
 
-  function setField(k, v) { setEdit(prev => ({ ...prev, [k]: v })); }
+  useEffect(() => { setCurrentVal(val || ""); }, [val]);
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (currentVal !== val) onSave(currentVal);
+  };
+
+  const handleInputKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.target.blur();
+      setTimeout(() => { if (tdRef.current) tdRef.current.focus(); }, 10);
+    }
+  };
+
+  const handleTdKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      setIsEditing(true);
+    } else {
+      handleGridKeyDown(e);
+    }
+  };
+
+  let displayValue = currentVal;
+  if (type === 'time' && currentVal) displayValue = format12Hour(currentVal);
+
+  if (!isEditing) {
+    return (
+      <td 
+        ref={tdRef}
+        tabIndex={0}
+        className="excel-cell"
+        onClick={() => setIsEditing(true)} 
+        onKeyDown={handleTdKeyDown}
+        style={{ ...styles.td, backgroundColor: bg ? bg : "inherit", cursor: "cell", minWidth: width, padding: customRender ? "0 5px" : "0 10px", height: "35px" }}
+      >
+        {customRender ? customRender(displayValue) : (displayValue || "")}
+      </td>
+    );
+  }
 
   return (
-    <tr style={{ background: "#ffffff" }}>
-      <td style={styles.td}><StyledInput value={edit.date} onChange={(e) => setField("date", e.target.value)} placeholder="YYYY-MM-DD" width={100} /></td>
-      <td style={styles.td}><StyledInput value={edit.demoTime} onChange={(e) => setField("demoTime", e.target.value)} width={100} /></td>
-      <td style={styles.td}><StyledInput value={edit.tuitionName} onChange={(e) => setField("tuitionName", e.target.value)} width={150} /></td>
-      <td style={styles.td}><StyledInput value={edit.source} onChange={(e) => setField("source", e.target.value)} width={100} /></td>
-      <td style={styles.td}><StyledInput value={edit.country} onChange={(e) => setField("country", e.target.value)} width={100} /></td>
-      <td style={styles.td}><StyledInput value={edit.parentContact} onChange={(e) => setField("parentContact", e.target.value)} width={130} /></td>
-      <td style={styles.td}><StyledInput value={edit.className} onChange={(e) => setField("className", e.target.value)} width={100} /></td>
-      <td style={styles.td}><StyledInput value={edit.subject} onChange={(e) => setField("subject", e.target.value)} width={120} /></td>
-      <td style={styles.td}><StyledInput value={edit.daysPerWeek} onChange={(e) => setField("daysPerWeek", e.target.value)} width={100} /></td>
-      <td style={styles.td}><StyledInput value={edit.estimatedFee} onChange={(e) => setField("estimatedFee", e.target.value)} width={100} /></td>
-      <td style={styles.td}><StyledInput value={edit.tutorName} onChange={(e) => setField("tutorName", e.target.value)} width={140} /></td>
-      <td style={styles.td}><StyledInput value={edit.tutorFees} onChange={(e) => setField("tutorFees", e.target.value)} width={100} /></td>
-      <td style={styles.td}><StyledInput value={edit.classTime} onChange={(e) => setField("classTime", e.target.value)} width={100} /></td>
-      
-      <td style={{ ...styles.td, backgroundColor: "#ffebee" }}> 
-        <StyledInput value={edit.rejectedTutor} onChange={(e) => setField("rejectedTutor", e.target.value)} width={120} />
-      </td>
-
-      <td style={styles.td}><StyledInput value={edit.status} onChange={(e) => setField("status", e.target.value)} width={100} /></td>
-      <td style={styles.td}><StyledInput value={edit.feedback} onChange={(e) => setField("feedback", e.target.value)} width={180} /></td>
-      <td style={styles.td}><StyledInput value={edit.demoDate} onChange={(e) => setField("demoDate", e.target.value)} placeholder="YYYY-MM-DD" width={110} /></td>
-      <td style={styles.td}><StyledInput value={edit.tuitionId} onChange={(e) => setField("tuitionId", e.target.value)} width={100} /></td>
-      <td style={styles.td}>
-        <select style={{...styles.select, width: "120px"}} value={edit.demoRating || ""} onChange={(e) => setField("demoRating", e.target.value)}>
-          {DEMO_RATING_VALUES.map(v => <option key={v} value={v}>{v || "--"}</option>)}
+    <td style={{ ...styles.td, backgroundColor: "white", minWidth: width }}>
+      {options.length > 0 ? (
+        <select autoFocus style={{ ...styles.inlineSelect, boxShadow: "inset 0 0 0 2px #107c41" }} value={currentVal} onChange={e => setCurrentVal(e.target.value)} onBlur={handleBlur} onKeyDown={handleInputKeyDown}>
+          {options.map(o => <option key={o} value={o}>{o || "--"}</option>)}
         </select>
-      </td>
-      <td style={styles.td}><StyledInput value={edit.sync} onChange={(e) => setField("sync", e.target.value)} width={80} /></td>
-      
-      <td style={{...styles.td, textAlign: "center", padding: "4px"}}>
-        <button
-          style={styles.btn(saving)}
-          disabled={saving}
-          onClick={() => onSave(it.tuitionId, { ...edit })}
-        >
-          {saving ? "..." : "Save"}
-        </button>
-      </td>
-    </tr>
-  );
-}
-
-function StyledInput({ value, onChange, placeholder, width, style }) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <input 
-      style={{
-        ...styles.input, 
-        ...(focused ? styles.inputFocus : {}),
-        minWidth: width || 140,
-        ...style 
-      }} 
-      value={value} 
-      onChange={onChange}
-      placeholder={placeholder}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-    />
+      ) : (
+        <input autoFocus type={type} style={{ ...styles.inlineInput, boxShadow: "inset 0 0 0 2px #107c41" }} value={currentVal} onChange={e => setCurrentVal(e.target.value)} onBlur={handleBlur} onKeyDown={handleInputKeyDown} />
+      )}
+    </td>
   );
 }
