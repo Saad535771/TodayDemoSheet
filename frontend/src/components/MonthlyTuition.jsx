@@ -4,9 +4,9 @@ import { api } from "../api/api.js";
 const styles = {
   card: { background: "#ffffff", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)", padding: "24px", marginBottom: "24px", border: "1px solid #eef0f3" },
   summaryBtn: { cursor: "pointer", fontWeight: "700", color: "#1e3c72", display: "flex", alignItems: "center", gap: "8px", listStyle: "none", fontSize: "16px" },
-  singleLineForm: { display: "flex", overflowX: "auto", gap: "8px", marginTop: "16px", padding: "10px", background: "#f3f2f1", border: "1px solid #c8c6c4", borderRadius: "4px", alignItems: "flex-end" },
+  singleLineForm: { display: "flex", overflowX: "auto", gap: "0px", marginTop: "16px", padding: "10px", background: "#f3f2f1", border: "1px solid #c8c6c4", borderRadius: "4px", alignItems: "flex-end" },
   createInput: { width: "100%", padding: "8px", border: "1px solid #c8c6c4", fontSize: "13px", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif", background: "white", outline: "none" },
-  primaryBtn: { background: "#107c41", color: "white", border: "none", padding: "8px 16px", borderRadius: "4px", fontWeight: "600", cursor: "pointer", fontFamily: "'Calibri', sans-serif", minWidth: "100px", height: "34px", whiteSpace: "nowrap" }
+  primaryBtn: { background: "#107c41",margin:'0px 5px',fontSize:'15px', color: "white", border: "none", padding: "0px 16px", borderRadius: "50px", fontWeight: "600", cursor: "pointer", fontFamily: "'Calibri', sans-serif", minWidth: "100px", height: "34px", whiteSpace: "nowrap" }
 };
 
 const demoRatings = ["", "Average Demo", "Strong Demo", "Weak Demo"];
@@ -217,7 +217,7 @@ function CreateField({ label, val, onChange, type="text", width="120px" }) {
   return (
     <div style={{ minWidth: width }}>
       <label style={{fontSize: 11, fontWeight: "bold", color: "#666", marginBottom: 2, display: "block"}}>{label}</label>
-      <input type={type} style={{ width: "100%", padding: "8px", border: "1px solid #c8c6c4", fontSize: "13px", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif", background: "white", outline: "none" }} value={val || ""} onChange={e => onChange(e.target.value)} />
+      <input type={type} style={{ width: "100%", padding: "8px", border: "1px solid #c8c6c4", fontSize: "12px", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif", background: "white", outline: "none" }} value={val || ""} onChange={e => onChange(e.target.value)} />
     </div>
   );
 }
