@@ -8,7 +8,6 @@ const styles = {
   createInput: { width: "100%", padding: "8px", border: "1px solid #c8c6c4", fontSize: "13px", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif", background: "white", outline: "none" },
   primaryBtn: { background: "#107c41",margin:'0px 5px',fontSize:'15px', color: "white", border: "none", padding: "0px 16px", borderRadius: "50px", fontWeight: "600", cursor: "pointer", fontFamily: "'Calibri', sans-serif", minWidth: "100px", height: "34px", whiteSpace: "nowrap" }
 };
-
 const demoRatings = ["", "Average Demo", "Strong Demo", "Weak Demo"];
 const sourcesList = ["", "mahad", "areeba", "sibgha"];
 const statusList = ["", "1st Demo Done", "2nd Demo Done", "payment Process", "Tuition Done", "Tuition Cancelled", "irrelevant", "Not available", "Pending"];
