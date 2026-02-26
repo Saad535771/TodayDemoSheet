@@ -245,14 +245,7 @@ export default function Dashboard() {
         <div style={styles.tabsContainer}>
           
           {/* 1. Today Demo Tab */}
-          {(me?.role === 'admin' || me?.access_demo) && (
-            <div 
-                style={styles.tab(tab === "target")} 
-                onClick={() => setTab("target")}
-            >
-                🔥 Today Demo
-            </div>
-          )}
+          
           {/* 2. Monthly Tuitions Tab */}
           {(me?.role === 'admin' || me?.access_monthly) && (
             <div 
@@ -262,7 +255,14 @@ export default function Dashboard() {
                 📅 Monthly Tuitions
             </div>
           )}
-
+{(me?.role === 'admin' || me?.access_demo) && (
+            <div 
+                style={styles.tab(tab === "target")} 
+                onClick={() => setTab("target")}
+            >
+                🔥 Today Demo
+            </div>
+          )}  
           {/* 3. RECYCLE BIN TAB (New) */}
           {(me?.role === 'admin' || me?.access_trash) && (
             <div 

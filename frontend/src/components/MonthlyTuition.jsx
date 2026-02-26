@@ -51,7 +51,27 @@ function generateTuitionId() { return `T-${Math.floor(1000 + Math.random() * 900
 
 function emptyForm() {
   return {
-    tuitionId: generateTuitionId(), date: new Date().toISOString().split('T')[0], time: "", demoTime: "", tuitionName: "", source: "", country: "", parentsContact: "", className: "", subjects: "", daysPerWeek: "", estimatedFee: "", tutorName: "", tutorFees: "", classTime: "", rejectedTutor: "", status: "", feedback: "", demoDate: "", demoRating: "", sync: ""
+    tuitionId: generateTuitionId(), 
+    date: new Date().toISOString().split('T')[0], 
+    time: "", 
+    demoTime: "", 
+    tuitionName: "", 
+    source: "", 
+    country: "", 
+    parentsContact: "", 
+    className: "", 
+    subjects: "", 
+    daysPerWeek: "", 
+    estimatedFee: "", 
+    tutorName: "", 
+    tutorFees: "", 
+    // classTime remove kar diya gaya hai
+    rejectedTutor: "", 
+    status: "", 
+    feedback: "", 
+    demoDate: "", 
+    demoRating: "", 
+    sync: ""
   };
 }
 
@@ -65,7 +85,8 @@ export default function MonthlyTuition({ onLoad }) {
     e.preventDefault();
     setCreating(true);
     try {
-      const payloadToSubmit = { ...form, time: form.demoTime || form.classTime || "12:00" };
+      // time property ab sirf demoTime par base karegi kyunke classTime remove ho chuka hai
+      const payloadToSubmit = { ...form, time: form.demoTime || "12:00" };
       await api.post("/api/tuitions", payloadToSubmit);
       setForm(emptyForm());
       await onLoad();
@@ -143,7 +164,7 @@ export default function MonthlyTuition({ onLoad }) {
           <CreateField label="Estimated Fee" val={form.estimatedFee} onChange={v => setCreateField("estimatedFee", v)} width="110px" />
           <CreateField label="Tutor Name" val={form.tutorName} onChange={v => setCreateField("tutorName", v)} width="130px" />
           <CreateField label="Tutor Fees" val={form.tutorFees} onChange={v => setCreateField("tutorFees", v)} width="100px" />
-          <CreateField label="Class Time" type="time" val={form.classTime} onChange={v => setCreateField("classTime", v)} width="110px" />
+          {/* Class Time Field yahan se remove kar di gayi hai */}
           <CreateField label="Rejected Tutor" val={form.rejectedTutor} onChange={v => setCreateField("rejectedTutor", v)} width="130px" />
           <CreateField label="Feedback" val={form.feedback} onChange={v => setCreateField("feedback", v)} width="150px" />
           

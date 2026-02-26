@@ -12,7 +12,8 @@ const styles = {
   inlineSelect: { width: "100%", height: "100%", padding: "8px 10px", border: "none", borderRadius: "0", fontSize: "14px", background: "transparent", outline: "none", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif", cursor: "pointer" },
   actionBtn: { padding: "6px 10px", borderRadius: "4px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: "#fee2e2", color: "#b91c1c", fontFamily: "'Calibri', sans-serif" },
   moveBtn: { cursor: "pointer", border: "none", background: "transparent", fontSize: "14px", padding: "2px 6px", color: "#555" },
-  colorPicker: { width: "22px", height: "22px", padding: "0", border: "none", cursor: "pointer", background: "transparent", borderRadius: "50%", overflow: "hidden" }
+  // Border assigned to Color Picker for better visibility
+  colorPicker: { width: "24px", height: "24px", padding: "0", border: "2px solid #666", cursor: "pointer", background: "transparent", borderRadius: "4px", overflow: "hidden" }
 };
 
 const demoRatings = ["", "Average Demo", "Strong Demo", "Weak Demo"];
@@ -148,13 +149,9 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   return (
     <div style={styles.card}>
       <style>{`
-        .excel-cell:focus {
-          outline: 2px solid #107c41;
-          outline-offset: -2px;
-        }
-        /* Color picker input hidden default styling */
+        .excel-cell:focus { outline: 2px solid #107c41; outline-offset: -2px; }
         input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
+        input[type="color"]::-webkit-color-swatch { border: none; }
       `}</style>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -173,7 +170,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
             <thead>
               <tr>
                 <TH style={{ width: "40px", textAlign: "center" }}>Sort</TH>
-                <TH style={{ width: "30px", textAlign: "center" }}>🎨</TH> {/* NAYA COLOR PICKER COLUMN */}
+                <TH style={{ width: "30px", textAlign: "center" }}>🎨</TH> 
                 <TH>Demo Time</TH>
                 <TH>Tuition Name</TH>
                 <TH>Status</TH>
@@ -187,7 +184,6 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                 <TH>Class</TH>
                 <TH>Subject</TH>
                 <TH>Days per week</TH>
-                <TH>Class Time</TH>
                 <TH>Source</TH>
                 <TH>Demo Date</TH>
                 <TH>Tuition Id</TH>
@@ -198,11 +194,10 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
             </thead>
             <tbody>
               {localItems.length === 0 ? (
-                <tr><td colSpan="22" style={{padding: 20, textAlign: "center", color: "#888"}}>No records found</td></tr>
+                <tr><td colSpan="21" style={{padding: 20, textAlign: "center", color: "#888"}}>No records found</td></tr>
               ) : localItems.map((it, index) => (
                 <tr 
                   key={it.tuitionId}
-                  // YAHAN DATABASE WALA ROW COLOR ASSIGN HO RAHA HAI
                   style={{ backgroundColor: it.rowColor || "inherit", transition: "background 0.2s" }}
                 >
                   <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
@@ -212,36 +207,48 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                     </div>
                   </td>
 
-                  {/* COLOR PICKER CELL */}
                   <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
                     <input 
                       type="color" 
                       value={it.rowColor || "#ffffff"} 
-                      onChange={(e) => updateRecord(it, "rowColor", e.target.value)} 
+                      onInput={(e) => updateRecord(it, "rowColor", e.target.value)} 
                       style={styles.colorPicker}
-                      title="Row ka color change karein"
+                      title="Row color"
                     />
                   </td>
                   
                   <EditableCell val={it.demoTime} type="time" onSave={(val) => updateRecord(it, "demoTime", val)} width={100} />
-                  <EditableCell val={it.tuitionName} onSave={(val) => updateRecord(it, "tuitionName", val)} width={150} />
+                  
+                  <EditableCell 
+                    val={it.tuitionName} 
+                    onSave={(val) => updateRecord(it, "tuitionName", val)} 
+                    width={150} 
+                    showColorPicker={true}
+                    cellColor={it.tuitionNameColor} 
+                    onColorChange={(color) => updateRecord(it, "tuitionNameColor", color)}
+                    bg={it.tuitionNameColor} 
+                  />
                   
                   <EditableCell val={it.status} options={statusList} onSave={(val) => updateRecord(it, "status", val)} width={140} customRender={(val) => renderPill(val, getStatusStyle)} />
-                  
                   <EditableCell val={it.estimatedFee} onSave={(val) => updateRecord(it, "estimatedFee", val)} width={100} />
                   <EditableCell val={it.tutorName} onSave={(val) => updateRecord(it, "tutorName", val)} width={140} />
                   <EditableCell val={it.tutorFee || it.tutorFees} onSave={(val) => updateRecord(it, "tutorFees", val)} width={100} />
                   <EditableCell val={it.rejectedTutor} onSave={(val) => updateRecord(it, "rejectedTutor", val)} bg={columnColors["Rejected Tutor"]} width={120} />
-                  <EditableCell val={it.feedback} onSave={(val) => updateRecord(it, "feedback", val)} width={180} />
+                  
+                  <EditableCell 
+                    val={it.feedback} 
+                    onSave={(val) => updateRecord(it, "feedback", val)} 
+                    width={180} 
+                    bg={it.feedback?.toString().trim().toLowerCase() === "satisfied" ? "#22c55e" : null}
+                  />
+                  
                   <EditableCell val={it.country} onSave={(val) => updateRecord(it, "country", val)} width={100} />
                   <EditableCell val={it.parentsContact} onSave={(val) => updateRecord(it, "parentsContact", val)} width={130} />
                   <EditableCell val={it.className} onSave={(val) => updateRecord(it, "className", val)} width={100} />
                   <EditableCell val={it.subjects} onSave={(val) => updateRecord(it, "subjects", val)} width={120} />
                   <EditableCell val={it.daysPerWeek} onSave={(val) => updateRecord(it, "daysPerWeek", val)} width={100} />
-                  <EditableCell val={it.classTime} type="time" onSave={(val) => updateRecord(it, "classTime", val)} width={100} />
                   
                   <EditableCell val={it.source} options={sourcesList} onSave={(val) => updateRecord(it, "source", val)} width={110} customRender={(val) => renderPill(val, getSourceStyle)} />
-                  
                   <EditableCell val={it.demoDate} type="date" onSave={(val) => updateRecord(it, "demoDate", val)} width={120} />
                   
                   <td tabIndex={0} onKeyDown={handleGridKeyDown} className="excel-cell" style={{...styles.td, padding: "0 10px", fontWeight: "bold", color: "#555", backgroundColor: "inherit"}}>
@@ -249,7 +256,6 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                   </td>
                   
                   <EditableCell val={it.demoRating} options={demoRatings} onSave={(val) => updateRecord(it, "demoRating", val)} width={130} customRender={(val) => renderPill(val, getDemoRatingStyle)} />
-                  
                   <EditableCell val={it.syncFlag || it.sync} onSave={(val) => updateRecord(it, "sync", val)} width={80} />
                   
                   <td tabIndex={0} onKeyDown={handleGridKeyDown} className="excel-cell" style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
@@ -267,64 +273,88 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
 
 const TH = ({ children, style }) => <th style={{...styles.th, ...style}}>{children}</th>;
 
-function EditableCell({ val, type = "text", options = [], onSave, bg, width, customRender }) {
+function EditableCell({ val, type = "text", options = [], onSave, bg, width, customRender, showColorPicker, cellColor, onColorChange }) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentVal, setCurrentVal] = useState(val || "");
   const tdRef = useRef(null);
 
   useEffect(() => { setCurrentVal(val || ""); }, [val]);
 
-  const handleBlur = () => {
+  const handleBlur = (e) => {
+    if (e.relatedTarget && e.relatedTarget.type === 'color') return;
     setIsEditing(false);
     if (currentVal !== val) onSave(currentVal);
   };
 
+  // NAYI LOGIC: Edit mode mein Enter press karne par save kar ke focus ko neechay wale cell par laye
   const handleInputKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      e.target.blur();
+      
+      const td = e.target.closest('td');
+      const cellIndex = td?.cellIndex;
+      const nextRow = td?.parentElement?.nextElementSibling;
+
+      e.target.blur(); // Value save karega aur edit mode band kar dega
+
+      // Thore delay ke saath focus ko next row ke same column par shift karega
       setTimeout(() => {
-        if (tdRef.current) tdRef.current.focus();
-      }, 10);
+        if (nextRow && cellIndex !== undefined) {
+          const nextTd = nextRow.children[cellIndex];
+          if (nextTd) nextTd.focus();
+        } else if (tdRef.current) {
+          tdRef.current.focus(); // Agar akhri row hai to ussi par focus wapis le aye
+        }
+      }, 50);
     }
   };
-
-  const handleTdKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      setIsEditing(true);
-    } else {
-      handleGridKeyDown(e);
-    }
-  };
-
-  let displayValue = currentVal;
-  if (type === 'time' && currentVal) displayValue = format12Hour(currentVal);
 
   if (!isEditing) {
+    const isSatisfiedGreen = bg === "#22c55e"; 
+
     return (
       <td 
         ref={tdRef}
         tabIndex={0}
         className="excel-cell"
         onClick={() => setIsEditing(true)} 
-        onKeyDown={handleTdKeyDown}
-        style={{ ...styles.td, backgroundColor: bg ? bg : "inherit", cursor: "cell", minWidth: width, padding: customRender ? "0 5px" : "0 10px", height: "35px" }}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setIsEditing(true); } else { handleGridKeyDown(e); } }}
+        style={{ 
+          ...styles.td, 
+          backgroundColor: bg ? bg : "inherit", 
+          color: isSatisfiedGreen ? "white" : "inherit", 
+          cursor: "cell", 
+          minWidth: width, 
+          padding: customRender ? "0 5px" : "0 10px", 
+          height: "35px" 
+        }}
       >
-        {customRender ? customRender(displayValue) : (displayValue || "")}
+        {customRender ? customRender(val) : (type === "time" && val ? format12Hour(val) : (val || ""))}
       </td>
     );
   }
 
   return (
     <td style={{ ...styles.td, backgroundColor: "white", minWidth: width }}>
-      {options.length > 0 ? (
-        <select autoFocus style={{ ...styles.inlineSelect, boxShadow: "inset 0 0 0 2px #107c41" }} value={currentVal} onChange={e => setCurrentVal(e.target.value)} onBlur={handleBlur} onKeyDown={handleInputKeyDown}>
-          {options.map(o => <option key={o} value={o}>{o || "--"}</option>)}
-        </select>
-      ) : (
-        <input autoFocus type={type} style={{ ...styles.inlineInput, boxShadow: "inset 0 0 0 2px #107c41" }} value={currentVal} onChange={e => setCurrentVal(e.target.value)} onBlur={handleBlur} onKeyDown={handleInputKeyDown} />
-      )}
+      <div style={{ display: "flex", alignItems: "center", height: "100%" }}>
+        {options.length > 0 ? (
+          <select autoFocus style={styles.inlineSelect} value={currentVal} onChange={e => setCurrentVal(e.target.value)} onBlur={handleBlur} onKeyDown={handleInputKeyDown}>
+            {options.map(o => <option key={o} value={o}>{o || "--"}</option>)}
+          </select>
+        ) : (
+          <input autoFocus type={type} style={{ ...styles.inlineInput, flex: 1 }} value={currentVal} onChange={e => setCurrentVal(e.target.value)} onBlur={handleBlur} onKeyDown={handleInputKeyDown} />
+        )}
+        
+        {showColorPicker && (
+          <input 
+            type="color" 
+            value={cellColor || "#ffffff"} 
+            onInput={(e) => onColorChange(e.target.value)} 
+            style={{ ...styles.colorPicker, marginLeft: "5px", marginRight: "5px" }} 
+            title="Cell color"
+          />
+        )}
+      </div>
     </td>
   );
 }

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { api } from "../api/api.js";
-
 const styles = {
   card: { background: "#ffffff", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)", overflow: "hidden", marginBottom: "24px", border: "1px solid #eef0f3", fontFamily: "'Calibri', sans-serif" },
   header: (isOpen, roleColor) => ({
@@ -28,8 +27,6 @@ const styles = {
 function adjustColor(color, amount) {
   return '#' + color.replace(/^#/, '').replace(/../g, color => ('0'+Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
 }
-
-// FIX: YEH FUNCTION MISSING THA, ADD KAR DIYA
 function format12Hour(time24) {
   if (!time24) return "";
   const [h, m] = time24.split(':');
@@ -38,13 +35,11 @@ function format12Hour(time24) {
   hours = hours % 12 || 12;
   return `${hours}:${m} ${ampm}`;
 }
-
 const DEMO_RATING_VALUES = ["", "Average Demo", "Strong Demo", "Weak Demo"];
 const sourcesList = ["", "mahad", "areeba", "sibgha"];
 const statusList = ["", "1st Demo Done", "2nd Demo Done", "payment Process", "Tuition Done", "Tuition Cancelled", "irrelevant", "Not available", "Pending"];
 const columnColors = { "Rejected Tutor": "#ffebee" };
 const PASSWORD_SECRET = "admin123"; 
-
 const getStatusStyle = (status) => {
   switch (status) {
     case "1st Demo Done": return { backgroundColor: "black", color: "white", border: "1px solid black" };
@@ -58,7 +53,6 @@ const getStatusStyle = (status) => {
     default: return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
   }
 };
-
 const getDemoRatingStyle = (rating) => {
   switch (rating) {
     case "Average Demo": return { backgroundColor: "#ca8a04", color: "white", border: "1px solid #ca8a04" }; 
@@ -67,7 +61,6 @@ const getDemoRatingStyle = (rating) => {
     default: return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
   }
 };
-
 const getSourceStyle = (source) => {
   switch (source) {
     case "mahad": return { backgroundColor: "#0ea5e9", color: "white", border: "1px solid #0ea5e9" }; 
@@ -76,7 +69,6 @@ const getSourceStyle = (source) => {
     default: return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
   }
 };
-
 const renderPill = (val, styleFn) => {
   if (!val) return "";
   const style = styleFn(val);
@@ -424,7 +416,6 @@ function EditableCell({ val, type = "text", options = [], onSave, bg, width, cus
       setTimeout(() => { if (tdRef.current) tdRef.current.focus(); }, 10);
     }
   };
-
   const handleTdKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -433,10 +424,8 @@ function EditableCell({ val, type = "text", options = [], onSave, bg, width, cus
       handleGridKeyDown(e);
     }
   };
-
   let displayValue = currentVal;
   if (type === 'time' && currentVal) displayValue = format12Hour(currentVal);
-
   if (!isEditing) {
     return (
       <td 
@@ -451,7 +440,6 @@ function EditableCell({ val, type = "text", options = [], onSave, bg, width, cus
       </td>
     );
   }
-
   return (
     <td style={{ ...styles.td, backgroundColor: "white", minWidth: width }}>
       {options.length > 0 ? (
