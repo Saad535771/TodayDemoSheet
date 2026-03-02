@@ -300,7 +300,7 @@ useEffect(() => {
             Clear
           </button>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f3f2f1", padding: "6px 12px", borderRadius: 8, border: "1px solid #c8c6c4" }}>
+          <div style={{ display: "flex",justifyContent:"end", alignItems: "center", gap: 8, background: "#f3f2f1", padding: "6px 12px", borderRadius: 8, border: "1px solid #c8c6c4" }}>
             <span style={{ fontSize: "12px", fontWeight: "bold", color: "#666" }}>Zoom</span>
             <button onClick={() => handleZoom(-0.1)} style={{ cursor: "pointer", fontSize: "18px", border: "none", background: "none", fontWeight: "bold" }}>-</button>
             <span style={{ fontSize: "14px", fontWeight: "600", minWidth: "40px", textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
