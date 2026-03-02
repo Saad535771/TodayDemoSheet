@@ -252,9 +252,9 @@ useEffect(() => {
       <style>{`.excel-cell:focus { outline: 2px solid #107c41; outline-offset: -2px; }`}</style>
 
         <h2 style={styles.title}>Monthly Tuitions (Excel View)</h2>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div>
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div style={{ display: "flex",justifyContent:"center", gap: 24, alignItems: "center" }}>
           <input
             placeholder={isSearching ? "Searching..." : "Search across all columns..."}
             value={searchTerm}
