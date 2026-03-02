@@ -177,16 +177,9 @@ useEffect(() => {
 >
   Clear
 </button>
-
-  // Use a debounced version to avoid too many requests
-  // If you don't have lodash, you can replicate with useRef + setTimeout below.
   const debouncedSearchRef = useRef(null);
   useEffect(() => {
-    // create debounced function
     if (debouncedSearchRef.current) debouncedSearchRef.current.cancel?.();
-    // If lodash.debounce is available (recommended), use:
-    // debouncedSearchRef.current = debounce(performSearch, 300);
-    // Otherwise fallback:
     let timer;
     debouncedSearchRef.current = {
       call: (q, flds, sf, sd, at) => {
@@ -198,7 +191,6 @@ useEffect(() => {
     return () => debouncedSearchRef.current.cancel?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
-
   // whenever search state changes, call debounced
   useEffect(() => {
     debouncedSearchRef.current.call?.(searchTerm, selectedFields, sortField, sortDir, assignedFilter);
@@ -213,7 +205,6 @@ useEffect(() => {
       load(); 
     }
   };
-
   async function removeItem(tuitionId) {
     if (!window.confirm("Delete this row?")) return;
     try {
@@ -223,7 +214,6 @@ useEffect(() => {
       alert("Delete failed");
     }
   }
-
   const moveRow = async (index, direction) => {
     if (direction === 'up' && index === 0) return; 
     if (direction === 'down' && index === localItems.length - 1) return; 
@@ -246,14 +236,11 @@ useEffect(() => {
       load(); 
     }
   };
-
   return (
      <div style={styles.card}>
       <style>{`.excel-cell:focus { outline: 2px solid #107c41; outline-offset: -2px; }`}</style>
-
         <h2 style={styles.title}>Monthly Tuitions (Excel View)</h2>
       <div>
-
         <div style={{ display: "flex",justifyContent:"center", gap: 24, alignItems: "center" }}>
           <input
             placeholder={isSearching ? "Searching..." : "Search across all columns..."}
@@ -261,7 +248,6 @@ useEffect(() => {
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #c8c6c4", minWidth: 260 }}
           />
-
           <select
             multiple
             value={selectedFields}
