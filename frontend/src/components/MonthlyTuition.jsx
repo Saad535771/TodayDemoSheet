@@ -117,7 +117,7 @@ export default function MonthlyTuition({ onLoad }) {
   };
   return (
     <div style={styles.card}>
-      <details>
+      
         <summary style={styles.summaryBtn}>
           <span style={{ fontSize: 20, color: "#107c41", marginRight: 5 }}>+</span> Add New Tuition (Quick Entry)
         </summary>
@@ -185,7 +185,7 @@ export default function MonthlyTuition({ onLoad }) {
             </button>
           </div>
         </form>
-      </details>
+     
     </div>
   );
 }
