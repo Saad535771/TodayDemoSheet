@@ -251,8 +251,8 @@ useEffect(() => {
      <div style={styles.card}>
       <style>{`.excel-cell:focus { outline: 2px solid #107c41; outline-offset: -2px; }`}</style>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2 style={styles.title}>Monthly Tuitions (Excel View)</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <input
