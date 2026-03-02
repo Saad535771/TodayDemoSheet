@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { api } from "../api/api.js";
-
 const styles = {
   card: { background: "#ffffff", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)", padding: "24px", marginBottom: "24px", border: "1px solid #eef0f3" },
   summaryBtn: { cursor: "pointer", fontWeight: "700", color: "#1e3c72", display: "flex", alignItems: "center", gap: "8px", listStyle: "none", fontSize: "16px" },
@@ -11,15 +10,13 @@ const styles = {
 const demoRatings = ["", "Average Demo", "Strong Demo", "Weak Demo"];
 const sourcesList = ["", "mahad", "areeba", "sibgha"];
 const statusList = ["", "1st Demo Done", "2nd Demo Done", "payment Process", "Tuition Done", "Tuition Cancelled", "irrelevant", "Not available", "Pending"];
-
 // --- COLOR LOGIC FUNCTIONS ---
-
 const getStatusStyle = (status) => {
   switch (status) {
     case "1st Demo Done": return { backgroundColor: "black", color: "white", border: "1px solid black" };
     case "2nd Demo Done": return { backgroundColor: "#8B4513", color: "white", border: "1px solid #8B4513" }; 
     case "payment Process": return { backgroundColor: "#fef08a", color: "black", border: "1px solid #fef08a" }; 
-    case "Tuition Done": return { backgroundColor: "#22c55e", color: "white", border: "1px solid #22c55e" }; 
+    case "Tuition Done": return { backgroundColor: "#1c9147", color: "white", border: "1px solid #22c55e" }; 
     case "Tuition Cancelled": return { backgroundColor: "#ef4444", color: "white", border: "1px solid #ef4444" }; 
     case "irrelevant": return { backgroundColor: "white", color: "black", border: "1px solid #9ca3af" }; 
     case "Not available": return { backgroundColor: "#4c1d95", color: "white", border: "1px solid #4c1d95" }; 
@@ -27,7 +24,6 @@ const getStatusStyle = (status) => {
     default: return { backgroundColor: "white", color: "inherit", border: "1px solid #c8c6c4" };
   }
 };
-
 const getDemoRatingStyle = (rating) => {
   switch (rating) {
     case "Average Demo": return { backgroundColor: "#ca8a04", color: "white", border: "1px solid #ca8a04" }; // Dark Yellow
@@ -36,7 +32,6 @@ const getDemoRatingStyle = (rating) => {
     default: return { backgroundColor: "white", color: "inherit", border: "1px solid #c8c6c4" };
   }
 };
-
 const getSourceStyle = (source) => {
   switch (source) {
     case "mahad": return { backgroundColor: "#0ea5e9", color: "white", border: "1px solid #0ea5e9" }; // Blue
@@ -45,9 +40,7 @@ const getSourceStyle = (source) => {
     default: return { backgroundColor: "white", color: "inherit", border: "1px solid #c8c6c4" };
   }
 };
-
 function generateTuitionId() { return `T-${Math.floor(1000 + Math.random() * 9000)}`; }
-
 function emptyForm() {
   return {
     tuitionId: generateTuitionId(), 
@@ -73,13 +66,10 @@ function emptyForm() {
     sync: ""
   };
 }
-
 export default function MonthlyTuition({ onLoad }) {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(emptyForm());
-
   function setCreateField(key, val) { setForm(prev => ({ ...prev, [key]: val })); }
-
   async function create(e) {
     e.preventDefault();
     setCreating(true);
@@ -95,7 +85,6 @@ export default function MonthlyTuition({ onLoad }) {
       setCreating(false);
     }
   }
-
   // KEYBOARD NAVIGATION LOGIC
   const handleKeyDown = (e) => {
     if (['Enter', 'ArrowRight', 'ArrowLeft'].includes(e.key)) {
@@ -112,7 +101,6 @@ export default function MonthlyTuition({ onLoad }) {
         else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
           if (e.target.type === 'date' || e.target.type === 'time' || e.target.tagName === 'SELECT') return;
           const isText = e.target.type === 'text';
-          
           if (e.key === 'ArrowRight') {
             if (isText && e.target.selectionStart !== e.target.value.length) return;
             e.preventDefault();
@@ -127,7 +115,6 @@ export default function MonthlyTuition({ onLoad }) {
       }
     }
   };
-
   return (
     <div style={styles.card}>
       <details>
@@ -139,14 +126,12 @@ export default function MonthlyTuition({ onLoad }) {
           <CreateField label="Date" type="date" val={form.date} onChange={v => setCreateField("date", v)} width="130px" />
           <CreateField label="Demo Time" type="time" val={form.demoTime} onChange={v => setCreateField("demoTime", v)} width="110px" />
           <CreateField label="Tuition Name" val={form.tuitionName} onChange={v => setCreateField("tuitionName", v)} width="150px" />
-          
           <div style={{ minWidth: "120px" }}>
             <label style={{ fontSize: 11, fontWeight: "bold", color: "#666", marginBottom: 2, display: "block" }}>Source</label>
             <select 
               style={{ ...styles.createInput, ...getSourceStyle(form.source), fontWeight: "bold" }} 
               value={form.source} 
-              onChange={e => setCreateField("source", e.target.value)}
-            >
+              onChange={e => setCreateField("source", e.target.value)}>
               {sourcesList.map(o => (
                 <option key={o} value={o} style={{ backgroundColor: "white", color: "black", fontWeight: "normal" }}>
                   {o || "-- Select --"}
@@ -154,7 +139,6 @@ export default function MonthlyTuition({ onLoad }) {
               ))}
             </select>
           </div>
-
           <CreateField label="Country" val={form.country} onChange={v => setCreateField("country", v)} width="100px" />
           <CreateField label="Parent Contact" val={form.parentsContact} onChange={v => setCreateField("parentsContact", v)} width="120px" />
           <CreateField label="Class" val={form.className} onChange={v => setCreateField("className", v)} width="100px" />
@@ -166,14 +150,12 @@ export default function MonthlyTuition({ onLoad }) {
           {/* Class Time Field yahan se remove kar di gayi hai */}
           <CreateField label="Rejected Tutor" val={form.rejectedTutor} onChange={v => setCreateField("rejectedTutor", v)} width="130px" />
           <CreateField label="Feedback" val={form.feedback} onChange={v => setCreateField("feedback", v)} width="150px" />
-          
           <div style={{ minWidth: "120px" }}>
             <label style={{ fontSize: 11, fontWeight: "bold", color: "#666", marginBottom: 2, display: "block" }}>Status</label>
-            <select 
+            <select
               style={{ ...styles.createInput, ...getStatusStyle(form.status), fontWeight: "bold" }} 
               value={form.status} 
-              onChange={e => setCreateField("status", e.target.value)}
-            >
+              onChange={e => setCreateField("status", e.target.value)}>
               {statusList.map(o => (
                 <option key={o} value={o} style={{ backgroundColor: "white", color: "black", fontWeight: "normal" }}>
                   {o || "-- Select --"}
@@ -181,9 +163,7 @@ export default function MonthlyTuition({ onLoad }) {
               ))}
             </select>
           </div>
-          
           <CreateField label="Demo Date" type="date" val={form.demoDate} onChange={v => setCreateField("demoDate", v)} width="130px" />
-          
           <div style={{ minWidth: "120px" }}>
             <label style={{ fontSize: 11, fontWeight: "bold", color: "#666", marginBottom: 2, display: "block" }}>Demo Rating</label>
             <select 
@@ -198,9 +178,7 @@ export default function MonthlyTuition({ onLoad }) {
               ))}
             </select>
           </div>
-
           <CreateField label="Sync" val={form.sync} onChange={v => setCreateField("sync", v)} width="100px" />
-
           <div style={{ paddingBottom: "2px" }}>
             <button type="submit" style={styles.primaryBtn} disabled={creating}>
               {creating ? "Adding..." : "Add Row +"}
@@ -211,7 +189,6 @@ export default function MonthlyTuition({ onLoad }) {
     </div>
   );
 }
-
 function CreateField({ label, val, onChange, type="text", width="120px" }) {
   return (
     <div style={{ minWidth: width }}>

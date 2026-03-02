@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { api } from "../api/api.js";
-
+import debounce from "lodash.debounce"; 
 const styles = {
   card: { background: "#ffffff", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)", padding: "24px", marginBottom: "24px", border: "1px solid #eef0f3" },
   title: { fontSize: "22px", fontWeight: "700", color: "#1e3c72", margin: 0 },
@@ -101,7 +101,108 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   useEffect(() => {
     setLocalItems(items);
   }, [items]);
+  const allColumns = [
+    { key: "tuitionId", label: "Tuition Id" },
+    { key: "tuitionName", label: "Tuition Name" },
+    { key: "tutorName", label: "Tutor Name" },
+    { key: "rejectedTutor", label: "Rejected Tutor" },
+    { key: "feedback", label: "Feedback" },
+    { key: "country", label: "Country" },
+    { key: "parentsContact", label: "Parent Contact" },
+    { key: "className", label: "Class" },
+    { key: "subjects", label: "Subject" },
+    { key: "source", label: "Source" },
+    { key: "status", label: "Status" },
+    { key: "demoRating", label: "Demo Rating" },
+    { key: "syncFlag", label: "Sync" },
+    { key: "estimatedFee", label: "Estimated Fee" },
+    { key: "tutorFee", label: "Tutor Fee" },
+    { key: "demoTime", label: "Demo Time" },
+    { key: "demoDate", label: "Demo Date" }
+  ];
+    const [searchTerm, setSearchTerm] = useState("");
+  const [selectedFields, setSelectedFields] = useState(allColumns.map(c => c.key)); // all selected by default
+  const [sortField, setSortField] = useState("orderIndex");
+  const [sortDir, setSortDir] = useState("ASC");
+  const [assignedFilter, setAssignedFilter] = useState(""); // staff id or blank
+  const [isSearching, setIsSearching] = useState(false);
+  const performSearch = async (query) => {
+  try {
+    if (!query) {
+      setLocalItems(items); // restore default
+      return;
+    }
 
+    setIsSearching(true);
+
+    const resp = await api.get("/api/tuitions/search", {
+      params: {
+        q: query,
+        fields: allColumns.map(c => c.key).join(","),
+        sortField: sortField,
+        sortDir: sortDir,
+        assignedTo: assignedFilter || ""
+      }
+    });
+
+    if (resp?.data?.items) {
+      setLocalItems(resp.data.items);
+    }
+
+  } catch (err) {
+    console.error("Search failed", err);
+  } finally {
+    setIsSearching(false);
+  }
+};
+
+// ================= DEBOUNCE =================
+useEffect(() => {
+  const timer = setTimeout(() => {
+    performSearch(searchTerm);
+  }, 400);
+
+  return () => clearTimeout(timer);
+}, [searchTerm, sortField, sortDir, assignedFilter]);
+
+// ================= CLEAR BUTTON =================
+<button
+  onClick={() => {
+    setSearchTerm("");
+    setAssignedFilter("");
+    setSortField("orderIndex");
+    setSortDir("ASC");
+    setLocalItems(items);
+  }}
+>
+  Clear
+</button>
+
+  // Use a debounced version to avoid too many requests
+  // If you don't have lodash, you can replicate with useRef + setTimeout below.
+  const debouncedSearchRef = useRef(null);
+  useEffect(() => {
+    // create debounced function
+    if (debouncedSearchRef.current) debouncedSearchRef.current.cancel?.();
+    // If lodash.debounce is available (recommended), use:
+    // debouncedSearchRef.current = debounce(performSearch, 300);
+    // Otherwise fallback:
+    let timer;
+    debouncedSearchRef.current = {
+      call: (q, flds, sf, sd, at) => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => performSearch(q, flds, sf, sd, at), 300);
+      },
+      cancel: () => { if (timer) clearTimeout(timer); timer = null; }
+    };
+    return () => debouncedSearchRef.current.cancel?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
+  // whenever search state changes, call debounced
+  useEffect(() => {
+    debouncedSearchRef.current.call?.(searchTerm, selectedFields, sortField, sortDir, assignedFilter);
+  }, [searchTerm, selectedFields, sortField, sortDir, assignedFilter]);
   const updateRecord = async (item, field, newValue) => {
     try {
       setLocalItems(prev => prev.map(x => x.tuitionId === item.tuitionId ? { ...x, [field]: newValue } : x));
@@ -147,20 +248,64 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   };
 
   return (
-    <div style={styles.card}>
-      <style>{`
-        .excel-cell:focus { outline: 2px solid #107c41; outline-offset: -2px; }
-        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-        input[type="color"]::-webkit-color-swatch { border: none; }
-      `}</style>
+     <div style={styles.card}>
+      <style>{`.excel-cell:focus { outline: 2px solid #107c41; outline-offset: -2px; }`}</style>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2 style={styles.title}>Monthly Tuitions (Excel View)</h2>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "#f3f2f1", padding: "6px 12px", borderRadius: "8px", border: "1px solid #c8c6c4" }}>
-          <span style={{ fontSize: "12px", fontWeight: "bold", color: "#666" }}>Zoom</span>
-          <button onClick={() => handleZoom(-0.1)} style={{ cursor: "pointer", fontSize: "18px", border: "none", background: "none", fontWeight: "bold" }}>-</button>
-          <span style={{ fontSize: "14px", fontWeight: "600", minWidth: "40px", textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
-          <button onClick={() => handleZoom(0.1)} style={{ cursor: "pointer", fontSize: "16px", border: "none", background: "none", fontWeight: "bold" }}>+</button>
+
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <input
+            placeholder={isSearching ? "Searching..." : "Search across all columns..."}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #c8c6c4", minWidth: 260 }}
+          />
+
+          <select
+            multiple
+            value={selectedFields}
+            onChange={(e) => {
+              const opts = Array.from(e.target.selectedOptions).map(o => o.value);
+              setSelectedFields(opts);
+            }}
+            style={{ minWidth: 180, height: 34, borderRadius: 6, border: "1px solid #c8c6c4", padding: 6 }}
+            title="Select columns to search (ctrl/cmd-click for multiple)"
+          >
+            {allColumns.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+          </select>
+
+          <select value={sortField} onChange={e => setSortField(e.target.value)} style={{ height: 34, borderRadius: 6 }}>
+            <option value="orderIndex">Order (manual)</option>
+            <option value="tuitionId">Tuition Id</option>
+            <option value="tuitionName">Tuition Name</option>
+            <option value="tutorName">Tutor Name</option>
+            <option value="demoDate">Demo Date</option>
+            <option value="timeHour">Time</option>
+          </select>
+
+          <select value={sortDir} onChange={e => setSortDir(e.target.value)} style={{ height: 34, borderRadius: 6 }}>
+            <option value="ASC">Asc</option>
+            <option value="DESC">Desc</option>
+          </select>
+
+          <input
+            placeholder="Assigned To (id)"
+            value={assignedFilter}
+            onChange={e => setAssignedFilter(e.target.value)}
+            style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #c8c6c4", width: 110 }}
+          />
+
+          <button onClick={() => { setSearchTerm(""); setSelectedFields(allColumns.map(c=>c.key)); setSortField("orderIndex"); setSortDir("ASC"); setAssignedFilter(""); }} style={{ padding: "6px 10px", borderRadius: 6 }}>
+            Clear
+          </button>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f3f2f1", padding: "6px 12px", borderRadius: 8, border: "1px solid #c8c6c4" }}>
+            <span style={{ fontSize: "12px", fontWeight: "bold", color: "#666" }}>Zoom</span>
+            <button onClick={() => handleZoom(-0.1)} style={{ cursor: "pointer", fontSize: "18px", border: "none", background: "none", fontWeight: "bold" }}>-</button>
+            <span style={{ fontSize: "14px", fontWeight: "600", minWidth: "40px", textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
+            <button onClick={() => handleZoom(0.1)} style={{ cursor: "pointer", fontSize: "16px", border: "none", background: "none", fontWeight: "bold" }}>+</button>
+          </div>
         </div>
       </div>
       
