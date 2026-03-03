@@ -315,7 +315,7 @@ export default function Dashboard() {
       </div>
 
       {/* --- MAIN CONTENT --- */}
-      <div className="container" style={{ padding: "30px", maxWidth: "1200px", margin: "0 auto" }}>
+      <div className="overflow-hidden">
         
         {/* Render Views based on Tab */}
         

@@ -134,7 +134,7 @@ export default function Login() {
   const nav = useNavigate();
   
   // State
-  const [role, setRole] = useState("admin"); // 'admin' or 'staff'
+  const [role, setRole] = useState("admin");
   const [email, setEmail] = useState("admin@portal.com");
   const [password, setPassword] = useState("admin@123");
   const [showPassword, setShowPassword] = useState(false);
