@@ -184,7 +184,7 @@ export default function Dashboard() {
         
         // --- LOGIC: Redirect based on Role & Permissions ---
         if (userData.role === 'admin') {
-            setTab("target");
+            setTab("main");
         } else {
             // Check permissions
             if (userData.access_monthly) {
