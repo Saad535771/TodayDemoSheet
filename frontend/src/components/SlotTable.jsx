@@ -97,7 +97,6 @@ export const handleGridKeyDown = (e) => {
     if (target && target.tagName === 'TD') target.focus();
   }
 };
-
 // Skeleton Loader Component
 const TableSkeleton = () => {
   const rows = Array.from({ length: 3 }); // 3 dummy rows
