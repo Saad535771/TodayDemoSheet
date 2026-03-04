@@ -18,7 +18,7 @@ const styles = {
     color: "#323130", 
     fontWeight: "600", 
     padding: "8px 10px", 
-    textAlign: "left", 
+    textAlign: "center", 
     border: "1px solid #c8c6c4", 
     position: "sticky", 
     top: 0, 
@@ -26,14 +26,14 @@ const styles = {
     zIndex: 10,
     position: "relative"          
   },
-  td: { padding: "0", border: "1px solid #c8c6c4", verticalAlign: "middle", height: "35px" },
+  td: { padding: "0", border: "1px solid #c8c6c4",textAlign: "center", verticalAlign: "middle", height: "25px" },
   inlineInput: { width: "100%", height: "100%", padding: "8px 10px", border: "none", borderRadius: "0", fontSize: "14px", background: "transparent", outline: "none", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif" },
   inlineSelect: { width: "100%", height: "100%", padding: "8px 10px", border: "none", borderRadius: "0", fontSize: "14px", background: "transparent", outline: "none", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif", cursor: "pointer" },
   actionBtn: { padding: "6px 10px", borderRadius: "4px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: "#fee2e2", color: "#b91c1c", fontFamily: "'Calibri', sans-serif" },
   moveBtn: { cursor: "pointer", border: "none", background: "transparent", fontSize: "14px", padding: "2px 6px", color: "#555" },
   colorSwatch: { 
-    width: "24px", 
-    height: "24px", 
+    width: "18px", 
+    height: "18px", 
     border: "2px solid #666", 
     cursor: "pointer", 
     borderRadius: "4px", 
@@ -45,6 +45,7 @@ const styles = {
     background: "white",
     border: "1px solid #ccc",
     padding: "10px",
+    margin:"0px",
     borderRadius: "6px",
     boxShadow: "0 6px 16px rgba(0,0,0,0.15)",
     zIndex: 3000,
@@ -71,7 +72,7 @@ const ColorSwatch = ({ color = "#ffffff", onChange }) => {
   const presets = [
     "#ffffff", "#f8f9fa", "#ffebee", "#fff3e0", "#f3e5f5", "#e8f5e9", 
     "#e3f2fd", "#fff8e1", "#fce4ec", "#e0f2f1", "#f1f8e9", "#e8eaf6",
-    "#ef5350", "#ff9800", "#fdd835", "#4caf50", "#2196f3", "#9c27b0",
+    "#ef5350", "#ff9800", "#fdd835", "#209024", "#2196f3", "#9c27b0",
     "#f44336", "#ff5722", "#ffc107", "#8bc34a", "#03a9f4", "#673ab7"
   ];
 
