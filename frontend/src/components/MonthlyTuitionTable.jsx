@@ -7,12 +7,11 @@ const styles = {
   title: { fontSize: "22px", fontWeight: "700", color: "#1e3c72", margin: 0 },
   tableWrapper: { 
     overflowX: "auto", 
-    background: "#ffffff", 
-    maxHeight: "75vh", 
+    height:"100%",
     marginTop: "0px",           
-    border: "1px solid #c8c6c4" 
+  
   },
-  table: { width: "100%",height:"100%", borderCollapse: "collapse", fontSize: "14px", whiteSpace: "nowrap" },
+  table: { width: "100%",height:"100%",  fontSize: "12px",},
   th: { 
     background: "#f3f2f1", 
     color: "#323130", 
@@ -26,7 +25,7 @@ const styles = {
     zIndex: 10,
     position: "relative"          
   },
-  td: { padding: "0", border: "1px solid #c8c6c4",textAlign: "center", verticalAlign: "middle", height: "25px" },
+  td: { padding: "0", border: "1px solid #c8c6c4",textAlign: "center", verticalAlign: "middle", height: "15px",width:"15px" },
   inlineInput: { width: "100%", height: "100%", padding: "8px 10px", border: "none", borderRadius: "0", fontSize: "14px", background: "transparent", outline: "none", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif" },
   inlineSelect: { width: "100%", height: "100%", padding: "8px 10px", border: "none", borderRadius: "0", fontSize: "14px", background: "transparent", outline: "none", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif", cursor: "pointer" },
   actionBtn: { padding: "6px 10px", borderRadius: "4px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: "#fee2e2", color: "#b91c1c", fontFamily: "'Calibri', sans-serif" },
@@ -66,7 +65,7 @@ const styles = {
 // ==================== EXCEL STYLE COLOR PICKER (hamesha visible swatch + popup) ====================
 const ColorSwatch = ({ color = "#ffffff", onChange }) => {
   const [showPopup, setShowPopup] = useState(false);
-  const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
+  const [popupPos, setPopupPos] = useState({ top: "-330px", left: 0 });
   const swatchRef = useRef(null);
 
   const presets = [
@@ -101,7 +100,7 @@ const ColorSwatch = ({ color = "#ffffff", onChange }) => {
       />
       {showPopup && (
         <div 
-          style={{ ...styles.pickerPopup, top: popupPos.top, left: popupPos.left }}
+          style={{ ...styles.pickerPopup,  left: popupPos.left }}
           onClick={e => e.stopPropagation()}
         >
           <div style={{ marginBottom: "8px", fontSize: "13px", fontWeight: "600", color: "#444" }}>
