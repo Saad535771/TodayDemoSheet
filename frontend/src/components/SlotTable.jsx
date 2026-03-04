@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { api } from "../api/api.js";
+
 const styles = {
   card: { background: "#ffffff", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)", overflow: "hidden", marginBottom: "24px", border: "1px solid #eef0f3", fontFamily: "'Calibri', sans-serif" },
   header: (isOpen, roleColor) => ({
@@ -9,14 +10,33 @@ const styles = {
   headerTitle: { fontSize: "18px", fontWeight: "700", margin: 0 },
   headerMeta: { fontSize: "13px", opacity: 0.85, marginTop: "4px", display: "block" },
   tableWrapper: { overflowX: "auto", background: "#ffffff", maxHeight: "500px" },
-  table: { width: "100%", borderCollapse: "collapse", fontSize: "14px", whiteSpace: "nowrap" },
+  table: { width: "100%", height: "100%", borderCollapse: "collapse", fontSize: "14px",},
   th: { background: "#f3f2f1", color: "#323130", fontWeight: "600", padding: "8px 10px", textAlign: "left", border: "1px solid #c8c6c4", position: "sticky", top: 0, zIndex: 10 },
-  td: { padding: "0", border: "1px solid #c8c6c4", verticalAlign: "middle", height: "35px" },
+  td: { padding: "0",textAlign: "center", border: "1px solid #c8c6c4", verticalAlign: "middle", height: "35px" },
   inlineInput: { width: "100%", height: "100%", padding: "8px 10px", border: "none", borderRadius: "0", fontSize: "14px", background: "transparent", outline: "none", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif" },
   inlineSelect: { width: "100%", height: "100%", padding: "8px 10px", border: "none", borderRadius: "0", fontSize: "14px", background: "transparent", outline: "none", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif", cursor: "pointer" },
   actionBtn: { padding: "6px 10px", borderRadius: "4px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: "#fee2e2", color: "#b91c1c", fontFamily: "'Calibri', sans-serif" },
   moveBtn: { cursor: "pointer", border: "none", background: "transparent", fontSize: "14px", padding: "2px 6px", color: "#555" },
-  colorPicker: { width: "22px", height: "22px", padding: "0", border: "none", cursor: "pointer", background: "transparent", borderRadius: "50%", overflow: "hidden" },
+  colorSwatch: { width: "24px", height: "24px", border: "2px solid #666", cursor: "pointer", borderRadius: "4px", overflow: "hidden", display: "inline-block" },
+  pickerPopup: {
+    position: "fixed",
+    background: "white",
+    border: "1px solid #ccc",
+    padding: "10px",
+    borderRadius: "6px",
+    boxShadow: "0 6px 16px rgba(0,0,0,0.15)",
+    zIndex: 3000,
+    width: "220px"
+  },
+  fixedSearchContainer: {
+    position: "relative",
+    top: '75px',
+    right: 0,
+    width: "80%",
+    padding: "14px 24px",
+    zIndex: 100,
+  
+  },
   modalOverlay: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(5px)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 },
   modalCard: { background: "white", padding: "30px", borderRadius: "16px", width: "90%", maxWidth: "400px", textAlign: "center", boxShadow: "0 20px 50px rgba(0,0,0,0.2)" },
   lockIcon: { fontSize: "40px", marginBottom: "15px", display: "block" },
@@ -27,6 +47,73 @@ const styles = {
 function adjustColor(color, amount) {
   return '#' + color.replace(/^#/, '').replace(/../g, color => ('0'+Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
 }
+
+// ==================== EXCEL STYLE COLOR PICKER ====================
+const ColorSwatch = ({ color = "#ffffff", onChange }) => {
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
+  const swatchRef = useRef(null);
+
+  const presets = [
+    "#ffffff", "#f8f9fa", "#ffebee", "#fff3e0", "#f3e5f5", "#e8f5e9", 
+    "#e3f2fd", "#fff8e1", "#fce4ec", "#e0f2f1", "#f1f8e9", "#e8eaf6",
+    "#ef5350", "#ff9800", "#fdd835", "#4caf50", "#2196f3", "#9c27b0",
+    "#f44336", "#ff5722", "#ffc107", "#8bc34a", "#03a9f4", "#673ab7"
+  ];
+
+  const openPopup = () => {
+    if (!swatchRef.current) return;
+    const rect = swatchRef.current.getBoundingClientRect();
+    setPopupPos({ top: `${rect.bottom + 8}px`, left: `${rect.left}px` });
+    setShowPopup(true);
+  };
+
+  useEffect(() => {
+    if (!showPopup) return;
+    const handleOutside = (e) => {
+      if (swatchRef.current && !swatchRef.current.contains(e.target)) setShowPopup(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [showPopup]);
+
+  return (
+    <div ref={swatchRef} style={{ position: "relative", display: "inline-block" }}>
+      <div 
+        onClick={openPopup}
+        style={{ ...styles.colorSwatch, backgroundColor: color }}
+        title="Click to change color (Excel style)"
+      />
+      {showPopup && (
+        <div 
+          style={{ ...styles.pickerPopup, left: popupPos.left }}
+          onClick={e => e.stopPropagation()}
+        >
+          <div style={{ marginBottom: "8px", fontSize: "13px", fontWeight: "600", color: "#444" }}>Default Colors</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 28px)", gap: "6px", marginBottom: "12px" }}>
+            {presets.map((c, i) => (
+              <div
+                key={i}
+                onClick={() => { onChange(c); setShowPopup(false); }}
+                style={{ width: "28px", height: "28px", backgroundColor: c, border: "1px solid #ddd", borderRadius: "4px", cursor: "pointer" }}
+              />
+            ))}
+          </div>
+          <div style={{ borderTop: "1px solid #eee", paddingTop: "8px" }}>
+            <div style={{ fontSize: "13px", marginBottom: "4px" }}>Custom Color</div>
+            <input 
+              type="color" 
+              value={color} 
+              onChange={(e) => onChange(e.target.value)}
+              style={{ width: "100%", height: "32px", cursor: "pointer" }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 function format12Hour(time24) {
   if (!time24) return "";
   const [h, m] = time24.split(':');
@@ -40,6 +127,7 @@ const sourcesList = ["", "mahad", "areeba", "sibgha"];
 const statusList = ["", "1st Demo Done", "2nd Demo Done", "payment Process", "Tuition Done", "Tuition Cancelled", "irrelevant", "Not available", "Pending"];
 const columnColors = { "Rejected Tutor": "#ffebee" };
 const PASSWORD_SECRET = "admin123"; 
+
 const getStatusStyle = (status) => {
   switch (status) {
     case "1st Demo Done": return { backgroundColor: "black", color: "white", border: "1px solid black" };
@@ -97,11 +185,10 @@ export const handleGridKeyDown = (e) => {
     if (target && target.tagName === 'TD') target.focus();
   }
 };
-// Skeleton Loader Component
+
 const TableSkeleton = () => {
-  const rows = Array.from({ length: 3 }); // 3 dummy rows
-  const cols = Array.from({ length: 18 }); // Columns
-  
+  const rows = Array.from({ length: 3 });
+  const cols = Array.from({ length: 18 });
   return (
     <>
       {rows.map((_, rIdx) => (
@@ -118,13 +205,13 @@ const TableSkeleton = () => {
 };
 
 export default function SlotTable({ slot, onChanged, isProtected, isLoadingData }) {
-  // Added isLoadingData prop checking. If API logic happens outside, pass it down, or manage inside.
-  // Assuming if items array length is undefined or loading state passed.
   const [open, setOpen] = useState(slot.items?.length > 0);
   const [zoom, setZoom] = useState(1); 
   const [localItems, setLocalItems] = useState([]);
-  const [isUpdating, setIsUpdating] = useState(false); // internal loading state
-  
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedRows, setSelectedRows] = useState(new Set());
+
   const role = "admin"; 
   const themeColor = role === "admin" ? "#1e3c72" : "#7b4397"; 
 
@@ -133,9 +220,23 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
+  // 🔥 DATA FIX — items undefined na ho
   useEffect(() => {
     setLocalItems(slot.items || []);
+    setSelectedRows(new Set());
   }, [slot.items]);
+
+  // Client-side search (filteredItems)
+  const filteredItems = localItems.filter(item => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      (item.tuitionName || "").toLowerCase().includes(term) ||
+      (item.tutorName || "").toLowerCase().includes(term) ||
+      (item.status || "").toLowerCase().includes(term) ||
+      (item.tuitionId || "").toLowerCase().includes(term)
+    );
+  });
 
   const updateRecord = async (item, field, newValue) => {
     try {
@@ -184,6 +285,45 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     }
   };
 
+  // 🔥 MULTIPLE ROW MOVE — jitni baar click karo utni baar move (selection clear nahi hoti)
+  const moveSelected = async (direction) => {
+    if (selectedRows.size === 0) return;
+
+    let newItems = [...localItems];
+    const selectedSet = new Set(selectedRows);
+    const indices = [];
+    newItems.forEach((item, idx) => { if (selectedSet.has(item.tuitionId)) indices.push(idx); });
+
+    const selectedItems = indices.sort((a, b) => a - b).map(i => newItems[i]);
+    newItems = newItems.filter(item => !selectedSet.has(item.tuitionId));
+
+    let insertIndex = direction === 'up' 
+      ? Math.max(0, indices[0] - 1)
+      : Math.min(newItems.length, indices[indices.length - 1] - selectedItems.length + 1);
+
+    newItems.splice(insertIndex, 0, ...selectedItems);
+    setLocalItems(newItems);
+
+    setSearchTerm("");   // search clear taake double bar na dikhe aur order sahi dikhe
+
+    try {
+      const reorderPayload = newItems.map((item, idx) => ({
+        tuitionId: item.tuitionId,
+        orderIndex: idx
+      }));
+      await api.post("/api/target/reorder", { items: reorderPayload });
+    } catch (error) {
+      alert("Nayi tarteeb save nahi ho saki. Backend check karein.");
+      if (onChanged) await onChanged();
+    }
+  };
+
+  const toggleRowSelection = (tuitionId) => {
+    const newSet = new Set(selectedRows);
+    newSet.has(tuitionId) ? newSet.delete(tuitionId) : newSet.add(tuitionId);
+    setSelectedRows(newSet);
+  };
+
   const handleUnlock = (e) => {
     e.preventDefault();
     if (passwordInput === PASSWORD_SECRET) {
@@ -213,34 +353,68 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     });
   };
 
-  // Determine if we should show skeleton. Either passed via prop or internal updating state
   const showSkeleton = isLoadingData || isUpdating;
 
   return (
     <>
       <div style={styles.card}>
         <style>{`
-          .excel-cell:focus {
-            outline: 2px solid #107c41;
-            outline-offset: -2px;
-          }
+          .excel-cell:focus { outline: 2px solid #107c41; outline-offset: -2px; }
           input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
           input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
-          
-          /* Glow Animation for Skeleton */
           .skeleton-box {
-            height: 20px;
-            width: 100%;
-            border-radius: 4px;
+            height: 20px; width: 100%; border-radius: 4px;
             background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
+            background-size: 200% 100%; animation: shimmer 1.5s infinite;
           }
-          @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
-          }
+          @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
         `}</style>
+
+        {/* 🔥 SINGLE FIXED SEARCH BAR — select karte hi buttons dikhte hain (double bar nahi aayega) */}
+        {open && isUnlocked && (
+          <div style={styles.fixedSearchContainer}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "end", gap: 16, maxWidth: "1100px", margin: "0 auto" }}>
+              <input
+                placeholder="Search across all columns..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{ padding: "12px 16px", borderRadius: 8, border: "1px solid #c8c6c4", fontSize: "15px", flex: 1, maxWidth: "520px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}
+              />
+              <button 
+                onClick={() => { setSearchTerm(""); setSelectedRows(new Set()); }}
+                style={{ padding: "10px 16px", borderRadius: 6, background: "#f3f2f1", border: "none", fontWeight: "600" }}
+              >
+                Clear
+              </button>
+
+              {selectedRows.size > 0 && (
+                <>
+                  <button 
+                    onClick={() => moveSelected('up')}
+                    style={{ padding: "10px 20px", background: "#1976d2", color: "white", border: "none", borderRadius: "6px", fontWeight: "600", cursor: "pointer" }}
+                  >
+                    ↑ Move Selected
+                  </button>
+                  <button 
+                    onClick={() => moveSelected('down')}
+                    style={{ padding: "10px 20px", background: "#1976d2", color: "white", border: "none", borderRadius: "6px", fontWeight: "600", cursor: "pointer" }}
+                  >
+                    ↓ Move Selected
+                  </button>
+                  <span style={{ padding: "8px 12px", background: "#f0f0f0", borderRadius: "6px", fontSize: "13px" }}>
+                    {selectedRows.size} rows selected
+                  </span>
+                </>
+              )}
+
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(255, 255, 255, 0.2)", padding: "4px 10px", borderRadius: "20px" }}>
+                <button onClick={(e) => handleZoom(e, -0.1)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: "18px", fontWeight: "bold" }}>-</button>
+                <span style={{ fontSize: "13px", fontWeight: "600", minWidth: "40px", textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
+                <button onClick={(e) => handleZoom(e, 0.1)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: "16px", fontWeight: "bold" }}>+</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={styles.header(open, themeColor)} onClick={handleHeaderClick}>
           <div>
@@ -248,17 +422,10 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
                {isProtected && !isUnlocked ? "🔒 " : ""} {slot.slotHeader}
             </h3>
             <span style={styles.headerMeta}>
-              {slot.displayRange} • {localItems.length} records
+              {slot.displayRange} • {filteredItems.length} records
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-            {open && isUnlocked && (
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(255, 255, 255, 0.2)", padding: "4px 10px", borderRadius: "20px" }}>
-                <button onClick={(e) => handleZoom(e, -0.1)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: "18px", fontWeight: "bold" }}>-</button>
-                <span style={{ fontSize: "13px", fontWeight: "600", minWidth: "40px", textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
-                <button onClick={(e) => handleZoom(e, 0.1)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: "16px", fontWeight: "bold" }}>+</button>
-              </div>
-            )}
             <div style={{ fontSize: "14px", opacity: 0.8 }}>
               {open ? "▲ Collapse" : "▼ Expand"}
             </div>
@@ -271,10 +438,10 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
               <table style={styles.table}>
                 <thead>
                   <tr>
+                    <TH style={{ width: "42px", textAlign: "center", background: "#e5e7eb" }}>✓</TH>
                     <TH style={{ width: "40px", textAlign: "center", background: "#e5e7eb" }}>Sort</TH>
                     <TH style={{ width: "30px", textAlign: "center", background: "#e5e7eb" }}>🎨</TH>
                     
-                    {/* NEW SEQUENCE AS REQUESTED (4 fields hidden) */}
                     <TH>Demo Time</TH>
                     <TH>Tuition Name</TH>
                     <TH>Source</TH>
@@ -297,59 +464,73 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
                 <tbody>
                   {showSkeleton ? (
                     <TableSkeleton />
-                  ) : localItems.length === 0 ? (
+                  ) : filteredItems.length === 0 ? (
                     <tr><td colSpan="19" style={{...styles.td, textAlign: "center", color: "#999", padding: "15px"}}>No records in this slot</td></tr>
-                  ) : localItems.map((it, index) => (
-                    <tr 
-                      key={it.tuitionId || index}
-                      style={{ backgroundColor: it.rowColor || "inherit", transition: "background 0.2s" }}
-                    >
-                      <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                          <button onClick={() => moveRow(index, 'up')} disabled={index === 0} style={{...styles.moveBtn, opacity: index === 0 ? 0.3 : 1}}>▲</button>
-                          <button onClick={() => moveRow(index, 'down')} disabled={index === localItems.length - 1} style={{...styles.moveBtn, opacity: index === localItems.length - 1 ? 0.3 : 1}}>▼</button>
-                        </div>
-                      </td>
+                  ) : filteredItems.map((it) => {
+                    const originalIndex = localItems.findIndex(item => item.tuitionId === it.tuitionId);
+                    return (
+                      <tr 
+                        key={it.tuitionId}
+                        style={{ backgroundColor: it.rowColor || "inherit", transition: "background 0.2s" }}
+                      >
+                        {/* Checkbox */}
+                        <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
+                          <input 
+                            type="checkbox" 
+                            checked={selectedRows.has(it.tuitionId)}
+                            onChange={() => toggleRowSelection(it.tuitionId)}
+                            style={{ cursor: "pointer", width: "18px", height: "18px" }}
+                          />
+                        </td>
 
-                      <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
-                        <input 
-                          type="color" 
-                          value={it.rowColor || "#ffffff"} 
-                          onChange={(e) => updateRecord(it, "rowColor", e.target.value)} 
-                          style={styles.colorPicker}
-                          title="Row ka color change karein"
-                        />
-                      </td>
+                        {/* Sort buttons */}
+                        <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                            <button onClick={() => moveRow(originalIndex, 'up')} disabled={originalIndex === 0} style={{...styles.moveBtn, opacity: originalIndex === 0 ? 0.3 : 1}}>▲</button>
+                            <button onClick={() => moveRow(originalIndex, 'down')} disabled={originalIndex === localItems.length - 1} style={{...styles.moveBtn, opacity: originalIndex === localItems.length - 1 ? 0.3 : 1}}>▼</button>
+                          </div>
+                        </td>
 
-                      {/* NEW SEQUENCE (Hidden: Date, Estimated Fee, Class Time, Days Per Week) */}
-                      <EditableCell val={it.demoTime} type="time" onSave={(val) => updateRecord(it, "demoTime", val)} width={100} />
-                      <EditableCell val={it.tuitionName} onSave={(val) => updateRecord(it, "tuitionName", val)} width={150} />
-                      <EditableCell val={it.source} options={sourcesList} onSave={(val) => updateRecord(it, "source", val)} width={110} customRender={(val) => renderPill(val, getSourceStyle)} />
-                      <EditableCell val={it.country} onSave={(val) => updateRecord(it, "country", val)} width={100} />
-                      <EditableCell val={it.parentsContact || it.parentContact} onSave={(val) => updateRecord(it, "parentsContact", val)} width={130} />
-                      <EditableCell val={it.className || it.class} onSave={(val) => updateRecord(it, "className", val)} width={100} />
-                      <EditableCell val={it.subjects || it.subject} onSave={(val) => updateRecord(it, "subjects", val)} width={120} />
-                      
-                      <EditableCell val={it.tutorName} onSave={(val) => updateRecord(it, "tutorName", val)} width={140} />
-                      <EditableCell val={it.tutorFees || it.tutorFee} onSave={(val) => updateRecord(it, "tutorFees", val)} width={100} />
-                      
-                      <EditableCell val={it.rejectedTutor} onSave={(val) => updateRecord(it, "rejectedTutor", val)} bg={columnColors["Rejected Tutor"]} width={120} />
-                      <EditableCell val={it.status} options={statusList} onSave={(val) => updateRecord(it, "status", val)} width={140} customRender={(val) => renderPill(val, getStatusStyle)} />
-                      <EditableCell val={it.feedback} onSave={(val) => updateRecord(it, "feedback", val)} width={180} />
-                      <EditableCell val={it.demoDate} type="date" onSave={(val) => updateRecord(it, "demoDate", val)} width={120} />
-                      
-                      <td tabIndex={0} onKeyDown={handleGridKeyDown} className="excel-cell" style={{...styles.td, padding: "0 10px", fontWeight: "bold", color: "#555", backgroundColor: "inherit"}}>
-                        {it.tuitionId}
-                      </td>
-                      
-                      <EditableCell val={it.demoRating} options={DEMO_RATING_VALUES} onSave={(val) => updateRecord(it, "demoRating", val)} width={130} customRender={(val) => renderPill(val, getDemoRatingStyle)} />
-                      <EditableCell val={it.syncFlag || it.sync} onSave={(val) => updateRecord(it, "syncFlag", val)} width={80} />
-                      
-                      <td tabIndex={0} onKeyDown={handleGridKeyDown} className="excel-cell" style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
-                        <button style={styles.actionBtn} onClick={() => removeItem(it.tuitionId)}>Del</button>
-                      </td>
-                    </tr>
-                  ))}
+                        {/* Row Color */}
+                        <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
+                          <ColorSwatch color={it.rowColor || "#ffffff"} onChange={(c) => updateRecord(it, "rowColor", c)} />
+                        </td>
+
+                        <EditableCell val={it.demoTime} type="time" onSave={(val) => updateRecord(it, "demoTime", val)} width={100} />
+
+                        {/* Tuition Name with permanent color picker */}
+                        <td style={{ ...styles.td, backgroundColor: it.tuitionNameColor || "inherit", minWidth: 150, padding: "0 10px", height: "35px", cursor: "cell" }}>
+                          <div style={{ display: "flex", alignItems: "center", height: "100%", gap: "8px" }}>
+                            <span style={{ flex: 1 }}>{it.tuitionName || ""}</span>
+                            <ColorSwatch color={it.tuitionNameColor || "#ffffff"} onChange={(c) => updateRecord(it, "tuitionNameColor", c)} />
+                          </div>
+                        </td>
+
+                        <EditableCell val={it.source} options={sourcesList} onSave={(val) => updateRecord(it, "source", val)} width={110} customRender={(val) => renderPill(val, getSourceStyle)} />
+                        <EditableCell val={it.country} onSave={(val) => updateRecord(it, "country", val)} width={100} />
+                        <EditableCell val={it.parentsContact || it.parentContact} onSave={(val) => updateRecord(it, "parentsContact", val)} width={130} />
+                        <EditableCell val={it.className || it.class} onSave={(val) => updateRecord(it, "className", val)} width={100} />
+                        <EditableCell val={it.subjects || it.subject} onSave={(val) => updateRecord(it, "subjects", val)} width={120} />
+                        <EditableCell val={it.tutorName} onSave={(val) => updateRecord(it, "tutorName", val)} width={140} />
+                        <EditableCell val={it.tutorFees || it.tutorFee} onSave={(val) => updateRecord(it, "tutorFees", val)} width={100} />
+                        <EditableCell val={it.rejectedTutor} onSave={(val) => updateRecord(it, "rejectedTutor", val)} bg={columnColors["Rejected Tutor"]} width={120} />
+                        <EditableCell val={it.status} options={statusList} onSave={(val) => updateRecord(it, "status", val)} width={140} customRender={(val) => renderPill(val, getStatusStyle)} />
+                        <EditableCell val={it.feedback} onSave={(val) => updateRecord(it, "feedback", val)} width={180} />
+                        <EditableCell val={it.demoDate} type="date" onSave={(val) => updateRecord(it, "demoDate", val)} width={120} />
+                        
+                        <td tabIndex={0} onKeyDown={handleGridKeyDown} className="excel-cell" style={{...styles.td, padding: "0 10px", fontWeight: "bold", color: "#555", backgroundColor: "inherit"}}>
+                          {it.tuitionId}
+                        </td>
+                        
+                        <EditableCell val={it.demoRating} options={DEMO_RATING_VALUES} onSave={(val) => updateRecord(it, "demoRating", val)} width={130} customRender={(val) => renderPill(val, getDemoRatingStyle)} />
+                        <EditableCell val={it.syncFlag || it.sync} onSave={(val) => updateRecord(it, "syncFlag", val)} width={80} />
+                        
+                        <td tabIndex={0} onKeyDown={handleGridKeyDown} className="excel-cell" style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
+                          <button style={styles.actionBtn} onClick={() => removeItem(it.tuitionId)}>Del</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -378,7 +559,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
                 type="password" 
                 autoFocus
                 placeholder="Enter Password" 
-                style={{...styles.inlineInput, ...styles.inputFocus, textAlign: "center", fontSize: "16px", padding: "12px", marginBottom: "10px", border: "1px solid #ccc"}}
+                style={{...styles.inlineInput, textAlign: "center", fontSize: "16px", padding: "12px", marginBottom: "10px", border: "1px solid #ccc"}}
                 value={passwordInput}
                 onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(""); }}
               />
