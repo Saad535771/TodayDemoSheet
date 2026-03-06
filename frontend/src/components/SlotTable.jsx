@@ -1,20 +1,22 @@
 import React, { useState, useEffect, useRef } from "react";
 import { api } from "../api/api.js";
 
-/* -----------------------
-   Styles (unchanged mostly)
-   ----------------------- */
+/* =========================
+   SlotTable with GLOBAL SEARCH
+   - Single floating search bar appended to body
+   - All SlotTable instances subscribe and receive same term
+   - Each slot scrolls to its first matching row and highlights it
+   ========================= */
+
 const styles = {
-  card: { position: "relative",
-  zIndex: 1,
-  background: "#ffffff", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)", overflow: "hidden", marginBottom: "24px", border: "1px solid #eef0f3", fontFamily: "'Calibri', sans-serif" },
+  card: { background: "#ffffff", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)", overflow: "hidden", marginBottom: "24px", border: "1px solid #eef0f3", fontFamily: "'Calibri', sans-serif", position: "relative", zIndex: 1 },
   header: (isOpen, roleColor) => ({
     background: isOpen ? `linear-gradient(135deg, ${roleColor} 0%, ${adjustColor(roleColor, -20)} 100%)` : "#ffffff",
     color: isOpen ? "#ffffff" : "#333", padding: "16px 24px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "all 0.3s ease", borderBottom: isOpen ? "none" : "1px solid #eee",
   }),
   headerTitle: { fontSize: "18px", fontWeight: "700", margin: 0 },
   headerMeta: { fontSize: "13px", opacity: 0.85, marginTop: "4px", display: "block" },
-  tableWrapper: { overflowX: "auto", background: "#ffffff", maxHeight: "500px", padding: "12px 18px" },
+  tableWrapper: { overflowX: "auto", background: "#ffffff", maxHeight: "500px" },
   table: { width: "100%", height: "100%", borderCollapse: "collapse", fontSize: "14px",},
   th: { background: "#f3f2f1", color: "#323130", fontWeight: "600", padding: "8px 10px", textAlign: "left", border: "1px solid #c8c6c4", position: "sticky", top: 0, zIndex: 10 },
   td: { padding: "0",textAlign: "center", border: "1px solid #c8c6c4", verticalAlign: "middle", height: "35px" },
@@ -33,41 +35,19 @@ const styles = {
     zIndex: 3000,
     width: "220px"
   },
-  globalSearchContainerBase: {
-     position: "sticky", // relative → fixed
-    top: '75px',
-    right: 0,
-    width: "80%",
-    padding: "14px 24px",
-    zIndex: 2000, // z-index increase
-    background: "#fff", // white background so table doesn't overlap
-    boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-    borderRadius: "8px"
-  },
-  globalSearchInner: {
-    pointerEvents: "all",
-    width: "min(1100px, 95%)",
-    background: "white",
-    padding: "12px 18px",
-    borderRadius: 10,
-    display: "flex",
-    gap: 12,
-    alignItems: "center",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-    border: "1px solid #e6e6e6"
-  },
+  globalSearchContainerBaseCSS: `position:fixed; top:75px; left:50%; transform:translateX(-50%); z-index:99999; pointer-events: auto;`,
+  globalSearchInnerCSS: `width:min(1100px,95%); background:white; padding:12px 18px; border-radius:10px; display:flex; gap:12px; align-items:center; box-shadow:0 10px 30px rgba(0,0,0,0.08); border:1px solid #e6e6e6;`,
   modalOverlay: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(5px)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 },
   modalCard: { background: "white", padding: "30px", borderRadius: "16px", width: "90%", maxWidth: "400px", textAlign: "center", boxShadow: "0 20px 50px rgba(0,0,0,0.2)" },
   lockIcon: { fontSize: "40px", marginBottom: "15px", display: "block" },
   lockedPlaceholder: { padding: "40px", textAlign: "center", background: "#f9fafb", color: "#6b7280", cursor: "pointer" },
   btn: (loading) => ({ padding: "6px 16px", background: loading ? "#ccc" : "#10b981", color: "white", border: "none", borderRadius: "4px", fontSize: "13px", fontWeight: "600", cursor: loading ? "not-allowed" : "pointer", transition: "transform 0.1s", fontFamily: "'Calibri', sans-serif" })
 };
-
 function adjustColor(color, amount) {
   return '#' + color.replace(/^#/, '').replace(/../g, color => ('0'+Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
 }
 
-/* ==================== COLOR SWATCH (UNCHANGED) ==================== */
+/* ==================== ColorSwatch (unchanged) ==================== */
 const ColorSwatch = ({ color = "#ffffff", onChange }) => {
   const [showPopup, setShowPopup] = useState(false);
   const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
@@ -133,97 +113,8 @@ const ColorSwatch = ({ color = "#ffffff", onChange }) => {
   );
 };
 
-/* -------------------------
-   Helper: Global Search Manager
-   -------------------------
-   - Creates a single floating DOM search bar appended to body.
-   - Exposes subscribe(cb) and setActive(key) and setTerm(term).
-   - cb receives (term, activeKey).
-*/
-function ensureGlobalSearchManager() {
-  if (typeof window === 'undefined') return null;
-  if (window.__SLOT_SEARCH_MANAGER) return window.__SLOT_SEARCH_MANAGER;
-
-  const manager = {
-    term: "",
-    activeKey: null,
-    subscribers: [],
-    dom: null,
-    inputEl: null,
-    mountCount: 0,
-    createDOM() {
-      if (this.dom) return;
-      const container = document.createElement("div");
-      container.id = "global-slot-searchbar";
-      Object.assign(container.style, styles.globalSearchContainerBase);
-      container.innerHTML = `
-        <div style="${Object.entries(styles.globalSearchInner).map(([k,v])=>`${k}:${v}`).join(';')}">
-          <input id="__slot_global_input" placeholder="Search active slot..." style="flex:1;padding:12px 14px;border-radius:8px;border:1px solid #c8c6c4;font-size:15px;"/>
-          <button id="__slot_global_clear" style="padding:10px 14px;border-radius:6px;background:#f3f2f1;border:none;font-weight:600;cursor:pointer">Clear</button>
-          <div id="__slot_global_label" style="font-size:13px;color:#555;margin-left:8px;min-width:140px;text-align:right"></div>
-        </div>
-      `;
-      document.body.appendChild(container);
-      this.dom = container;
-      this.inputEl = container.querySelector("#__slot_global_input");
-      const clearBtn = container.querySelector("#__slot_global_clear");
-      const label = container.querySelector("#__slot_global_label");
-
-      // Wire events
-      this.inputEl.addEventListener("input", (e) => {
-        this.term = e.target.value;
-        this.notify();
-      });
-      clearBtn.addEventListener("click", () => {
-        this.term = "";
-        this.inputEl.value = "";
-        this.notify();
-      });
-
-      this.updateLabel = () => {
-        label.textContent = this.activeKey ? `Active: ${this.activeKey}` : "";
-      };
-
-      this.hide(); // initially hidden, shown when someone subscribes
-    },
-    show() { if (!this.dom) this.createDOM(); this.dom.style.display = "flex"; if (this.inputEl) this.inputEl.value = this.term || ""; this.updateLabel(); },
-    hide() { if (!this.dom) return; this.dom.style.display = "none"; },
-    notify() {
-      for (const cb of this.subscribers) {
-        try { cb(this.term, this.activeKey); } catch(e){ /* ignore */ }
-      }
-    },
-    subscribe(cb) {
-      if (!this.dom) this.createDOM();
-      this.subscribers.push(cb);
-      this.mountCount++;
-      this.show();
-      // immediately call with current
-      cb(this.term, this.activeKey);
-      return () => {
-        this.subscribers = this.subscribers.filter(x => x !== cb);
-        this.mountCount = Math.max(0, this.mountCount - 1);
-        if (this.mountCount === 0) this.hide();
-      };
-    },
-    setActive(key) {
-      this.activeKey = key;
-      if (this.dom) this.updateLabel();
-      this.notify();
-    },
-    setTerm(term) {
-      this.term = term;
-      if (this.inputEl) this.inputEl.value = term || "";
-      this.notify();
-    }
-  };
-
-  window.__SLOT_SEARCH_MANAGER = manager;
-  return manager;
-}
-
 /* ====================
-   Small helpers & constants (unchanged)
+   Utilities & constants
    ==================== */
 function format12Hour(time24) {
   if (!time24) return "";
@@ -278,6 +169,7 @@ const renderPill = (val, styleFn) => {
   );
 };
 
+/* keyboard nav */
 export const handleGridKeyDown = (e) => {
   const td = e.currentTarget;
   if (['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(e.key)) {
@@ -297,6 +189,7 @@ export const handleGridKeyDown = (e) => {
   }
 };
 
+/* TableSkeleton (unchanged) */
 const TableSkeleton = () => {
   const rows = Array.from({ length: 3 });
   const cols = Array.from({ length: 18 });
@@ -315,8 +208,132 @@ const TableSkeleton = () => {
   );
 };
 
+/* =========================
+   GLOBAL SEARCH MANAGER
+   - singleton attached to window.__SLOT_GLOBAL_SEARCH
+   ========================= */
+function ensureGlobalSearchManager() {
+  if (typeof window === "undefined") return null;
+  if (window.__SLOT_GLOBAL_SEARCH) return window.__SLOT_GLOBAL_SEARCH;
+
+  const manager = {
+    term: "",
+    subscribers: new Set(),
+    mountCount: 0,
+    dom: null,
+    input: null,
+    label: null,
+    createDOM() {
+      if (this.dom) return;
+      const wrapper = document.createElement("div");
+      wrapper.id = "__slot_global_search_wrapper";
+      wrapper.style.cssText = styles.globalSearchContainerBaseCSS;
+      wrapper.style.pointerEvents = "auto"; // ensure input is clickable
+
+      const inner = document.createElement("div");
+      inner.style.cssText = styles.globalSearchInnerCSS;
+
+      // input
+      const input = document.createElement("input");
+      input.type = "search";
+      input.id = "__slot_global_search_input";
+      input.placeholder = "Search across all slots... (type and press Enter/Wait)";
+      input.style.cssText = "flex:1;padding:10px 14px;border-radius:8px;border:1px solid #c8c6c4;font-size:15px;outline:none;";
+      input.autocomplete = "off";
+
+      // clear button
+      const clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.textContent = "Clear";
+      clearBtn.style.cssText = "padding:10px 14px;border-radius:6px;background:#f3f2f1;border:none;font-weight:600;cursor:pointer;";
+
+      // label (shows active state info)
+      const label = document.createElement("div");
+      label.id = "__slot_global_search_label";
+      label.style.cssText = "font-size:13px;color:#555;margin-left:8px;min-width:140px;text-align:right;";
+
+      inner.appendChild(input);
+      inner.appendChild(clearBtn);
+      inner.appendChild(label);
+      wrapper.appendChild(inner);
+      document.body.appendChild(wrapper);
+
+      this.dom = wrapper;
+      this.input = input;
+      this.label = label;
+
+      // events
+      input.addEventListener("input", (e) => {
+        this.term = e.target.value;
+        this.notify();
+      });
+
+      clearBtn.addEventListener("click", () => {
+        this.term = "";
+        if (this.input) this.input.value = "";
+        this.notify();
+      });
+
+      // keyboard: press Escape to clear, Enter to focus first match (default behavior: we just notify)
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          this.term = "";
+          if (this.input) this.input.value = "";
+          this.notify();
+        }
+      });
+
+    },
+    subscribe(cb) {
+      if (typeof document !== "undefined") this.createDOM();
+      this.subscribers.add(cb);
+      this.mountCount++;
+      this.show();
+      // immediately notify with current term
+      cb(this.term);
+      return () => {
+        this.subscribers.delete(cb);
+        this.mountCount = Math.max(0, this.mountCount - 1);
+        if (this.mountCount === 0) this.hide();
+      };
+    },
+    notify() {
+      for (const cb of Array.from(this.subscribers)) {
+        try { cb(this.term); } catch (e) { /* ignore */ }
+      }
+    },
+    setTerm(t) {
+      this.term = t || "";
+      if (this.input) this.input.value = this.term;
+      this.notify();
+    },
+    show() {
+      if (!this.dom) this.createDOM();
+      this.dom.style.display = "block";
+    },
+    hide() {
+      if (!this.dom) return;
+      this.dom.style.display = "none";
+    },
+    destroy() {
+      if (this.dom && this.dom.parentNode) {
+        this.dom.parentNode.removeChild(this.dom);
+      }
+      this.dom = null;
+      this.input = null;
+      this.label = null;
+      this.subscribers.clear();
+      this.mountCount = 0;
+    }
+  };
+
+  window.__SLOT_GLOBAL_SEARCH = manager;
+  return manager;
+}
+
 /* ===========================
-   SlotTable Component (updated)
+   SlotTable component
+   (replaces your previous file, copy-paste ready)
    =========================== */
 export default function SlotTable({ slot, onChanged, isProtected, isLoadingData }) {
   const [open, setOpen] = useState(slot.items?.length > 0);
@@ -335,44 +352,37 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   const [passwordError, setPasswordError] = useState("");
 
   const managerRef = useRef(null);
-  const myKey = slot.slotHeader || (`slot-${Math.random().toString(36).slice(2,8)}`);
+  const instanceKey = useRef(sanitizeKey(slot.slotHeader || `slot-${Math.random().toString(36).slice(2,8)}`)).current;
 
-  // DATA load
   useEffect(() => {
     setLocalItems(slot.items || []);
     setSelectedRows(new Set());
   }, [slot.items]);
 
-  // Subscribe to global search manager
+  // subscribe to global search manager (all instances get same term)
   useEffect(() => {
     const mgr = ensureGlobalSearchManager();
     managerRef.current = mgr;
     if (!mgr) return;
-    const unsubscribe = mgr.subscribe((term, activeKey) => {
-      // Only apply term if this slot is active
-      if (activeKey === myKey) setSearchTerm(term || "");
+    const unsubscribe = mgr.subscribe((term) => {
+      setSearchTerm(term || "");
     });
-    // cleanup
-    return () => {
-      unsubscribe();
-    };
+    return () => unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myKey]);
+  }, []);
 
-  // When this table is opened, set as active in global search
+  // When this slot open/unlocked toggle, ensure manager visible
   useEffect(() => {
-    const mgr = ensureGlobalSearchManager();
+    const mgr = managerRef.current || ensureGlobalSearchManager();
     if (!mgr) return;
     if (open && isUnlocked) {
-      mgr.setActive(myKey);
+      mgr.show();
     } else {
-      // if closing and we're active, clear active
-      if (mgr.activeKey === myKey) mgr.setActive(null);
+      // If no other subscribers, manager will hide itself via unsubscribe; keep as-is
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isUnlocked, myKey]);
+  }, [open, isUnlocked]);
 
-  // filtered items uses local searchTerm (updated from global when active)
+  // Filtered items use local searchTerm (coming from global manager)
   const filteredItems = localItems.filter(item => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
@@ -383,6 +393,48 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
       (item.tuitionId || "").toLowerCase().includes(term)
     );
   });
+
+  // Scroll to first match & highlight it when searchTerm changes and there is a match
+  useEffect(() => {
+    if (!searchTerm) return;
+    if (filteredItems.length === 0) return;
+
+    // find first match
+    const first = filteredItems[0];
+    if (!first || !first.tuitionId) return;
+
+    const rowId = `row-${instanceKey}-${sanitizeKey(String(first.tuitionId))}`;
+    const el = document.getElementById(rowId);
+    if (!el) return;
+
+    // ensure slot container is expanded so target row is visible
+    if (!open) setOpen(true);
+
+    // give browser a moment to expand and render
+    setTimeout(() => {
+      try {
+        el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+        // temporarily highlight via outline
+        const prevOutline = el.style.outline;
+        const prevTransition = el.style.transition;
+        el.style.outline = "4px solid rgba(255, 235, 59, 0.9)"; // yellowish
+        el.style.transition = "outline 0.25s ease";
+        // also focus a cell inside row for keyboard users
+        const firstCell = el.querySelector("td");
+        if (firstCell && typeof firstCell.focus === "function") {
+          firstCell.tabIndex = -1;
+          firstCell.focus({ preventScroll: true });
+        }
+        setTimeout(() => {
+          el.style.outline = prevOutline || "";
+          el.style.transition = prevTransition || "";
+        }, 2000);
+      } catch (e) {
+        // ignore
+      }
+    }, 250);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, filteredItems.length]);
 
   const updateRecord = async (item, field, newValue) => {
     try {
@@ -395,14 +447,12 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
       if (onChanged) await onChanged();
     }
   };
-  async function removeItem(tuitionId) {
-    if (!window.confirm("Kya aap is row ko TODAY DEMO se delete karna chahte hain?\n\n(Monthly Sheet mein record safe rahega)"))
-      return;
 
+  async function removeItem(tuitionId) {
+    if (!window.confirm("Kya aap is row ko TODAY DEMO se delete karna chahte hain?\n\n(Monthly Sheet mein record safe rahega)")) return;
     try {
       setIsUpdating(true);
       const response = await api.delete(`/api/target/${encodeURIComponent(tuitionId)}`);
-
       console.log("✅ Today Demo Delete Success:", response.data);
       if (onChanged) await onChanged();
     } catch (error) {
@@ -413,12 +463,12 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
       setIsUpdating(false);
     }
   }
+
   const moveRow = async (index, direction) => {
     if (direction === 'up' && index === 0) return;
     if (direction === 'down' && index === localItems.length - 1) return;
     const newItems = [...localItems];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-
     [newItems[index], newItems[targetIndex]] = [newItems[targetIndex], newItems[index]];
     setLocalItems(newItems);
 
@@ -434,10 +484,8 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     }
   };
 
-  // MULTIPLE ROW MOVE — per-table
   const moveSelected = async (direction) => {
     if (selectedRows.size === 0) return;
-
     let newItems = [...localItems];
     const selectedSet = new Set(selectedRows);
     const indices = [];
@@ -453,9 +501,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     newItems.splice(insertIndex, 0, ...selectedItems);
     setLocalItems(newItems);
 
-    // clear search here so reorder visual is clean (same as you had)
-    setSearchTerm("");
-    // also clear global input so it matches
+    // clear search to avoid duplicate display behavior as you requested
     const mgr = managerRef.current;
     if (mgr) mgr.setTerm("");
 
@@ -508,23 +554,22 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
 
   const showSkeleton = isLoadingData || isUpdating;
 
+  // render
   return (
     <>
-      <div style={styles.card}>
-        <style>{`
-          .excel-cell:focus { outline: 2px solid #107c41; outline-offset: -2px; }
-          input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-          input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
-          .skeleton-box {
-            height: 20px; width: 100%; border-radius: 4px;
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%; animation: shimmer 1.5s infinite;
-          }
-          @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-        `}</style>
+      <style>{`
+        .excel-cell:focus { outline: 2px solid #107c41; outline-offset: -2px; }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
+        .skeleton-box {
+          height: 20px; width: 100%; border-radius: 4px;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%; animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+      `}</style>
 
-        {/* NOTE: Global search is now handled by a single floating DOM widget (global). 
-            Per-table move buttons are rendered below and only operate on this table's selectedRows */}
+      <div style={styles.card}>
         <div style={styles.header(open, themeColor)} onClick={handleHeaderClick}>
           <div>
             <h3 style={styles.headerTitle}>
@@ -543,27 +588,14 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
 
         {open && isUnlocked ? (
           <div style={styles.tableWrapper}>
-            {/* Per-table controls (move selected, clear selection, zoom indicator) */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "8px 12px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {selectedRows.size > 0 && (
                   <>
-                    <button 
-                      onClick={() => moveSelected('up')}
-                      style={{ padding: "8px 12px", background: "#1976d2", color: "white", border: "none", borderRadius: "6px", fontWeight: "600", cursor: "pointer" }}
-                    >
-                      ↑ Move Selected
-                    </button>
-                    <button 
-                      onClick={() => moveSelected('down')}
-                      style={{ padding: "8px 12px", background: "#1976d2", color: "white", border: "none", borderRadius: "6px", fontWeight: "600", cursor: "pointer" }}
-                    >
-                      ↓ Move Selected
-                    </button>
-                    <span style={{ padding: "6px 10px", background: "#f0f0f0", borderRadius: "6px", fontSize: "13px" }}>
-                      {selectedRows.size} rows selected
-                    </span>
-                    <button onClick={() => { setSelectedRows(new Set()); }} style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Clear Sel</button>
+                    <button onClick={() => moveSelected('up')} style={{ padding: "8px 12px", background: "#1976d2", color: "white", border: "none", borderRadius: "6px", fontWeight: "600", cursor: "pointer" }}>↑ Move Selected</button>
+                    <button onClick={() => moveSelected('down')} style={{ padding: "8px 12px", background: "#1976d2", color: "white", border: "none", borderRadius: "6px", fontWeight: "600", cursor: "pointer" }}>↓ Move Selected</button>
+                    <span style={{ padding: "6px 10px", background: "#f0f0f0", borderRadius: "6px", fontSize: "13px" }}>{selectedRows.size} rows selected</span>
+                    <button onClick={() => setSelectedRows(new Set())} style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Clear Sel</button>
                   </>
                 )}
               </div>
@@ -609,22 +641,18 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
                     <tr><td colSpan="19" style={{...styles.td, textAlign: "center", color: "#999", padding: "15px"}}>No records in this slot</td></tr>
                   ) : filteredItems.map((it) => {
                     const originalIndex = localItems.findIndex(item => item.tuitionId === it.tuitionId);
+                    const rowId = `row-${instanceKey}-${sanitizeKey(String(it.tuitionId))}`;
                     return (
-                      <tr 
+                      <tr
+                        id={rowId}
                         key={it.tuitionId}
                         style={{ backgroundColor: it.rowColor || "inherit", transition: "background 0.2s" }}
+                        tabIndex={-1}
                       >
-                        {/* Checkbox */}
                         <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
-                          <input 
-                            type="checkbox" 
-                            checked={selectedRows.has(it.tuitionId)}
-                            onChange={() => toggleRowSelection(it.tuitionId)}
-                            style={{ cursor: "pointer", width: "18px", height: "18px" }}
-                          />
+                          <input type="checkbox" checked={selectedRows.has(it.tuitionId)} onChange={() => toggleRowSelection(it.tuitionId)} style={{ cursor: "pointer", width: "18px", height: "18px" }} />
                         </td>
 
-                        {/* Sort buttons */}
                         <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                             <button onClick={() => moveRow(originalIndex, 'up')} disabled={originalIndex === 0} style={{...styles.moveBtn, opacity: originalIndex === 0 ? 0.3 : 1}}>▲</button>
@@ -632,14 +660,12 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
                           </div>
                         </td>
 
-                        {/* Row Color */}
                         <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
                           <ColorSwatch color={it.rowColor || "#ffffff"} onChange={(c) => updateRecord(it, "rowColor", c)} />
                         </td>
 
                         <EditableCell val={it.demoTime} type="time" onSave={(val) => updateRecord(it, "demoTime", val)} width={100} />
 
-                        {/* Tuition Name with permanent color picker */}
                         <td style={{ ...styles.td, backgroundColor: it.tuitionNameColor || "inherit", minWidth: 150, padding: "0 10px", height: "35px", cursor: "cell" }}>
                           <div style={{ display: "flex", alignItems: "center", height: "100%", gap: "8px" }}>
                             <span style={{ flex: 1 }}>{it.tuitionName || ""}</span>
@@ -716,9 +742,9 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   );
 }
 
-/* =====================
-   Small subcomponents (unchanged)
-   ===================== */
+/* -----------------------
+   Subcomponents
+   ----------------------- */
 const TH = ({ children, style }) => <th style={{...styles.th, ...style}}>{children}</th>;
 
 function EditableCell({ val, type = "text", options = [], onSave, bg, width, customRender }) {
@@ -775,4 +801,11 @@ function EditableCell({ val, type = "text", options = [], onSave, bg, width, cus
       )}
     </td>
   );
+}
+
+/* =====================
+   Small helpers
+   ===================== */
+function sanitizeKey(k) {
+  return String(k).replace(/[^\w-]/g, "_");
 }
