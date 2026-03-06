@@ -20,6 +20,7 @@ export default function App() {
     if (token) setAuthToken(token);
     setReady(true);
   }, []);
+  
 
   if (!ready) return null;
 

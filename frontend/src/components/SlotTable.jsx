@@ -1,15 +1,20 @@
 import React, { useState, useEffect, useRef } from "react";
 import { api } from "../api/api.js";
 
+/* -----------------------
+   Styles (unchanged mostly)
+   ----------------------- */
 const styles = {
-  card: { background: "#ffffff", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)", overflow: "hidden", marginBottom: "24px", border: "1px solid #eef0f3", fontFamily: "'Calibri', sans-serif" },
+  card: { position: "relative",
+  zIndex: 1,
+  background: "#ffffff", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)", overflow: "hidden", marginBottom: "24px", border: "1px solid #eef0f3", fontFamily: "'Calibri', sans-serif" },
   header: (isOpen, roleColor) => ({
     background: isOpen ? `linear-gradient(135deg, ${roleColor} 0%, ${adjustColor(roleColor, -20)} 100%)` : "#ffffff",
     color: isOpen ? "#ffffff" : "#333", padding: "16px 24px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "all 0.3s ease", borderBottom: isOpen ? "none" : "1px solid #eee",
   }),
   headerTitle: { fontSize: "18px", fontWeight: "700", margin: 0 },
   headerMeta: { fontSize: "13px", opacity: 0.85, marginTop: "4px", display: "block" },
-  tableWrapper: { overflowX: "auto", background: "#ffffff", maxHeight: "500px" },
+  tableWrapper: { overflowX: "auto", background: "#ffffff", maxHeight: "500px", padding: "12px 18px" },
   table: { width: "100%", height: "100%", borderCollapse: "collapse", fontSize: "14px",},
   th: { background: "#f3f2f1", color: "#323130", fontWeight: "600", padding: "8px 10px", textAlign: "left", border: "1px solid #c8c6c4", position: "sticky", top: 0, zIndex: 10 },
   td: { padding: "0",textAlign: "center", border: "1px solid #c8c6c4", verticalAlign: "middle", height: "35px" },
@@ -28,14 +33,28 @@ const styles = {
     zIndex: 3000,
     width: "220px"
   },
-  fixedSearchContainer: {
-    position: "relative",
+  globalSearchContainerBase: {
+     position: "sticky", // relative → fixed
     top: '75px',
     right: 0,
     width: "80%",
     padding: "14px 24px",
-    zIndex: 100,
-  
+    zIndex: 2000, // z-index increase
+    background: "#fff", // white background so table doesn't overlap
+    boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+    borderRadius: "8px"
+  },
+  globalSearchInner: {
+    pointerEvents: "all",
+    width: "min(1100px, 95%)",
+    background: "white",
+    padding: "12px 18px",
+    borderRadius: 10,
+    display: "flex",
+    gap: 12,
+    alignItems: "center",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+    border: "1px solid #e6e6e6"
   },
   modalOverlay: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(5px)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 },
   modalCard: { background: "white", padding: "30px", borderRadius: "16px", width: "90%", maxWidth: "400px", textAlign: "center", boxShadow: "0 20px 50px rgba(0,0,0,0.2)" },
@@ -48,14 +67,14 @@ function adjustColor(color, amount) {
   return '#' + color.replace(/^#/, '').replace(/../g, color => ('0'+Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
 }
 
-// ==================== EXCEL STYLE COLOR PICKER ====================
+/* ==================== COLOR SWATCH (UNCHANGED) ==================== */
 const ColorSwatch = ({ color = "#ffffff", onChange }) => {
   const [showPopup, setShowPopup] = useState(false);
   const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
   const swatchRef = useRef(null);
 
   const presets = [
-    "#ffffff", "#f8f9fa", "#ffebee", "#fff3e0", "#f3e5f5", "#e8f5e9", 
+    "#ffffff", "#f8f9fa", "#ffebee", "#fff3e0", "#f3e5f5", "#e8f5e9",
     "#e3f2fd", "#fff8e1", "#fce4ec", "#e0f2f1", "#f1f8e9", "#e8eaf6",
     "#ef5350", "#ff9800", "#fdd835", "#4caf50", "#2196f3", "#9c27b0",
     "#f44336", "#ff5722", "#ffc107", "#8bc34a", "#03a9f4", "#673ab7"
@@ -114,6 +133,98 @@ const ColorSwatch = ({ color = "#ffffff", onChange }) => {
   );
 };
 
+/* -------------------------
+   Helper: Global Search Manager
+   -------------------------
+   - Creates a single floating DOM search bar appended to body.
+   - Exposes subscribe(cb) and setActive(key) and setTerm(term).
+   - cb receives (term, activeKey).
+*/
+function ensureGlobalSearchManager() {
+  if (typeof window === 'undefined') return null;
+  if (window.__SLOT_SEARCH_MANAGER) return window.__SLOT_SEARCH_MANAGER;
+
+  const manager = {
+    term: "",
+    activeKey: null,
+    subscribers: [],
+    dom: null,
+    inputEl: null,
+    mountCount: 0,
+    createDOM() {
+      if (this.dom) return;
+      const container = document.createElement("div");
+      container.id = "global-slot-searchbar";
+      Object.assign(container.style, styles.globalSearchContainerBase);
+      container.innerHTML = `
+        <div style="${Object.entries(styles.globalSearchInner).map(([k,v])=>`${k}:${v}`).join(';')}">
+          <input id="__slot_global_input" placeholder="Search active slot..." style="flex:1;padding:12px 14px;border-radius:8px;border:1px solid #c8c6c4;font-size:15px;"/>
+          <button id="__slot_global_clear" style="padding:10px 14px;border-radius:6px;background:#f3f2f1;border:none;font-weight:600;cursor:pointer">Clear</button>
+          <div id="__slot_global_label" style="font-size:13px;color:#555;margin-left:8px;min-width:140px;text-align:right"></div>
+        </div>
+      `;
+      document.body.appendChild(container);
+      this.dom = container;
+      this.inputEl = container.querySelector("#__slot_global_input");
+      const clearBtn = container.querySelector("#__slot_global_clear");
+      const label = container.querySelector("#__slot_global_label");
+
+      // Wire events
+      this.inputEl.addEventListener("input", (e) => {
+        this.term = e.target.value;
+        this.notify();
+      });
+      clearBtn.addEventListener("click", () => {
+        this.term = "";
+        this.inputEl.value = "";
+        this.notify();
+      });
+
+      this.updateLabel = () => {
+        label.textContent = this.activeKey ? `Active: ${this.activeKey}` : "";
+      };
+
+      this.hide(); // initially hidden, shown when someone subscribes
+    },
+    show() { if (!this.dom) this.createDOM(); this.dom.style.display = "flex"; if (this.inputEl) this.inputEl.value = this.term || ""; this.updateLabel(); },
+    hide() { if (!this.dom) return; this.dom.style.display = "none"; },
+    notify() {
+      for (const cb of this.subscribers) {
+        try { cb(this.term, this.activeKey); } catch(e){ /* ignore */ }
+      }
+    },
+    subscribe(cb) {
+      if (!this.dom) this.createDOM();
+      this.subscribers.push(cb);
+      this.mountCount++;
+      this.show();
+      // immediately call with current
+      cb(this.term, this.activeKey);
+      return () => {
+        this.subscribers = this.subscribers.filter(x => x !== cb);
+        this.mountCount = Math.max(0, this.mountCount - 1);
+        if (this.mountCount === 0) this.hide();
+      };
+    },
+    setActive(key) {
+      this.activeKey = key;
+      if (this.dom) this.updateLabel();
+      this.notify();
+    },
+    setTerm(term) {
+      this.term = term;
+      if (this.inputEl) this.inputEl.value = term || "";
+      this.notify();
+    }
+  };
+
+  window.__SLOT_SEARCH_MANAGER = manager;
+  return manager;
+}
+
+/* ====================
+   Small helpers & constants (unchanged)
+   ==================== */
 function format12Hour(time24) {
   if (!time24) return "";
   const [h, m] = time24.split(':');
@@ -126,34 +237,34 @@ const DEMO_RATING_VALUES = ["", "Average Demo", "Strong Demo", "Weak Demo"];
 const sourcesList = ["", "mahad", "areeba", "sibgha"];
 const statusList = ["", "1st Demo Done", "2nd Demo Done", "payment Process", "Tuition Done", "Tuition Cancelled", "irrelevant", "Not available", "Pending"];
 const columnColors = { "Rejected Tutor": "#ffebee" };
-const PASSWORD_SECRET = "admin123"; 
+const PASSWORD_SECRET = "admin123";
 
 const getStatusStyle = (status) => {
   switch (status) {
     case "1st Demo Done": return { backgroundColor: "black", color: "white", border: "1px solid black" };
-    case "2nd Demo Done": return { backgroundColor: "#8B4513", color: "white", border: "1px solid #8B4513" }; 
-    case "payment Process": return { backgroundColor: "#fef08a", color: "black", border: "1px solid #fef08a" }; 
-    case "Tuition Done": return { backgroundColor: "#22c55e", color: "white", border: "1px solid #22c55e" }; 
-    case "Tuition Cancelled": return { backgroundColor: "#ef4444", color: "white", border: "1px solid #ef4444" }; 
-    case "irrelevant": return { backgroundColor: "white", color: "black", border: "1px solid #9ca3af" }; 
-    case "Not available": return { backgroundColor: "#4c1d95", color: "white", border: "1px solid #4c1d95" }; 
-    case "Pending": return { backgroundColor: "#3b82f6", color: "white", border: "1px solid #3b82f6" }; 
+    case "2nd Demo Done": return { backgroundColor: "#8B4513", color: "white", border: "1px solid #8B4513" };
+    case "payment Process": return { backgroundColor: "#fef08a", color: "black", border: "1px solid #fef08a" };
+    case "Tuition Done": return { backgroundColor: "#22c55e", color: "white", border: "1px solid #22c55e" };
+    case "Tuition Cancelled": return { backgroundColor: "#ef4444", color: "white", border: "1px solid #ef4444" };
+    case "irrelevant": return { backgroundColor: "white", color: "black", border: "1px solid #9ca3af" };
+    case "Not available": return { backgroundColor: "#4c1d95", color: "white", border: "1px solid #4c1d95" };
+    case "Pending": return { backgroundColor: "#3b82f6", color: "white", border: "1px solid #3b82f6" };
     default: return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
   }
 };
 const getDemoRatingStyle = (rating) => {
   switch (rating) {
-    case "Average Demo": return { backgroundColor: "#ca8a04", color: "white", border: "1px solid #ca8a04" }; 
-    case "Strong Demo": return { backgroundColor: "#22c55e", color: "white", border: "1px solid #22c55e" }; 
-    case "Weak Demo": return { backgroundColor: "#ef4444", color: "white", border: "1px solid #ef4444" }; 
+    case "Average Demo": return { backgroundColor: "#ca8a04", color: "white", border: "1px solid #ca8a04" };
+    case "Strong Demo": return { backgroundColor: "#22c55e", color: "white", border: "1px solid #22c55e" };
+    case "Weak Demo": return { backgroundColor: "#ef4444", color: "white", border: "1px solid #ef4444" };
     default: return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
   }
 };
 const getSourceStyle = (source) => {
   switch (source) {
-    case "mahad": return { backgroundColor: "#0ea5e9", color: "white", border: "1px solid #0ea5e9" }; 
-    case "areeba": return { backgroundColor: "#ec4899", color: "white", border: "1px solid #ec4899" }; 
-    case "sibgha": return { backgroundColor: "#14b8a6", color: "white", border: "1px solid #14b8a6" }; 
+    case "mahad": return { backgroundColor: "#0ea5e9", color: "white", border: "1px solid #0ea5e9" };
+    case "areeba": return { backgroundColor: "#ec4899", color: "white", border: "1px solid #ec4899" };
+    case "sibgha": return { backgroundColor: "#14b8a6", color: "white", border: "1px solid #14b8a6" };
     default: return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
   }
 };
@@ -204,29 +315,64 @@ const TableSkeleton = () => {
   );
 };
 
+/* ===========================
+   SlotTable Component (updated)
+   =========================== */
 export default function SlotTable({ slot, onChanged, isProtected, isLoadingData }) {
   const [open, setOpen] = useState(slot.items?.length > 0);
-  const [zoom, setZoom] = useState(1); 
+  const [zoom, setZoom] = useState(1);
   const [localItems, setLocalItems] = useState([]);
   const [isUpdating, setIsUpdating] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRows, setSelectedRows] = useState(new Set());
 
-  const role = "admin"; 
-  const themeColor = role === "admin" ? "#1e3c72" : "#7b4397"; 
+  const role = "admin";
+  const themeColor = role === "admin" ? "#1e3c72" : "#7b4397";
 
   const [isUnlocked, setIsUnlocked] = useState(!isProtected);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
-  // 🔥 DATA FIX — items undefined na ho
+  const managerRef = useRef(null);
+  const myKey = slot.slotHeader || (`slot-${Math.random().toString(36).slice(2,8)}`);
+
+  // DATA load
   useEffect(() => {
     setLocalItems(slot.items || []);
     setSelectedRows(new Set());
   }, [slot.items]);
 
-  // Client-side search (filteredItems)
+  // Subscribe to global search manager
+  useEffect(() => {
+    const mgr = ensureGlobalSearchManager();
+    managerRef.current = mgr;
+    if (!mgr) return;
+    const unsubscribe = mgr.subscribe((term, activeKey) => {
+      // Only apply term if this slot is active
+      if (activeKey === myKey) setSearchTerm(term || "");
+    });
+    // cleanup
+    return () => {
+      unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myKey]);
+
+  // When this table is opened, set as active in global search
+  useEffect(() => {
+    const mgr = ensureGlobalSearchManager();
+    if (!mgr) return;
+    if (open && isUnlocked) {
+      mgr.setActive(myKey);
+    } else {
+      // if closing and we're active, clear active
+      if (mgr.activeKey === myKey) mgr.setActive(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isUnlocked, myKey]);
+
+  // filtered items uses local searchTerm (updated from global when active)
   const filteredItems = localItems.filter(item => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
@@ -246,27 +392,30 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
       if (onChanged) await onChanged();
     } catch(e) {
       alert("Update failed.");
-      if (onChanged) await onChanged(); 
+      if (onChanged) await onChanged();
     }
   };
-
   async function removeItem(tuitionId) {
-    if (!window.confirm("Delete this row?")) return;
+    if (!window.confirm("Kya aap is row ko TODAY DEMO se delete karna chahte hain?\n\n(Monthly Sheet mein record safe rahega)"))
+      return;
+
     try {
       setIsUpdating(true);
-      await api.delete(`/api/tuitions/${encodeURIComponent(tuitionId)}`);
+      const response = await api.delete(`/api/target/${encodeURIComponent(tuitionId)}`);
+
+      console.log("✅ Today Demo Delete Success:", response.data);
       if (onChanged) await onChanged();
-    } catch (e) {
-      alert("Delete failed");
+    } catch (error) {
+      console.error("❌ Full Error:", error);
+      const msg = error.response?.data?.message || "Delete failed";
+      alert("Delete failed: " + msg);
     } finally {
       setIsUpdating(false);
     }
   }
-
   const moveRow = async (index, direction) => {
-    if (direction === 'up' && index === 0) return; 
-    if (direction === 'down' && index === localItems.length - 1) return; 
-
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === localItems.length - 1) return;
     const newItems = [...localItems];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
 
@@ -285,7 +434,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     }
   };
 
-  // 🔥 MULTIPLE ROW MOVE — jitni baar click karo utni baar move (selection clear nahi hoti)
+  // MULTIPLE ROW MOVE — per-table
   const moveSelected = async (direction) => {
     if (selectedRows.size === 0) return;
 
@@ -297,14 +446,18 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     const selectedItems = indices.sort((a, b) => a - b).map(i => newItems[i]);
     newItems = newItems.filter(item => !selectedSet.has(item.tuitionId));
 
-    let insertIndex = direction === 'up' 
+    let insertIndex = direction === 'up'
       ? Math.max(0, indices[0] - 1)
       : Math.min(newItems.length, indices[indices.length - 1] - selectedItems.length + 1);
 
     newItems.splice(insertIndex, 0, ...selectedItems);
     setLocalItems(newItems);
 
-    setSearchTerm("");   // search clear taake double bar na dikhe aur order sahi dikhe
+    // clear search here so reorder visual is clean (same as you had)
+    setSearchTerm("");
+    // also clear global input so it matches
+    const mgr = managerRef.current;
+    if (mgr) mgr.setTerm("");
 
     try {
       const reorderPayload = newItems.map((item, idx) => ({
@@ -344,11 +497,11 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   };
 
   const handleZoom = (e, factor) => {
-    e.stopPropagation(); 
+    e.stopPropagation();
     setZoom((prev) => {
       let newZoom = prev + factor;
-      if (newZoom < 0.5) newZoom = 0.5; 
-      if (newZoom > 2) newZoom = 2;     
+      if (newZoom < 0.5) newZoom = 0.5;
+      if (newZoom > 2) newZoom = 2;
       return newZoom;
     });
   };
@@ -370,52 +523,8 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
           @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
         `}</style>
 
-        {/* 🔥 SINGLE FIXED SEARCH BAR — select karte hi buttons dikhte hain (double bar nahi aayega) */}
-        {open && isUnlocked && (
-          <div style={styles.fixedSearchContainer}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "end", gap: 16, maxWidth: "1100px", margin: "0 auto" }}>
-              <input
-                placeholder="Search across all columns..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ padding: "12px 16px", borderRadius: 8, border: "1px solid #c8c6c4", fontSize: "15px", flex: 1, maxWidth: "520px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}
-              />
-              <button 
-                onClick={() => { setSearchTerm(""); setSelectedRows(new Set()); }}
-                style={{ padding: "10px 16px", borderRadius: 6, background: "#f3f2f1", border: "none", fontWeight: "600" }}
-              >
-                Clear
-              </button>
-
-              {selectedRows.size > 0 && (
-                <>
-                  <button 
-                    onClick={() => moveSelected('up')}
-                    style={{ padding: "10px 20px", background: "#1976d2", color: "white", border: "none", borderRadius: "6px", fontWeight: "600", cursor: "pointer" }}
-                  >
-                    ↑ Move Selected
-                  </button>
-                  <button 
-                    onClick={() => moveSelected('down')}
-                    style={{ padding: "10px 20px", background: "#1976d2", color: "white", border: "none", borderRadius: "6px", fontWeight: "600", cursor: "pointer" }}
-                  >
-                    ↓ Move Selected
-                  </button>
-                  <span style={{ padding: "8px 12px", background: "#f0f0f0", borderRadius: "6px", fontSize: "13px" }}>
-                    {selectedRows.size} rows selected
-                  </span>
-                </>
-              )}
-
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(255, 255, 255, 0.2)", padding: "4px 10px", borderRadius: "20px" }}>
-                <button onClick={(e) => handleZoom(e, -0.1)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: "18px", fontWeight: "bold" }}>-</button>
-                <span style={{ fontSize: "13px", fontWeight: "600", minWidth: "40px", textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
-                <button onClick={(e) => handleZoom(e, 0.1)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: "16px", fontWeight: "bold" }}>+</button>
-              </div>
-            </div>
-          </div>
-        )}
-
+        {/* NOTE: Global search is now handled by a single floating DOM widget (global). 
+            Per-table move buttons are rendered below and only operate on this table's selectedRows */}
         <div style={styles.header(open, themeColor)} onClick={handleHeaderClick}>
           <div>
             <h3 style={styles.headerTitle}>
@@ -434,6 +543,38 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
 
         {open && isUnlocked ? (
           <div style={styles.tableWrapper}>
+            {/* Per-table controls (move selected, clear selection, zoom indicator) */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {selectedRows.size > 0 && (
+                  <>
+                    <button 
+                      onClick={() => moveSelected('up')}
+                      style={{ padding: "8px 12px", background: "#1976d2", color: "white", border: "none", borderRadius: "6px", fontWeight: "600", cursor: "pointer" }}
+                    >
+                      ↑ Move Selected
+                    </button>
+                    <button 
+                      onClick={() => moveSelected('down')}
+                      style={{ padding: "8px 12px", background: "#1976d2", color: "white", border: "none", borderRadius: "6px", fontWeight: "600", cursor: "pointer" }}
+                    >
+                      ↓ Move Selected
+                    </button>
+                    <span style={{ padding: "6px 10px", background: "#f0f0f0", borderRadius: "6px", fontSize: "13px" }}>
+                      {selectedRows.size} rows selected
+                    </span>
+                    <button onClick={() => { setSelectedRows(new Set()); }} style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Clear Sel</button>
+                  </>
+                )}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <button onClick={(e) => handleZoom(e, -0.1)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: "18px", fontWeight: "bold" }}>-</button>
+                <span style={{ fontSize: "13px", fontWeight: "600", minWidth: "40px", textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
+                <button onClick={(e) => handleZoom(e, 0.1)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: "16px", fontWeight: "bold" }}>+</button>
+              </div>
+            </div>
+
             <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", transition: "transform 0.2s ease", width: `${100 / zoom}%` }}>
               <table style={styles.table}>
                 <thead>
@@ -441,7 +582,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
                     <TH style={{ width: "42px", textAlign: "center", background: "#e5e7eb" }}>✓</TH>
                     <TH style={{ width: "40px", textAlign: "center", background: "#e5e7eb" }}>Sort</TH>
                     <TH style={{ width: "30px", textAlign: "center", background: "#e5e7eb" }}>🎨</TH>
-                    
+
                     <TH>Demo Time</TH>
                     <TH>Tuition Name</TH>
                     <TH>Source</TH>
@@ -517,14 +658,14 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
                         <EditableCell val={it.status} options={statusList} onSave={(val) => updateRecord(it, "status", val)} width={140} customRender={(val) => renderPill(val, getStatusStyle)} />
                         <EditableCell val={it.feedback} onSave={(val) => updateRecord(it, "feedback", val)} width={180} />
                         <EditableCell val={it.demoDate} type="date" onSave={(val) => updateRecord(it, "demoDate", val)} width={120} />
-                        
+
                         <td tabIndex={0} onKeyDown={handleGridKeyDown} className="excel-cell" style={{...styles.td, padding: "0 10px", fontWeight: "bold", color: "#555", backgroundColor: "inherit"}}>
                           {it.tuitionId}
                         </td>
-                        
+
                         <EditableCell val={it.demoRating} options={DEMO_RATING_VALUES} onSave={(val) => updateRecord(it, "demoRating", val)} width={130} customRender={(val) => renderPill(val, getDemoRatingStyle)} />
                         <EditableCell val={it.syncFlag || it.sync} onSave={(val) => updateRecord(it, "syncFlag", val)} width={80} />
-                        
+
                         <td tabIndex={0} onKeyDown={handleGridKeyDown} className="excel-cell" style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
                           <button style={styles.actionBtn} onClick={() => removeItem(it.tuitionId)}>Del</button>
                         </td>
@@ -575,6 +716,9 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   );
 }
 
+/* =====================
+   Small subcomponents (unchanged)
+   ===================== */
 const TH = ({ children, style }) => <th style={{...styles.th, ...style}}>{children}</th>;
 
 function EditableCell({ val, type = "text", options = [], onSave, bg, width, customRender }) {

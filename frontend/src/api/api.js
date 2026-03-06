@@ -22,3 +22,14 @@ export function clearToken() {
   localStorage.removeItem("tp_token");
   setAuthToken(null);
 }
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      clearToken();              // token delete
+      window.location.href = "/login"; // redirect to login
+    }
+    return Promise.reject(error);
+  }
+);
