@@ -1,34 +1,51 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import { getStoredToken, setAuthToken } from "./api/api.js";
-import '../node_modules/bootstrap/dist/css/bootstrap.min.css';
-import '../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js';
 
+import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap/dist/js/bootstrap.bundle.min.js";
+
+// 🔒 Private Route
 function PrivateRoute({ children }) {
   const token = getStoredToken();
-  if (!token) return <Navigate to="/login" replace />;
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
   return children;
 }
 
 export default function App() {
-  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const token = getStoredToken();
-    if (token) setAuthToken(token);
-    setReady(true);
+    if (token) {
+      setAuthToken(token);
+    }
   }, []);
-  
-
-  if (!ready) return null;
 
   return (
     <Routes>
+
+      {/* Login */}
       <Route path="/login" element={<Login />} />
-      <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+
+      {/* Protected Route */}
+      <Route
+        path="/"
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
+
     </Routes>
   );
 }

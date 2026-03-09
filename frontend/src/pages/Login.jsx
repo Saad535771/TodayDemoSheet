@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, storeToken } from "../api/api.js";
+import { api } from "../api/api";
 import Logo from "../assets/logo-white.png"; // Yeh add karein
 // --- CSS Styles (Injected via JS for easy copy-paste) ---
 const styles = {
@@ -135,48 +135,61 @@ export default function Login() {
   
   // State
   const [role, setRole] = useState("admin");
-  const [email, setEmail] = useState("admin@portal.com");
-  const [password, setPassword] = useState("admin@123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   // Theme Colors based on Role
-  const themeColor = role === "admin" ? "#1e3c72" : "#7b4397"; // Blue for Admin, Purple for Staff
-  const bgGradient = role === "admin" 
-    ? "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)" 
+  const themeColor =
+  role === "admin"
+    ? "#1e3c72"
+    : role === "hod"
+    ? "#0f9b8e"
+    : "#7b4397";
+ const bgGradient =
+  role === "admin"
+    ? "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)"
+    : role === "hod"
+    ? "linear-gradient(135deg, #0f9b8e 0%, #38ef7d 100%)"
     : "linear-gradient(135deg, #7b4397 0%, #dc2430 100%)";
 
-  const handleRoleChange = (newRole) => {
-    setRole(newRole);
-    setError("");
-    // Optional: Auto-fill logic for demo purposes
-    if (newRole === "admin") {
-      setEmail("admin@portal.com");
-      setPassword("admin@123");
-    } else {
-      setEmail(""); // Or staff default
-      setPassword("");
-    }
-  };
+ const handleRoleChange = (newRole) => {
+  setRole(newRole);
+  setError("");
+  setEmail("");
+  setPassword("");
+};
 
   async function onSubmit(e) {
     e.preventDefault();
     setError("");
     setLoading(true);
     
-    try {
-      // Note: Backend might ignore 'role' payload if it detects via email, 
-      // but we send it or handle UI context here.
-      const { data } = await api.post("/api/auth/login", { email, password, role });
-      storeToken(data.token);
-      nav("/", { replace: true });
-    } catch (err) {
-      setError(err?.response?.data?.message || "Login failed. Please check credentials.");
-    } finally {
-      setLoading(false);
-    }
+   try {
+    const res = await api.post("/auth/login", {
+      email,
+      password,
+      role
+    });
+
+    const data = res.data;
+
+    // token save
+    localStorage.setItem("tp_token", data.token);
+
+    // axios header set
+    setAuthToken(data.token);
+
+    console.log("TOKEN:", data.token);
+    console.log("AXIOS HEADER:", api.defaults.headers.common.Authorization);
+
+    nav("/");
+  } catch (err) {
+    console.log(err);
   }
+};
 
   return (
     <div style={styles.container}>
@@ -212,6 +225,13 @@ export default function Login() {
             >
               Admin Login
             </button>
+             <button
+    type="button"
+    style={styles.roleBtn(role === "hod", "#0f9b8e")}
+    onClick={() => handleRoleChange("hod")}
+  >
+    HOD Login
+  </button>
             <button 
               type="button"
               style={styles.roleBtn(role === "staff", "#7b4397")} 
@@ -267,7 +287,7 @@ export default function Login() {
               type="submit" 
               disabled={loading}
             >
-              {loading ? "Signing in..." : `Login as ${role === 'admin' ? 'Admin' : 'Staff'}`}
+             {loading ? "Signing in..." : `Login as ${role.toUpperCase()}`}
             </button>
           </form>
 

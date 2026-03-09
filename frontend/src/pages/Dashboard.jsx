@@ -183,8 +183,8 @@ export default function Dashboard() {
         setMe(userData);
         
         // --- LOGIC: Redirect based on Role & Permissions ---
-        if (userData.role === 'admin') {
-            setTab("main");
+        if (userData.role === 'admin' || userData.role === 'hod') {
+    setTab("main");
         } else {
             // Check permissions
             if (userData.access_monthly) {
@@ -388,6 +388,8 @@ export default function Dashboard() {
                 >
                   <option value="staff">Staff</option>
                   <option value="admin">Admin</option>
+                  <option value="hod">Hod</option>
+
                 </select>
               </div>
 
