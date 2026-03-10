@@ -14,7 +14,7 @@ export default function TargetBoard() {
     setLoading(true);
     setError("");
     try {
-      const { data } = await api.get("/api/target", { params: filter ? { filter } : {} });
+      const { data } = await api.get("/target", { params: filter ? { filter } : {} });
       setSlots(data.slots || []);
     } catch (e) {
       setError(e?.response?.data?.message || "Failed to load");

@@ -76,7 +76,7 @@ export default function MonthlyTuition({ onLoad }) {
     try {
       // time property ab sirf demoTime par base karegi kyunke classTime remove ho chuka hai
       const payloadToSubmit = { ...form, time: form.demoTime || "12:00" };
-      await api.post("/api/tuitions", payloadToSubmit);
+      await api.post("/tuitions", payloadToSubmit);
       setForm(emptyForm());
       await onLoad();
     } catch (e) {

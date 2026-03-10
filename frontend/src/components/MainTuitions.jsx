@@ -11,7 +11,7 @@ export default function MainTuitions() {
   async function load() {
     setLoading(true);
     try {
-      const { data } = await api.get("/api/tuitions");
+      const { data } = await api.get("/tuitions");
       setItems(data.items || []);
     } catch (e) {
       console.error("Failed to load data");

@@ -440,7 +440,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     try {
       setLocalItems(prev => prev.map(x => x.tuitionId === item.tuitionId ? { ...x, [field]: newValue } : x));
       const payload = { ...item, [field]: newValue, _source: "target" };
-      await api.patch(`/api/target/${encodeURIComponent(item.tuitionId)}`, payload);
+      await api.patch(`/target/${encodeURIComponent(item.tuitionId)}`, payload);
       if (onChanged) await onChanged();
     } catch(e) {
       alert("Update failed.");
@@ -452,7 +452,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     if (!window.confirm("Kya aap is row ko TODAY DEMO se delete karna chahte hain?\n\n(Monthly Sheet mein record safe rahega)")) return;
     try {
       setIsUpdating(true);
-      const response = await api.delete(`/api/target/${encodeURIComponent(tuitionId)}`);
+      const response = await api.delete(`/target/${encodeURIComponent(tuitionId)}`);
       console.log("✅ Today Demo Delete Success:", response.data);
       if (onChanged) await onChanged();
     } catch (error) {
@@ -477,7 +477,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
         tuitionId: item.tuitionId,
         orderIndex: idx
       }));
-      await api.post("/api/target/reorder", { items: reorderPayload });
+      await api.post("/target/reorder", { items: reorderPayload });
     } catch (error) {
       alert("Nayi tarteeb save nahi ho saki. Backend check karein.");
       if (onChanged) await onChanged();
@@ -510,7 +510,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
         tuitionId: item.tuitionId,
         orderIndex: idx
       }));
-      await api.post("/api/target/reorder", { items: reorderPayload });
+      await api.post("/target/reorder", { items: reorderPayload });
     } catch (error) {
       alert("Nayi tarteeb save nahi ho saki. Backend check karein.");
       if (onChanged) await onChanged();

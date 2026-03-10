@@ -250,7 +250,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     try {
       if (!query) { setLocalItems(items); return; }
       setIsSearching(true);
-      const resp = await api.get("/api/tuitions/search", {
+      const resp = await api.get("/tuitions/search", {
         params: { q: query, fields: allColumns.map(c => c.key).join(","), sortField, sortDir, assignedTo: assignedFilter || "" }
       });
       if (resp?.data?.items) setLocalItems(resp.data.items);
@@ -268,7 +268,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     try {
       setLocalItems(prev => prev.map(x => x.tuitionId === item.tuitionId ? { ...x, [field]: newValue } : x));
       const payload = { ...item, [field]: newValue, _source: "main" };
-      await api.patch(`/api/tuitions/${encodeURIComponent(item.tuitionId)}`, payload);
+      await api.patch(`/tuitions/${encodeURIComponent(item.tuitionId)}`, payload);
     } catch(e) {
       alert("Update failed.");
       load(); 
@@ -278,7 +278,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   async function removeItem(tuitionId) { 
     if (!window.confirm("Delete this row?")) return;
     try {
-      await api.delete(`/api/tuitions/${encodeURIComponent(tuitionId)}`);
+      await api.delete(`/tuitions/${encodeURIComponent(tuitionId)}`);
       await load();
     } catch (e) { alert("Delete failed"); }
   }
@@ -294,7 +294,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
 
     try {
       const reorderPayload = newItems.map((item, idx) => ({ tuitionId: item.tuitionId, orderIndex: idx }));
-      await api.post("/api/tuitions/reorder", { items: reorderPayload });
+      await api.post("/tuitions/reorder", { items: reorderPayload });
     } catch (error) {
       console.error("Failed to save reorder", error);
       load(); 
@@ -322,7 +322,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
 
     try {
       const reorderPayload = newItems.map((item, idx) => ({ tuitionId: item.tuitionId, orderIndex: idx }));
-      await api.post("/api/tuitions/reorder", { items: reorderPayload });
+      await api.post("/tuitions/reorder", { items: reorderPayload });
     } catch (error) {
       console.error("Failed to save reorder", error);
       load(); 

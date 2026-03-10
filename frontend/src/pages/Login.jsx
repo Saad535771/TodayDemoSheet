@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api/api";
+import { api,storeToken } from "../api/api";
 import Logo from "../assets/logo-white.png"; // Yeh add karein
 // --- CSS Styles (Injected via JS for easy copy-paste) ---
 const styles = {
@@ -129,10 +129,8 @@ const styles = {
     background: "rgba(255,255,255,0.1)",
   },
 };
-
 export default function Login() {
   const nav = useNavigate();
-  
   // State
   const [role, setRole] = useState("admin");
   const [email, setEmail] = useState("");
@@ -162,12 +160,12 @@ export default function Login() {
   setPassword("");
 };
 
-  async function onSubmit(e) {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    
-   try {
+async function onSubmit(e) {
+  e.preventDefault();
+  setError("");
+  setLoading(true);
+
+  try {
     const res = await api.post("/auth/login", {
       email,
       password,
@@ -176,20 +174,22 @@ export default function Login() {
 
     const data = res.data;
 
-    // token save
-    localStorage.setItem("tp_token", data.token);
-
-    // axios header set
-    setAuthToken(data.token);
-
-    console.log("TOKEN:", data.token);
-    console.log("AXIOS HEADER:", api.defaults.headers.common.Authorization);
-
+    storeToken(data.token);
     nav("/");
   } catch (err) {
     console.log(err);
+
+    if (err.response?.data?.message) {
+      setError(err.response.data.message);
+    } else if (err.response?.data?.errors?.length) {
+      setError(err.response.data.errors[0].msg);
+    } else {
+      setError("Login failed");
+    }
+  } finally {
+    setLoading(false);
   }
-};
+}
 
   return (
     <div style={styles.container}>

@@ -107,7 +107,7 @@ export default function TrashBin() {
 
   async function fetchTrash() {
     try {
-      const res = await api.get("/api/tuitions/trash");
+      const res = await api.get("/tuitions/trash");
       setItems(res.data);
     } catch (err) {
       console.error("Failed to load trash", err);
@@ -120,7 +120,7 @@ export default function TrashBin() {
   async function handleRestore(id) {
     // Confirm ki zaroorat nahi hoti restore mein usually, par laga sakte hain
     try {
-      await api.put(`/api/tuitions/${id}/restore`);
+      await api.put(`/tuitions/${id}/restore`);
       // UI se remove karein
       setItems(prev => prev.filter(item => item.id !== id));
     } catch (err) {
@@ -134,7 +134,7 @@ export default function TrashBin() {
       return;
     }
     try {
-      await api.delete(`/api/tuitions/${id}/force`);
+      await api.delete(`/tuitions/${id}/force`);
       // UI se remove karein
       setItems(prev => prev.filter(item => item.id !== id));
     } catch (err) {

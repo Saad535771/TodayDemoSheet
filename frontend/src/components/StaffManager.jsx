@@ -94,7 +94,7 @@ export default function StaffManager() {
 
   async function fetchUsers() {
     try {
-      const res = await api.get("/api/auth/users");
+      const res = await api.get("/auth/users");
       setUsers(res.data.users);
     } catch (err) {
       console.error("Failed to load users", err);
@@ -114,7 +114,7 @@ export default function StaffManager() {
     try {
       const user = updatedUsers.find(u => u.id === userId);
       // Backend ko saari permissions bhejni hoti hain
-      await api.put(`/api/auth/users/${userId}/permissions`, {
+      await api.put(`/auth/users/${userId}/permissions`, {
         access_monthly: user.access_monthly,
         access_demo: user.access_demo,
         access_trash: user.access_trash // 👈 yeh zaroori hai
@@ -130,7 +130,7 @@ export default function StaffManager() {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
     
     try {
-      await api.delete(`/api/auth/users/${userId}`);
+      await api.delete(`/auth/users/${userId}`);
       setUsers(users.filter(u => u.id !== userId));
     } catch (err) {
       alert(err.response?.data?.message || "Failed to delete");

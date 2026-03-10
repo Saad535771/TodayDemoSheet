@@ -1,7 +1,6 @@
 <!-- payment sheet -->
 date tuition name,country,class,
-tutor name,tutor share,lacas share,
-total fees,
+tutor name,tutor share,lacas share,total fees,
 status(fees recive,fee pending,tuition close,tuition pending),
 feedback,otm name,
 <!--  -->

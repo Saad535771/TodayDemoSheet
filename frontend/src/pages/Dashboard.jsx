@@ -173,33 +173,34 @@ export default function Dashboard() {
   const [regLoading, setRegLoading] = useState(false);
   const [regMsg, setRegMsg] = useState("");
 
-  useEffect(() => {
-    const token = getStoredToken();
-    if (token) setAuthToken(token);
-    
-    api.get("/api/auth/me")
-      .then(r => {
-        const userData = r.data.user;
-        setMe(userData);
-        
-        // --- LOGIC: Redirect based on Role & Permissions ---
-        if (userData.role === 'admin' || userData.role === 'hod') {
-    setTab("main");
+useEffect(() => {
+  const token = getStoredToken();
+  if (token) setAuthToken(token);
+
+  api.get("/auth/me")
+    .then(r => {
+      const userData = r.data.user;
+      setMe(userData);
+
+      if (userData.role === "admin" || userData.role === "hod") {
+        setTab("main");
+      } else {
+        if (userData.access_monthly) {
+          setTab("main");
+        } else if (userData.access_demo) {
+          setTab("target");
+        } else if (userData.access_trash) {
+          setTab("trash");
         } else {
-            // Check permissions
-            if (userData.access_monthly) {
-                setTab("main");
-            } else if (userData.access_demo) {
-                setTab("target");
-            } else if (userData.access_trash) { // 👈 Check Trash Access
-                setTab("trash");
-            } else {
-                setTab("no_access");
-            }
+          setTab("no_access");
         }
-      })
-      .catch(() => setMe(null));
-  }, []);
+      }
+    })
+    .catch((err) => {
+      console.log("ME ERROR:", err.response?.data || err.message);
+      setMe(null);
+    });
+}, []);
 
   function logout() {
     clearToken();
@@ -212,7 +213,7 @@ export default function Dashboard() {
     setRegLoading(true);
     setRegMsg("");
     try {
-      await api.post("/api/auth/register", regData);
+      await api.post("/auth/register", regData);
       setRegMsg("✅ User created successfully!");
       setRegData({ email: "", password: "", role: "staff" });
       setTimeout(() => {
