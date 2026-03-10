@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { api } from "../api/api.js";
-import debounce from "lodash.debounce"; 
 
 const styles = {
   card: { background: "#ffffff", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)", padding: "24px", marginBottom: "24px", border: "1px solid #eef0f3" },
@@ -25,7 +24,7 @@ const styles = {
     zIndex: 10,
     position: "relative"          
   },
-  td: { padding: "0", border: "1px solid #c8c6c4",textAlign: "center", verticalAlign: "middle", height: "15px",width:"15px" },
+  td: { padding: "0", border: "1px solid #c8c4", textAlign: "center", verticalAlign: "middle", height: "15px", width:"15px" },
   inlineInput: { width: "100%", height: "100%", padding: "8px 10px", border: "none", borderRadius: "0", fontSize: "14px", background: "transparent", outline: "none", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif" },
   inlineSelect: { width: "100%", height: "100%", padding: "8px 10px", border: "none", borderRadius: "0", fontSize: "14px", background: "transparent", outline: "none", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif", cursor: "pointer" },
   actionBtn: { padding: "6px 10px", borderRadius: "4px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: "#fee2e2", color: "#b91c1c", fontFamily: "'Calibri', sans-serif" },
@@ -40,7 +39,7 @@ const styles = {
     display: "inline-block"
   },
   pickerPopup: {
-    position: "fixed",                    // ← zoom ke bawajood sahi position
+    position: "fixed",
     background: "white",
     border: "1px solid #ccc",
     padding: "10px",
@@ -50,7 +49,6 @@ const styles = {
     zIndex: 3000,
     width: "220px"
   },
-  
   fixedSearchContainer: {
     position: "fixed",
     top: '75px',
@@ -62,7 +60,7 @@ const styles = {
   }
 };
 
-// ==================== EXCEL STYLE COLOR PICKER (hamesha visible swatch + popup) ====================
+// ==================== EXCEL STYLE COLOR PICKER ====================
 const ColorSwatch = ({ color = "#ffffff", onChange }) => {
   const [showPopup, setShowPopup] = useState(false);
   const [popupPos, setPopupPos] = useState({ top: "-330px", left: 0 });
@@ -100,7 +98,7 @@ const ColorSwatch = ({ color = "#ffffff", onChange }) => {
       />
       {showPopup && (
         <div 
-          style={{ ...styles.pickerPopup,  left: popupPos.left }}
+          style={{ ...styles.pickerPopup, left: popupPos.left }}
           onClick={e => e.stopPropagation()}
         >
           <div style={{ marginBottom: "8px", fontSize: "13px", fontWeight: "600", color: "#444" }}>
@@ -212,7 +210,7 @@ export const handleGridKeyDown = (e) => {
 
 export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const [localItems, setLocalItems] = useState([]);
-  const [selectedRows, setSelectedRows] = useState(new Set()); // multiple select
+  const [selectedRows, setSelectedRows] = useState(new Set());
 
   useEffect(() => {
     setLocalItems(items);
@@ -280,7 +278,9 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     try {
       await api.delete(`/tuitions/${encodeURIComponent(tuitionId)}`);
       await load();
-    } catch (e) { alert("Delete failed"); }
+    } catch (e) { 
+      alert("Delete failed"); 
+    }
   }
 
   const moveRow = async (index, direction) => { 
@@ -301,7 +301,6 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     }
   };
 
-  // 🔥 SORTING FIX: Multiple rows move (jitni baar click karo utni baar move — selection clear nahi hoti)
   const moveSelected = async (direction) => {
     if (selectedRows.size === 0) return;
 
@@ -501,7 +500,6 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                 <tr><td colSpan="22" style={{padding: 20, textAlign: "center", color: "#888"}}>No records found</td></tr>
               ) : localItems.map((it, index) => (
                 <tr key={it.tuitionId} style={{ backgroundColor: it.rowColor || "inherit", transition: "background 0.2s" }}>
-                  {/* Checkbox for multiple select */}
                   <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
                     <input 
                       type="checkbox" 
@@ -511,7 +509,6 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                     />
                   </td>
 
-                  {/* Single row move */}
                   <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                       <button onClick={() => moveRow(index, 'up')} disabled={index === 0} style={{...styles.moveBtn, opacity: index === 0 ? 0.3 : 1}}>▲</button>
@@ -519,36 +516,19 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                     </div>
                   </td>
 
-                  {/* Row Color (Excel style) */}
                   <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
                     <ColorSwatch color={it.rowColor || "#ffffff"} onChange={(c) => updateRecord(it, "rowColor", c)} />
                   </td>
                   
                   <EditableCell val={it.demoTime} type="time" onSave={(val) => updateRecord(it, "demoTime", val)} width={100} />
 
-                  {/* Tuition Name — text + hamesha visible color square (screenshot jaisa) */}
-                  <td 
-                    tabIndex={0}
-                    className="excel-cell"
-                    onClick={() => {}} // text pe click karne se edit mode mein nahi jaaye (sirf color click pe popup)
-                    onKeyDown={(e) => { if (e.key === 'Enter') {} else handleGridKeyDown(e); }}
-                    style={{ 
-                      ...styles.td, 
-                      backgroundColor: it.tuitionNameColor || "inherit", 
-                      minWidth: 180, 
-                      padding: "0 10px", 
-                      height: "35px",
-                      cursor: "cell"
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", height: "100%", gap: "8px" }}>
-                      <span style={{ flex: 1 }}>{it.tuitionName || ""}</span>
-                      <ColorSwatch 
-                        color={it.tuitionNameColor || "#ffffff"} 
-                        onChange={(c) => updateRecord(it, "tuitionNameColor", c)} 
-                      />
-                    </div>
-                  </td>
+                  <EditableTuitionNameCell
+                    name={it.tuitionName}
+                    color={it.tuitionNameColor}
+                    onSaveName={(val) => updateRecord(it, "tuitionName", val)}
+                    onSaveColor={(c) => updateRecord(it, "tuitionNameColor", c)}
+                    width={180}
+                  />
                   
                   <EditableCell val={it.status} options={statusList} onSave={(val) => updateRecord(it, "status", val)} width={140} customRender={(val) => renderPill(val, getStatusStyle)} />
                   <EditableCell val={it.estimatedFee} onSave={(val) => updateRecord(it, "estimatedFee", val)} width={100} />
@@ -586,7 +566,6 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
 
 const TH = ({ children, style }) => <th style={{...styles.th, ...style}}>{children}</th>;
 
-// EditableCell (sirf text edit ke liye — color Tuition Name aur Row mein alag handle)
 function EditableCell({ val, type = "text", options = [], onSave, bg, width, customRender }) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentVal, setCurrentVal] = useState(val || "");
@@ -647,6 +626,118 @@ function EditableCell({ val, type = "text", options = [], onSave, bg, width, cus
         ) : (
           <input autoFocus type={type} style={{ ...styles.inlineInput, flex: 1 }} value={currentVal} onChange={e => setCurrentVal(e.target.value)} onBlur={handleBlur} onKeyDown={handleInputKeyDown} />
         )}
+      </div>
+    </td>
+  );
+}
+
+function EditableTuitionNameCell({ name, color, onSaveName, onSaveColor, width = 180 }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentVal, setCurrentVal] = useState(name || "");
+
+  useEffect(() => {
+    setCurrentVal(name || "");
+  }, [name]);
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (currentVal !== (name || "")) {
+      onSaveName(currentVal);
+    }
+  };
+
+  const moveToNextRowSameColumn = (target) => {
+    const td = target.closest("td");
+    const cellIndex = td?.cellIndex;
+    const nextRow = td?.parentElement?.nextElementSibling;
+
+    setTimeout(() => {
+      if (nextRow && cellIndex !== undefined) {
+        const nextTd = nextRow.children[cellIndex];
+        if (nextTd) nextTd.focus();
+      }
+    }, 50);
+  };
+
+  const handleInputKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleBlur();
+      moveToNextRowSameColumn(e.target);
+    } else if (e.key === "Escape") {
+      setCurrentVal(name || "");
+      setIsEditing(false);
+    }
+  };
+
+  if (!isEditing) {
+    return (
+      <td
+        tabIndex={0}
+        className="excel-cell"
+        onClick={() => setIsEditing(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") setIsEditing(true);
+          else handleGridKeyDown(e);
+        }}
+        style={{
+          ...styles.td,
+          backgroundColor: color || "inherit",
+          minWidth: width,
+          padding: "0 10px",
+          height: "35px",
+          cursor: "cell"
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", height: "100%", gap: "8px" }}>
+          <span style={{ flex: 1, textAlign: "left" }}>{name || ""}</span>
+
+          <div
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <ColorSwatch
+              color={color || "#ffffff"}
+              onChange={(c) => onSaveColor(c)}
+            />
+          </div>
+        </div>
+      </td>
+    );
+  }
+
+  return (
+    <td
+      style={{
+        ...styles.td,
+        backgroundColor: color || "white",
+        minWidth: width,
+        height: "35px"
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", height: "100%", gap: "8px" }}>
+        <input
+          autoFocus
+          type="text"
+          value={currentVal}
+          onChange={(e) => setCurrentVal(e.target.value)}
+          onBlur={handleBlur}
+          onKeyDown={handleInputKeyDown}
+          style={{ ...styles.inlineInput, flex: 1 }}
+        />
+
+        <div
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <ColorSwatch
+            color={color || "#ffffff"}
+            onChange={(c) => onSaveColor(c)}
+          />
+        </div>
       </div>
     </td>
   );

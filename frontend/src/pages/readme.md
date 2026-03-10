@@ -7,14 +7,9 @@ feedback,otm name,
 
 otm name ko add karna ha ===> monthly sheet mae last py ja k
 <!-- access -->
-
 <!-- admin -->
 payments,recycle bin
 <!-- HOD -->
 sheets,payment sheet without fees column but we on off in admin panel
 <!-- add access button for user -->
 tutor share,lacas share ,total fees
-
-
-
-

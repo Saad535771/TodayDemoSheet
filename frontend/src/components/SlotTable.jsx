@@ -746,14 +746,11 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
    Subcomponents
    ----------------------- */
 const TH = ({ children, style }) => <th style={{...styles.th, ...style}}>{children}</th>;
-
 function EditableCell({ val, type = "text", options = [], onSave, bg, width, customRender }) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentVal, setCurrentVal] = useState(val || "");
   const tdRef = useRef(null);
-
   useEffect(() => { setCurrentVal(val || ""); }, [val]);
-
   const handleBlur = () => {
     setIsEditing(false);
     if (currentVal !== val) onSave(currentVal);
@@ -802,7 +799,6 @@ function EditableCell({ val, type = "text", options = [], onSave, bg, width, cus
     </td>
   );
 }
-
 /* =====================
    Small helpers
    ===================== */
