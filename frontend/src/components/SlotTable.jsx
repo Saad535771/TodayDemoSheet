@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { api } from "../api/api.js";
 
 const styles = {
@@ -27,9 +27,24 @@ const styles = {
     borderBottom: isOpen ? "none" : "1px solid #eee",
   }),
   headerTitle: { fontSize: "18px", fontWeight: "700", margin: 0 },
-  headerMeta: { fontSize: "13px", opacity: 0.85, marginTop: "4px", display: "block" },
-  tableWrapper: { overflowX: "auto", background: "#ffffff", maxHeight: "500px" },
-  table: { width: "100%", height: "100%", borderCollapse: "collapse", fontSize: "14px" },
+  headerMeta: {
+    fontSize: "13px",
+    opacity: 0.85,
+    marginTop: "4px",
+    display: "block",
+  },
+  tableWrapper: {
+    overflowX: "auto",
+    overflowY: "auto",
+    background: "#ffffff",
+    maxHeight: "500px",
+  },
+  table: {
+    width: "100%",
+    height: "100%",
+    borderCollapse: "collapse",
+    fontSize: "14px",
+  },
   th: {
     background: "#f3f2f1",
     color: "#323130",
@@ -111,10 +126,6 @@ const styles = {
     zIndex: 3000,
     width: "220px",
   },
-  globalSearchContainerBaseCSS:
-    "position:fixed; top:75px; left:50%; transform:translateX(-50%); z-index:99999; pointer-events:auto;",
-  globalSearchInnerCSS:
-    "width:min(1100px,95%); background:white; padding:12px 18px; border-radius:10px; display:flex; gap:12px; align-items:center; box-shadow:0 10px 30px rgba(0,0,0,0.08); border:1px solid #e6e6e6;",
   modalOverlay: {
     position: "fixed",
     top: 0,
@@ -165,35 +176,336 @@ function adjustColor(color, amount) {
     color
       .replace(/^#/, "")
       .replace(/../g, (c) =>
-        ("0" + Math.min(255, Math.max(0, parseInt(c, 16) + amount)).toString(16)).substr(-2)
+        ("0" + Math.min(255, Math.max(0, parseInt(c, 16) + amount)).toString(16)).slice(-2)
       )
   );
 }
 
+/* =========================
+   GLOBAL SEARCH MANAGER
+   ========================= */
+function createGlobalSearchManager() {
+  let term = "";
+  let hostId = null;
+  const listeners = new Set();
+  const activeSlots = new Set();
+
+  const getState = () => ({
+    term,
+    visible: activeSlots.size > 0,
+    hostId,
+  });
+
+  const notify = () => {
+    const snapshot = getState();
+    listeners.forEach((fn) => fn(snapshot));
+  };
+
+  return {
+    getState,
+    subscribe(fn) {
+      listeners.add(fn);
+      fn(getState());
+      return () => listeners.delete(fn);
+    },
+    setTerm(nextTerm) {
+      term = String(nextTerm || "");
+      notify();
+    },
+    clear() {
+      term = "";
+      notify();
+    },
+    setActive(slotId, active) {
+      if (!slotId) return;
+      if (active) activeSlots.add(slotId);
+      else activeSlots.delete(slotId);
+      notify();
+    },
+    claimHost(id) {
+      if (!hostId) hostId = id;
+      notify();
+      return hostId === id;
+    },
+    releaseHost(id) {
+      if (hostId === id) hostId = null;
+      notify();
+    },
+    isHost(id) {
+      return hostId === id;
+    },
+  };
+}
+
+function getGlobalSearchManager() {
+  if (typeof window === "undefined") return createGlobalSearchManager();
+  if (!window.__SLOT_GLOBAL_SEARCH) {
+    window.__SLOT_GLOBAL_SEARCH = createGlobalSearchManager();
+  }
+  return window.__SLOT_GLOBAL_SEARCH;
+}
+
+/* =========================
+   Search helpers
+   ========================= */
+const SEARCH_KEYS = [
+  "demoTime",
+  "tuitionName",
+  "source",
+  "country",
+  "parentsContact",
+  "parentContact",
+  "className",
+  "class",
+  "subjects",
+  "subject",
+  "tutorName",
+  "tutorFees",
+  "tutorFee",
+  "rejectedTutor",
+  "status",
+  "feedback",
+  "demoDate",
+  "tuitionId",
+  "demoRating",
+  "syncFlag",
+  "sync",
+];
+
+function useDebouncedValue(value, delay = 350) {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debounced;
+}
+
+function normalizeValue(value) {
+  if (value === null || value === undefined) return "";
+  return String(value).toLowerCase().trim();
+}
+
+function getItemSearchString(item) {
+  return SEARCH_KEYS.map((key) => normalizeValue(item[key])).join(" ");
+}
+
+function itemMatchesSearch(item, term) {
+  const q = normalizeValue(term);
+  if (!q) return true;
+  return getItemSearchString(item).includes(q);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function highlightText(text, term) {
+  const value = text === null || text === undefined ? "" : String(text);
+  const q = String(term || "").trim();
+
+  if (!q) return value;
+
+  const regex = new RegExp(`(${escapeRegExp(q)})`, "ig");
+  const parts = value.split(regex);
+
+  return parts.map((part, index) =>
+    regex.test(part) ? (
+      <mark
+        key={`${part}-${index}`}
+        style={{
+          background: "#fff59d",
+          color: "#111",
+          padding: "0 1px",
+          borderRadius: "2px",
+        }}
+      >
+        {part}
+      </mark>
+    ) : (
+      <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>
+    )
+  );
+}
+
+/* =========================
+   Global Search Host
+   ========================= */
+function GlobalSearchHost() {
+  const hostIdRef = useRef(`slot-search-host-${Math.random().toString(36).slice(2, 9)}`);
+  const inputRef = useRef(null);
+  const manager = getGlobalSearchManager();
+
+  const [state, setState] = useState(manager.getState());
+  const [draftTerm, setDraftTerm] = useState(manager.getState().term || "");
+  const debouncedTerm = useDebouncedValue(draftTerm, 350);
+  const draftTermRef = useRef(draftTerm);
+
+  useEffect(() => {
+    draftTermRef.current = draftTerm;
+  }, [draftTerm]);
+
+  useEffect(() => {
+    const mgr = getGlobalSearchManager();
+    mgr.claimHost(hostIdRef.current);
+
+    const unsub = mgr.subscribe((nextState) => {
+      setState((prev) => {
+        if (
+          prev.term === nextState.term &&
+          prev.visible === nextState.visible &&
+          prev.hostId === nextState.hostId
+        ) {
+          return prev;
+        }
+        return nextState;
+      });
+
+      const isFocused = document.activeElement === inputRef.current;
+      if (!isFocused && (nextState.term || "") !== draftTermRef.current) {
+        setDraftTerm(nextState.term || "");
+      }
+    });
+
+    return () => {
+      unsub();
+      mgr.releaseHost(hostIdRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const mgr = getGlobalSearchManager();
+    if (debouncedTerm !== mgr.getState().term) {
+      mgr.setTerm(debouncedTerm);
+    }
+  }, [debouncedTerm]);
+
+  if (!state.visible || !manager.isHost(hostIdRef.current)) return null;
+
+  return (
+    <div style={{ position: "relative", zIndex: 99999 }}>
+      <div
+        style={{
+          position: "fixed",
+          top: "85px",
+          right: "0%",
+          left: "60%",
+          transform: "translateX(-50%)",
+          zIndex: 99999,
+        }}
+      >
+        <div
+          style={{
+            width: "min(1100px,95vw)",
+           
+            padding: "12px 18px",
+            borderRadius: "10px",
+            display: "flex",
+            gap: "12px",
+            alignItems: "center",
+          
+          }}
+        >
+
+          <input
+            ref={inputRef}
+            type="text"
+            value={draftTerm}
+            onChange={(e) => setDraftTerm(e.target.value)}
+            placeholder="Search in all tables on this page..."
+            style={{
+              flex: 1,
+              border: "1px solid #d1d5db",
+              borderRadius: "8px",
+              padding: "10px 12px",
+              fontSize: "14px",
+              outline: "none",
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setDraftTerm("");
+                manager.clear();
+              }
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={() => {
+              setDraftTerm("");
+              manager.clear();
+            }}
+            style={{
+              border: "1px solid #d1d5db",
+              background: "#fff",
+              padding: "10px 14px",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontWeight: 600,
+            }}
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==================== ColorSwatch ==================== */
 const ColorSwatch = ({ color = "#ffffff", onChange }) => {
   const [showPopup, setShowPopup] = useState(false);
   const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
   const swatchRef = useRef(null);
 
   const presets = [
-    "#ffffff", "#f8f9fa", "#ffebee", "#fff3e0", "#f3e5f5", "#e8f5e9",
-    "#e3f2fd", "#fff8e1", "#fce4ec", "#e0f2f1", "#f1f8e9", "#e8eaf6",
-    "#ef5350", "#ff9800", "#fdd835", "#4caf50", "#2196f3", "#9c27b0",
-    "#f44336", "#ff5722", "#ffc107", "#8bc34a", "#03a9f4", "#673ab7",
+    "#ffffff",
+    "#f8f9fa",
+    "#ffebee",
+    "#fff3e0",
+    "#f3e5f5",
+    "#e8f5e9",
+    "#e3f2fd",
+    "#fff8e1",
+    "#fce4ec",
+    "#e0f2f1",
+    "#f1f8e9",
+    "#e8eaf6",
+    "#ef5350",
+    "#ff9800",
+    "#fdd835",
+    "#4caf50",
+    "#2196f3",
+    "#9c27b0",
+    "#f44336",
+    "#ff5722",
+    "#ffc107",
+    "#8bc34a",
+    "#03a9f4",
+    "#673ab7",
   ];
 
   const openPopup = () => {
     if (!swatchRef.current) return;
     const rect = swatchRef.current.getBoundingClientRect();
-    setPopupPos({ top: `${rect.bottom + 8}px`, left: `${rect.left}px` });
+    setPopupPos({
+      top: `${rect.bottom + 8}px`,
+      left: `${rect.left}px`,
+    });
     setShowPopup(true);
   };
 
   useEffect(() => {
     if (!showPopup) return;
+
     const handleOutside = (e) => {
-      if (swatchRef.current && !swatchRef.current.contains(e.target)) setShowPopup(false);
+      if (swatchRef.current && !swatchRef.current.contains(e.target)) {
+        setShowPopup(false);
+      }
     };
+
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [showPopup]);
@@ -205,9 +517,14 @@ const ColorSwatch = ({ color = "#ffffff", onChange }) => {
         style={{ ...styles.colorSwatch, backgroundColor: color }}
         title="Click to change color (Excel style)"
       />
+
       {showPopup && (
         <div
-          style={{ ...styles.pickerPopup, left: popupPos.left, top: popupPos.top }}
+          style={{
+            ...styles.pickerPopup,
+            top: popupPos.top,
+            left: popupPos.left,
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           <div style={{ marginBottom: "8px", fontSize: "13px", fontWeight: "600", color: "#444" }}>
@@ -256,6 +573,9 @@ const ColorSwatch = ({ color = "#ffffff", onChange }) => {
   );
 };
 
+/* ====================
+   Utilities & constants
+   ==================== */
 function format12Hour(time24) {
   if (!time24) return "";
   const [h, m] = time24.split(":");
@@ -263,31 +583,6 @@ function format12Hour(time24) {
   const ampm = hours >= 12 ? "PM" : "AM";
   hours = hours % 12 || 12;
   return `${hours}:${m} ${ampm}`;
-}
-
-function rowMatchesTerm(item, term) {
-  const q = String(term || "").trim().toLowerCase();
-  if (!q) return false;
-
-  return [
-    item.demoTime,
-    format12Hour(item.demoTime || ""),
-    item.tuitionName,
-    item.source,
-    item.country,
-    item.parentsContact || item.parentContact,
-    item.className || item.class,
-    item.subjects || item.subject,
-    item.tutorName,
-    item.tutorFees || item.tutorFee,
-    item.rejectedTutor,
-    item.status,
-    item.feedback,
-    item.demoDate,
-    item.tuitionId,
-    item.demoRating,
-    item.syncFlag || item.sync,
-  ].some((value) => String(value || "").toLowerCase().includes(q));
 }
 
 const DEMO_RATING_VALUES = ["", "Average Demo", "Strong Demo", "Weak Demo"];
@@ -355,7 +650,7 @@ const getSourceStyle = (source) => {
   }
 };
 
-const renderPill = (val, styleFn) => {
+const renderPill = (val, styleFn, searchTerm = "") => {
   if (!val) return "";
   const style = styleFn(val);
   return (
@@ -369,13 +664,15 @@ const renderPill = (val, styleFn) => {
         ...style,
       }}
     >
-      {val}
+      {highlightText(val, searchTerm)}
     </span>
   );
 };
 
+/* keyboard nav */
 export const handleGridKeyDown = (e) => {
   const td = e.currentTarget;
+
   if (["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp"].includes(e.key)) {
     e.preventDefault();
     let target = null;
@@ -394,15 +691,16 @@ export const handleGridKeyDown = (e) => {
   }
 };
 
+/* TableSkeleton */
 const TableSkeleton = () => {
   const rows = Array.from({ length: 3 });
-  const cols = Array.from({ length: 18 });
+  const cols = Array.from({ length: 20 });
 
   return (
     <>
       {rows.map((_, rIdx) => (
         <tr key={rIdx}>
-          {cols.map((_, cIdx) => (
+          {cols.map((__, cIdx) => (
             <td key={cIdx} style={{ ...styles.td, padding: "8px" }}>
               <div className="skeleton-box"></div>
             </td>
@@ -413,138 +711,15 @@ const TableSkeleton = () => {
   );
 };
 
-function ensureGlobalSearchManager() {
-  if (typeof window === "undefined") return null;
-  if (window.__SLOT_GLOBAL_SEARCH) return window.__SLOT_GLOBAL_SEARCH;
-
-  const manager = {
-    term: "",
-    subscribers: new Set(),
-    mountCount: 0,
-    dom: null,
-    input: null,
-    label: null,
-    activeClaim: null,
-
-    createDOM() {
-      if (this.dom) return;
-
-      const wrapper = document.createElement("div");
-      wrapper.id = "__slot_global_search_wrapper";
-      wrapper.style.cssText = styles.globalSearchContainerBaseCSS;
-
-      const inner = document.createElement("div");
-      inner.style.cssText = styles.globalSearchInnerCSS;
-
-      const input = document.createElement("input");
-      input.type = "search";
-      input.id = "__slot_global_search_input";
-      input.placeholder = "Search across this page...";
-      input.style.cssText =
-        "flex:1;padding:10px 14px;border-radius:8px;border:1px solid #c8c6c4;font-size:15px;outline:none;";
-      input.autocomplete = "off";
-
-      const clearBtn = document.createElement("button");
-      clearBtn.type = "button";
-      clearBtn.textContent = "Clear";
-      clearBtn.style.cssText =
-        "padding:10px 14px;border-radius:6px;background:#f3f2f1;border:none;font-weight:600;cursor:pointer;";
-
-      inner.appendChild(input);
-      inner.appendChild(clearBtn);
-      wrapper.appendChild(inner);
-      document.body.appendChild(wrapper);
-
-      this.dom = wrapper;
-      this.input = input;
-
-      input.addEventListener("input", (e) => {
-        this.term = e.target.value;
-        this.notify();
-      });
-
-      clearBtn.addEventListener("click", () => {
-        this.term = "";
-        this.activeClaim = null;
-        if (this.input) this.input.value = "";
-        this.notify();
-      });
-
-      input.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") {
-          this.term = "";
-          this.activeClaim = null;
-          if (this.input) this.input.value = "";
-          this.notify();
-        }
-      });
-    },
-
-    subscribe(cb) {
-      this.createDOM();
-      this.subscribers.add(cb);
-      this.mountCount++;
-      this.show();
-      cb(this.term);
-
-      return () => {
-        this.subscribers.delete(cb);
-        this.mountCount = Math.max(0, this.mountCount - 1);
-        if (this.mountCount === 0) this.hide();
-      };
-    },
-
-    notify() {
-      this.activeClaim = null;
-      for (const cb of Array.from(this.subscribers)) {
-        try {
-          cb(this.term);
-        } catch {}
-      }
-    },
-
-    claim(instanceId) {
-      if (!this.activeClaim) {
-        this.activeClaim = instanceId;
-        return true;
-      }
-      return this.activeClaim === instanceId;
-    },
-
-    setTerm(t) {
-      this.term = t || "";
-      this.activeClaim = null;
-      if (this.input) this.input.value = this.term;
-      this.notify();
-    },
-
-    show() {
-      this.createDOM();
-      if (this.dom) this.dom.style.display = "block";
-    },
-
-    hide() {
-      if (this.dom) this.dom.style.display = "none";
-    },
-  };
-
-  window.__SLOT_GLOBAL_SEARCH = manager;
-  return manager;
-}
-
-export default function SlotTable({
-  slot,
-  onChanged,
-  isProtected,
-  isLoadingData,
-  showGlobalSearch = false,
-}) {
+/* =========================
+   SlotTable component
+   ========================= */
+export default function SlotTable({ slot, onChanged, isProtected, isLoadingData }) {
   const [open, setOpen] = useState(slot.items?.length > 0);
   const [zoom, setZoom] = useState(1);
   const [localItems, setLocalItems] = useState([]);
   const [isUpdating, setIsUpdating] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [selectedRows, setSelectedRows] = useState(new Set());
 
   const role = "admin";
@@ -556,7 +731,6 @@ export default function SlotTable({
   const [passwordError, setPasswordError] = useState("");
 
   const managerRef = useRef(null);
-  const searchScrollTimeoutRef = useRef(null);
   const instanceKey = useRef(
     sanitizeKey(slot.slotHeader || `slot-${Math.random().toString(36).slice(2, 8)}`)
   ).current;
@@ -567,77 +741,44 @@ export default function SlotTable({
   }, [slot.items]);
 
   useEffect(() => {
-    if (!showGlobalSearch) return;
-
-    const mgr = ensureGlobalSearchManager();
+    const mgr = getGlobalSearchManager();
     managerRef.current = mgr;
 
-    mgr.show();
-
-    const unsubscribe = mgr.subscribe((term) => {
-      setSearchTerm(term || "");
+    const unsubscribe = mgr.subscribe((state) => {
+      setSearchTerm(state.term || "");
     });
 
     return () => {
       unsubscribe();
+      mgr.setActive(instanceKey, false);
     };
-  }, [showGlobalSearch]);
+  }, [instanceKey]);
 
   useEffect(() => {
-    if (!showGlobalSearch) return;
-
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm((searchTerm || "").trim());
-    }, 450);
-
-    return () => clearTimeout(timer);
-  }, [searchTerm, showGlobalSearch]);
-
-  useEffect(() => {
-    const mgr = managerRef.current || ensureGlobalSearchManager();
+    const mgr = managerRef.current;
     if (!mgr) return;
+    mgr.setActive(instanceKey, open && isUnlocked);
 
-    if (showGlobalSearch) {
-      mgr.show();
-    } else {
-      mgr.hide();
-    }
-  }, [showGlobalSearch]);
-
-  useEffect(() => {
     return () => {
-      if (searchScrollTimeoutRef.current) {
-        clearTimeout(searchScrollTimeoutRef.current);
-      }
+      mgr.setActive(instanceKey, false);
     };
-  }, []);
+  }, [open, isUnlocked, instanceKey]);
 
-  const matchedItems = debouncedSearchTerm
-    ? localItems.filter((item) => rowMatchesTerm(item, debouncedSearchTerm))
-    : [];
+  const filteredItems = useMemo(() => {
+    return localItems.filter((item) => itemMatchesSearch(item, searchTerm));
+  }, [localItems, searchTerm]);
+
+  const firstMatchRowId =
+    searchTerm && filteredItems[0]?.tuitionId
+      ? `row-${instanceKey}-${sanitizeKey(String(filteredItems[0].tuitionId))}`
+      : null;
 
   useEffect(() => {
-    if (!showGlobalSearch) return;
-    if (!debouncedSearchTerm) return;
-    if (isProtected && !isUnlocked) return;
-    if (matchedItems.length === 0) return;
-
-    const mgr = managerRef.current || ensureGlobalSearchManager();
-    if (!mgr || !mgr.claim(instanceKey)) return;
-
-    const first = matchedItems[0];
-    if (!first?.tuitionId) return;
-
-    const rowId = `row-${instanceKey}-${sanitizeKey(String(first.tuitionId))}`;
-
+    if (!firstMatchRowId) return;
     if (!open) setOpen(true);
 
-    if (searchScrollTimeoutRef.current) {
-      clearTimeout(searchScrollTimeoutRef.current);
-    }
-
-    searchScrollTimeoutRef.current = window.setTimeout(() => {
-      const el = document.getElementById(rowId);
+    const timer = setTimeout(() => {
+      const el = document.getElementById(firstMatchRowId);
       if (!el) return;
 
       try {
@@ -647,28 +788,36 @@ export default function SlotTable({
         const prevTransition = el.style.transition;
         const prevBoxShadow = el.style.boxShadow;
 
-        el.style.outline = "4px solid rgba(255, 235, 59, 0.9)";
-        el.style.boxShadow = "0 0 0 9999px rgba(255, 248, 181, 0.08) inset";
+        el.style.outline = "3px solid rgba(255, 193, 7, 0.95)";
+        el.style.boxShadow = "inset 0 0 0 9999px rgba(255, 245, 157, 0.35)";
         el.style.transition = "outline 0.25s ease, box-shadow 0.25s ease";
 
-        setTimeout(() => {
+        const clearTimer = setTimeout(() => {
           el.style.outline = prevOutline || "";
           el.style.transition = prevTransition || "";
           el.style.boxShadow = prevBoxShadow || "";
-        }, 2000);
-      } catch {}
+        }, 1800);
+
+        return () => clearTimeout(clearTimer);
+      } catch (e) {
+        // ignore
+      }
     }, open ? 80 : 260);
-  }, [debouncedSearchTerm, matchedItems, open, isProtected, isUnlocked, instanceKey, showGlobalSearch]);
+
+    return () => clearTimeout(timer);
+  }, [firstMatchRowId, open]);
 
   const updateRecord = async (item, field, newValue) => {
     try {
       setLocalItems((prev) =>
         prev.map((x) => (x.tuitionId === item.tuitionId ? { ...x, [field]: newValue } : x))
       );
+
       const payload = { ...item, [field]: newValue, _source: "target" };
       await api.patch(`/target/${encodeURIComponent(item.tuitionId)}`, payload);
+
       if (onChanged) await onChanged();
-    } catch {
+    } catch (e) {
       alert("Update failed.");
       if (onChanged) await onChanged();
     }
@@ -679,7 +828,9 @@ export default function SlotTable({
       !window.confirm(
         "Kya aap is row ko TODAY DEMO se delete karna chahte hain?\n\n(Monthly Sheet mein record safe rahega)"
       )
-    ) return;
+    ) {
+      return;
+    }
 
     try {
       setIsUpdating(true);
@@ -693,27 +844,22 @@ export default function SlotTable({
     }
   }
 
-  const persistReorder = async (itemsToSave) => {
-    const reorderPayload = itemsToSave.map((item, idx) => ({
-      tuitionId: item.tuitionId,
-      orderIndex: idx,
-    }));
-    await api.post("/target/reorder", { items: reorderPayload });
-  };
-
   const moveRow = async (index, direction) => {
-    const step = direction === "up" ? -1 : 1;
-    const targetIndex = index + step;
-
-    if (targetIndex < 0 || targetIndex >= localItems.length) return;
+    if (direction === "up" && index === 0) return;
+    if (direction === "down" && index === localItems.length - 1) return;
 
     const newItems = [...localItems];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
     [newItems[index], newItems[targetIndex]] = [newItems[targetIndex], newItems[index]];
     setLocalItems(newItems);
 
     try {
-      await persistReorder(newItems);
-    } catch {
+      const reorderPayload = newItems.map((item, idx) => ({
+        tuitionId: item.tuitionId,
+        orderIndex: idx,
+      }));
+      await api.post("/target/reorder", { items: reorderPayload });
+    } catch (error) {
       alert("Nayi tarteeb save nahi ho saki. Backend check karein.");
       if (onChanged) await onChanged();
     }
@@ -722,37 +868,35 @@ export default function SlotTable({
   const moveSelected = async (direction) => {
     if (selectedRows.size === 0) return;
 
+    let newItems = [...localItems];
     const selectedSet = new Set(selectedRows);
-    const newItems = [...localItems];
+    const indices = [];
 
-    if (direction === "up") {
-      for (let i = 1; i < newItems.length; i++) {
-        const currentSelected = selectedSet.has(newItems[i].tuitionId);
-        const prevSelected = selectedSet.has(newItems[i - 1].tuitionId);
+    newItems.forEach((item, idx) => {
+      if (selectedSet.has(item.tuitionId)) indices.push(idx);
+    });
 
-        if (currentSelected && !prevSelected) {
-          [newItems[i - 1], newItems[i]] = [newItems[i], newItems[i - 1]];
-        }
-      }
-    } else {
-      for (let i = newItems.length - 2; i >= 0; i--) {
-        const currentSelected = selectedSet.has(newItems[i].tuitionId);
-        const nextSelected = selectedSet.has(newItems[i + 1].tuitionId);
+    const selectedItems = indices.sort((a, b) => a - b).map((i) => newItems[i]);
+    newItems = newItems.filter((item) => !selectedSet.has(item.tuitionId));
 
-        if (currentSelected && !nextSelected) {
-          [newItems[i], newItems[i + 1]] = [newItems[i + 1], newItems[i]];
-        }
-      }
-    }
+    const insertIndex =
+      direction === "up"
+        ? Math.max(0, indices[0] - 1)
+        : Math.min(newItems.length, indices[indices.length - 1] - selectedItems.length + 1);
 
+    newItems.splice(insertIndex, 0, ...selectedItems);
     setLocalItems(newItems);
 
     const mgr = managerRef.current;
     if (mgr) mgr.setTerm("");
 
     try {
-      await persistReorder(newItems);
-    } catch {
+      const reorderPayload = newItems.map((item, idx) => ({
+        tuitionId: item.tuitionId,
+        orderIndex: idx,
+      }));
+      await api.post("/target/reorder", { items: reorderPayload });
+    } catch (error) {
       alert("Nayi tarteeb save nahi ho saki. Backend check karein.");
       if (onChanged) await onChanged();
     }
@@ -760,7 +904,8 @@ export default function SlotTable({
 
   const toggleRowSelection = (tuitionId) => {
     const newSet = new Set(selectedRows);
-    newSet.has(tuitionId) ? newSet.delete(tuitionId) : newSet.add(tuitionId);
+    if (newSet.has(tuitionId)) newSet.delete(tuitionId);
+    else newSet.add(tuitionId);
     setSelectedRows(newSet);
   };
 
@@ -802,15 +947,23 @@ export default function SlotTable({
         input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
         input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
         .skeleton-box {
-          height: 20px; width: 100%; border-radius: 4px;
+          height: 20px;
+          width: 100%;
+          border-radius: 4px;
           background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-          background-size: 200% 100%; animation: shimmer 1.5s infinite;
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+        }
+        .match-row {
+          box-shadow: inset 0 0 0 9999px rgba(255, 248, 196, 0.22);
         }
         @keyframes shimmer {
           0% { background-position: -200% 0; }
           100% { background-position: 200% 0; }
         }
       `}</style>
+
+      <GlobalSearchHost />
 
       <div style={styles.card}>
         <div style={styles.header(open, themeColor)} onClick={handleHeaderClick}>
@@ -819,48 +972,142 @@ export default function SlotTable({
               {isProtected && !isUnlocked ? "🔒 " : ""} {slot.slotHeader}
             </h3>
             <span style={styles.headerMeta}>
-              {slot.displayRange} • {localItems.length} records
-              {debouncedSearchTerm
-                ? ` • ${matchedItems.length} match${matchedItems.length === 1 ? "" : "es"}`
-                : ""}
+              {slot.displayRange} • {filteredItems.length} records
             </span>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-            <div style={{ fontSize: "14px", opacity: 0.8 }}>
-              {open ? "▲ Collapse" : "▼ Expand"}
-            </div>
+            <div style={{ fontSize: "14px", opacity: 0.8 }}>{open ? "▲ Collapse" : "▼ Expand"}</div>
           </div>
         </div>
 
         {open && isUnlocked ? (
           <div style={styles.tableWrapper}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "8px 12px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                margin: "8px 12px",
+              }}
+            >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {selectedRows.size > 0 && (
                   <>
-                    <button onClick={() => moveSelected("up")} style={{ padding: "8px 12px", background: "#1976d2", color: "white", border: "none", borderRadius: "6px", fontWeight: "600", cursor: "pointer" }}>↑ Move Selected</button>
-                    <button onClick={() => moveSelected("down")} style={{ padding: "8px 12px", background: "#1976d2", color: "white", border: "none", borderRadius: "6px", fontWeight: "600", cursor: "pointer" }}>↓ Move Selected</button>
-                    <span style={{ padding: "6px 10px", background: "#f0f0f0", borderRadius: "6px", fontSize: "13px" }}>{selectedRows.size} rows selected</span>
-                    <button onClick={() => setSelectedRows(new Set())} style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}>Clear Sel</button>
+                    <button
+                      onClick={() => moveSelected("up")}
+                      style={{
+                        padding: "8px 12px",
+                        background: "#1976d2",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        fontWeight: "600",
+                        cursor: "pointer",
+                      }}
+                    >
+                      ↑ Move Selected
+                    </button>
+
+                    <button
+                      onClick={() => moveSelected("down")}
+                      style={{
+                        padding: "8px 12px",
+                        background: "#1976d2",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        fontWeight: "600",
+                        cursor: "pointer",
+                      }}
+                    >
+                      ↓ Move Selected
+                    </button>
+
+                    <span
+                      style={{
+                        padding: "6px 10px",
+                        background: "#f0f0f0",
+                        borderRadius: "6px",
+                        fontSize: "13px",
+                      }}
+                    >
+                      {selectedRows.size} rows selected
+                    </span>
+
+                    <button
+                      onClick={() => setSelectedRows(new Set())}
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 6,
+                        border: "1px solid #ddd",
+                        background: "#fff",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Clear Sel
+                    </button>
                   </>
                 )}
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <button onClick={(e) => handleZoom(e, -0.1)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: "18px", fontWeight: "bold" }}>-</button>
-                <span style={{ fontSize: "13px", fontWeight: "600", minWidth: "40px", textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
-                <button onClick={(e) => handleZoom(e, 0.1)} style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: "16px", fontWeight: "bold" }}>+</button>
+                <button
+                  onClick={(e) => handleZoom(e, -0.1)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "inherit",
+                    cursor: "pointer",
+                    fontSize: "18px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  -
+                </button>
+
+                <span
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: "600",
+                    minWidth: "40px",
+                    textAlign: "center",
+                  }}
+                >
+                  {Math.round(zoom * 100)}%
+                </span>
+
+                <button
+                  onClick={(e) => handleZoom(e, 0.1)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "inherit",
+                    cursor: "pointer",
+                    fontSize: "16px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  +
+                </button>
               </div>
             </div>
 
-            <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", transition: "transform 0.2s ease", width: `${100 / zoom}%` }}>
+            <div
+              style={{
+                transform: `scale(${zoom})`,
+                transformOrigin: "top left",
+                transition: "transform 0.2s ease",
+                width: `${100 / zoom}%`,
+              }}
+            >
               <table style={styles.table}>
                 <thead>
                   <tr>
                     <TH style={{ width: "42px", textAlign: "center", background: "#e5e7eb" }}>✓</TH>
                     <TH style={{ width: "40px", textAlign: "center", background: "#e5e7eb" }}>Sort</TH>
                     <TH style={{ width: "30px", textAlign: "center", background: "#e5e7eb" }}>🎨</TH>
+
                     <TH>Demo Time</TH>
                     <TH>Tuition Name</TH>
                     <TH>Source</TH>
@@ -884,21 +1131,35 @@ export default function SlotTable({
                 <tbody>
                   {showSkeleton ? (
                     <TableSkeleton />
-                  ) : localItems.length === 0 ? (
+                  ) : filteredItems.length === 0 ? (
                     <tr>
-                      <td colSpan="20" style={{ ...styles.td, textAlign: "center", color: "#999", padding: "15px" }}>
+                      <td
+                        colSpan="20"
+                        style={{
+                          ...styles.td,
+                          textAlign: "center",
+                          color: "#999",
+                          padding: "15px",
+                        }}
+                      >
                         No records in this slot
                       </td>
                     </tr>
                   ) : (
-                    localItems.map((it, originalIndex) => {
+                    filteredItems.map((it) => {
+                      const originalIndex = localItems.findIndex((item) => item.tuitionId === it.tuitionId);
                       const rowId = `row-${instanceKey}-${sanitizeKey(String(it.tuitionId))}`;
+                      const rowMatched = !!searchTerm && itemMatchesSearch(it, searchTerm);
 
                       return (
                         <tr
                           id={rowId}
                           key={it.tuitionId}
-                          style={{ backgroundColor: it.rowColor || "inherit", transition: "background 0.2s" }}
+                          className={rowMatched ? "match-row" : ""}
+                          style={{
+                            backgroundColor: it.rowColor || "inherit",
+                            transition: "background 0.2s, box-shadow 0.2s",
+                          }}
                           tabIndex={-1}
                         >
                           <td style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
@@ -911,46 +1172,197 @@ export default function SlotTable({
                           </td>
 
                           <td style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
-                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                              <button onClick={() => moveRow(originalIndex, "up")} disabled={originalIndex === 0} style={{ ...styles.moveBtn, opacity: originalIndex === 0 ? 0.3 : 1 }}>▲</button>
-                              <button onClick={() => moveRow(originalIndex, "down")} disabled={originalIndex === localItems.length - 1} style={{ ...styles.moveBtn, opacity: originalIndex === localItems.length - 1 ? 0.3 : 1 }}>▼</button>
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <button
+                                onClick={() => moveRow(originalIndex, "up")}
+                                disabled={originalIndex === 0}
+                                style={{
+                                  ...styles.moveBtn,
+                                  opacity: originalIndex === 0 ? 0.3 : 1,
+                                }}
+                              >
+                                ▲
+                              </button>
+
+                              <button
+                                onClick={() => moveRow(originalIndex, "down")}
+                                disabled={originalIndex === localItems.length - 1}
+                                style={{
+                                  ...styles.moveBtn,
+                                  opacity: originalIndex === localItems.length - 1 ? 0.3 : 1,
+                                }}
+                              >
+                                ▼
+                              </button>
                             </div>
                           </td>
 
                           <td style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
-                            <ColorSwatch color={it.rowColor || "#ffffff"} onChange={(c) => updateRecord(it, "rowColor", c)} />
+                            <ColorSwatch
+                              color={it.rowColor || "#ffffff"}
+                              onChange={(c) => updateRecord(it, "rowColor", c)}
+                            />
                           </td>
 
-                          <EditableCell val={it.demoTime} type="time" onSave={(val) => updateRecord(it, "demoTime", val)} width={100} />
+                          <EditableCell
+                            val={it.demoTime}
+                            type="time"
+                            onSave={(val) => updateRecord(it, "demoTime", val)}
+                            width={100}
+                            searchTerm={searchTerm}
+                          />
 
-                          <td style={{ ...styles.td, backgroundColor: it.tuitionNameColor || "inherit", minWidth: 150, padding: "0 10px", height: "35px", cursor: "cell" }}>
+                          <td
+                            style={{
+                              ...styles.td,
+                              backgroundColor: it.tuitionNameColor || "inherit",
+                              minWidth: 150,
+                              padding: "0 10px",
+                              height: "35px",
+                              cursor: "cell",
+                              textAlign: "left",
+                            }}
+                          >
                             <div style={{ display: "flex", alignItems: "center", height: "100%", gap: "8px" }}>
-                              <span style={{ flex: 1 }}>{it.tuitionName || ""}</span>
-                              <ColorSwatch color={it.tuitionNameColor || "#ffffff"} onChange={(c) => updateRecord(it, "tuitionNameColor", c)} />
+                              <span style={{ flex: 1 }}>{highlightText(it.tuitionName || "", searchTerm)}</span>
+                              <ColorSwatch
+                                color={it.tuitionNameColor || "#ffffff"}
+                                onChange={(c) => updateRecord(it, "tuitionNameColor", c)}
+                              />
                             </div>
                           </td>
 
-                          <EditableCell val={it.source} options={sourcesList} onSave={(val) => updateRecord(it, "source", val)} width={110} customRender={(val) => renderPill(val, getSourceStyle)} />
-                          <EditableCell val={it.country} onSave={(val) => updateRecord(it, "country", val)} width={100} />
-                          <EditableCell val={it.parentsContact || it.parentContact} onSave={(val) => updateRecord(it, "parentsContact", val)} width={130} />
-                          <EditableCell val={it.className || it.class} onSave={(val) => updateRecord(it, "className", val)} width={100} />
-                          <EditableCell val={it.subjects || it.subject} onSave={(val) => updateRecord(it, "subjects", val)} width={120} />
-                          <EditableCell val={it.tutorName} onSave={(val) => updateRecord(it, "tutorName", val)} width={140} />
-                          <EditableCell val={it.tutorFees || it.tutorFee} onSave={(val) => updateRecord(it, "tutorFees", val)} width={100} />
-                          <EditableCell val={it.rejectedTutor} onSave={(val) => updateRecord(it, "rejectedTutor", val)} bg={columnColors["Rejected Tutor"]} width={120} />
-                          <EditableCell val={it.status} options={statusList} onSave={(val) => updateRecord(it, "status", val)} width={140} customRender={(val) => renderPill(val, getStatusStyle)} />
-                          <EditableCell val={it.feedback} onSave={(val) => updateRecord(it, "feedback", val)} width={180} />
-                          <EditableCell val={it.demoDate} type="date" onSave={(val) => updateRecord(it, "demoDate", val)} width={120} />
+                          <EditableCell
+                            val={it.source}
+                            options={sourcesList}
+                            onSave={(val) => updateRecord(it, "source", val)}
+                            width={110}
+                            searchTerm={searchTerm}
+                            customRender={(val, q) => renderPill(val, getSourceStyle, q)}
+                          />
 
-                          <td tabIndex={0} onKeyDown={handleGridKeyDown} className="excel-cell" style={{ ...styles.td, padding: "0 10px", fontWeight: "bold", color: "#555", backgroundColor: "inherit" }}>
-                            {it.tuitionId}
+                          <EditableCell
+                            val={it.country}
+                            onSave={(val) => updateRecord(it, "country", val)}
+                            width={100}
+                            searchTerm={searchTerm}
+                          />
+
+                          <EditableCell
+                            val={it.parentsContact || it.parentContact}
+                            onSave={(val) => updateRecord(it, "parentsContact", val)}
+                            width={130}
+                            searchTerm={searchTerm}
+                          />
+
+                          <EditableCell
+                            val={it.className || it.class}
+                            onSave={(val) => updateRecord(it, "className", val)}
+                            width={100}
+                            searchTerm={searchTerm}
+                          />
+
+                          <EditableCell
+                            val={it.subjects || it.subject}
+                            onSave={(val) => updateRecord(it, "subjects", val)}
+                            width={120}
+                            searchTerm={searchTerm}
+                          />
+
+                          <EditableCell
+                            val={it.tutorName}
+                            onSave={(val) => updateRecord(it, "tutorName", val)}
+                            width={140}
+                            searchTerm={searchTerm}
+                          />
+
+                          <EditableCell
+                            val={it.tutorFees || it.tutorFee}
+                            onSave={(val) => updateRecord(it, "tutorFees", val)}
+                            width={100}
+                            searchTerm={searchTerm}
+                          />
+
+                          <EditableCell
+                            val={it.rejectedTutor}
+                            onSave={(val) => updateRecord(it, "rejectedTutor", val)}
+                            bg={columnColors["Rejected Tutor"]}
+                            width={120}
+                            searchTerm={searchTerm}
+                          />
+
+                          <EditableCell
+                            val={it.status}
+                            options={statusList}
+                            onSave={(val) => updateRecord(it, "status", val)}
+                            width={140}
+                            searchTerm={searchTerm}
+                            customRender={(val, q) => renderPill(val, getStatusStyle, q)}
+                          />
+
+                          <EditableCell
+                            val={it.feedback}
+                            onSave={(val) => updateRecord(it, "feedback", val)}
+                            width={180}
+                            searchTerm={searchTerm}
+                          />
+
+                          <EditableCell
+                            val={it.demoDate}
+                            type="date"
+                            onSave={(val) => updateRecord(it, "demoDate", val)}
+                            width={120}
+                            searchTerm={searchTerm}
+                          />
+
+                          <td
+                            tabIndex={0}
+                            onKeyDown={handleGridKeyDown}
+                            className="excel-cell"
+                            style={{
+                              ...styles.td,
+                              padding: "0 10px",
+                              fontWeight: "bold",
+                              color: "#555",
+                              backgroundColor: "inherit",
+                              textAlign: "left",
+                            }}
+                          >
+                            {highlightText(it.tuitionId, searchTerm)}
                           </td>
 
-                          <EditableCell val={it.demoRating} options={DEMO_RATING_VALUES} onSave={(val) => updateRecord(it, "demoRating", val)} width={130} customRender={(val) => renderPill(val, getDemoRatingStyle)} />
-                          <EditableCell val={it.syncFlag || it.sync} onSave={(val) => updateRecord(it, "syncFlag", val)} width={80} />
+                          <EditableCell
+                            val={it.demoRating}
+                            options={DEMO_RATING_VALUES}
+                            onSave={(val) => updateRecord(it, "demoRating", val)}
+                            width={130}
+                            searchTerm={searchTerm}
+                            customRender={(val, q) => renderPill(val, getDemoRatingStyle, q)}
+                          />
 
-                          <td tabIndex={0} onKeyDown={handleGridKeyDown} className="excel-cell" style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
-                            <button style={styles.actionBtn} onClick={() => removeItem(it.tuitionId)}>Del</button>
+                          <EditableCell
+                            val={it.syncFlag || it.sync}
+                            onSave={(val) => updateRecord(it, "syncFlag", val)}
+                            width={80}
+                            searchTerm={searchTerm}
+                          />
+
+                          <td
+                            tabIndex={0}
+                            onKeyDown={handleGridKeyDown}
+                            className="excel-cell"
+                            style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}
+                          >
+                            <button style={styles.actionBtn} onClick={() => removeItem(it.tuitionId)}>
+                              Del
+                            </button>
                           </td>
                         </tr>
                       );
@@ -1006,7 +1418,10 @@ export default function SlotTable({
                 </div>
               )}
 
-              <button type="submit" style={{ ...styles.btn(false), width: "100%", padding: "12px", fontSize: "14px" }}>
+              <button
+                type="submit"
+                style={{ ...styles.btn(false), width: "100%", padding: "12px", fontSize: "14px" }}
+              >
                 Unlock
               </button>
             </form>
@@ -1017,9 +1432,21 @@ export default function SlotTable({
   );
 }
 
+/* -----------------------
+   Subcomponents
+   ----------------------- */
 const TH = ({ children, style }) => <th style={{ ...styles.th, ...style }}>{children}</th>;
 
-function EditableCell({ val, type = "text", options = [], onSave, bg, width, customRender }) {
+function EditableCell({
+  val,
+  type = "text",
+  options = [],
+  onSave,
+  bg,
+  width,
+  customRender,
+  searchTerm = "",
+}) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentVal, setCurrentVal] = useState(val || "");
   const tdRef = useRef(null);
@@ -1065,14 +1492,15 @@ function EditableCell({ val, type = "text", options = [], onSave, bg, width, cus
         onKeyDown={handleTdKeyDown}
         style={{
           ...styles.td,
-          backgroundColor: bg ? bg : "inherit",
+          backgroundColor: bg || "inherit",
           cursor: "cell",
           minWidth: width,
           padding: customRender ? "0 5px" : "0 10px",
           height: "35px",
+          textAlign: customRender ? "center" : "left",
         }}
       >
-        {customRender ? customRender(displayValue) : displayValue || ""}
+        {customRender ? customRender(displayValue, searchTerm) : highlightText(displayValue || "", searchTerm)}
       </td>
     );
   }
@@ -1109,6 +1537,9 @@ function EditableCell({ val, type = "text", options = [], onSave, bg, width, cus
   );
 }
 
+/* =====================
+   Small helpers
+   ===================== */
 function sanitizeKey(k) {
   return String(k).replace(/[^\w-]/g, "_");
 }

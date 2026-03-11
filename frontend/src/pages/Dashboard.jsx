@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import MainTuitions from "../components/MainTuitions.jsx";
 import TargetBoard from "../components/TargetBoard.jsx";
 import StaffManager from "../components/StaffManager.jsx";
@@ -6,6 +6,9 @@ import TrashBin from "../components/TrashBin.jsx";
 import PaymentSheet from "../components/PaymentSheet.jsx";
 import { api, clearToken, getStoredToken, setAuthToken } from "../api/api.js";
 import Logo from "../assets/Logo-1-Blue.png";
+
+const LAST_TAB_KEY = "dashboard_active_tab";
+const TAB_SCROLL_KEY = "dashboard_tab_scroll_positions";
 
 const styles = {
   dashboardContainer: {
@@ -163,6 +166,43 @@ const styles = {
   },
 };
 
+function getSavedScrollPositions() {
+  try {
+    const raw = sessionStorage.getItem(TAB_SCROLL_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function getPreferredTab(userData) {
+  const savedTab = sessionStorage.getItem(LAST_TAB_KEY);
+
+  const allowedTabs = [];
+
+  if (userData.role === "admin" || userData.role === "hod" || userData.access_monthly) {
+    allowedTabs.push("main");
+  }
+  if (userData.role === "admin" || userData.role === "hod" || userData.access_demo) {
+    allowedTabs.push("target");
+  }
+  if (userData.role === "admin" || userData.role === "hod" || userData.access_monthly) {
+    allowedTabs.push("payment");
+  }
+  if (userData.role === "admin" || userData.access_trash) {
+    allowedTabs.push("trash");
+  }
+  if (userData.role === "admin") {
+    allowedTabs.push("staff");
+  }
+
+  if (savedTab && allowedTabs.includes(savedTab)) {
+    return savedTab;
+  }
+
+  return allowedTabs[0] || "no_access";
+}
+
 export default function Dashboard() {
   const [tab, setTab] = useState("target");
   const [me, setMe] = useState(null);
@@ -172,6 +212,9 @@ export default function Dashboard() {
   const [regData, setRegData] = useState({ email: "", password: "", role: "staff" });
   const [regLoading, setRegLoading] = useState(false);
   const [regMsg, setRegMsg] = useState("");
+
+  const contentRefs = useRef({});
+  const scrollPositionsRef = useRef(getSavedScrollPositions());
 
   const canAccessMonthly = me?.role === "admin" || me?.role === "hod" || me?.access_monthly;
   const canAccessDemo = me?.role === "admin" || me?.role === "hod" || me?.access_demo;
@@ -188,17 +231,8 @@ export default function Dashboard() {
         const userData = r.data.user;
         setMe(userData);
 
-        if (userData.role === "admin" || userData.role === "hod") {
-          setTab("main");
-        } else if (userData.access_monthly) {
-          setTab("main");
-        } else if (userData.access_demo) {
-          setTab("target");
-        } else if (userData.access_trash) {
-          setTab("trash");
-        } else {
-          setTab("no_access");
-        }
+        const firstTab = getPreferredTab(userData);
+        setTab(firstTab);
       })
       .catch((err) => {
         console.log("ME ERROR:", err.response?.data || err.message);
@@ -214,7 +248,73 @@ export default function Dashboard() {
     });
   }, [tab]);
 
+  useEffect(() => {
+    if (!tab) return;
+
+    const restore = () => {
+      const saved = scrollPositionsRef.current[tab];
+      if (!saved) return;
+
+      const wrapper = contentRefs.current[tab];
+
+      if (wrapper && typeof saved.innerScroll === "number") {
+        wrapper.scrollTop = saved.innerScroll;
+      }
+
+      window.scrollTo({
+        top: typeof saved.windowScroll === "number" ? saved.windowScroll : 0,
+        left: 0,
+        behavior: "auto",
+      });
+    };
+
+    const id1 = requestAnimationFrame(() => {
+      const id2 = requestAnimationFrame(restore);
+      contentRefs.current.__raf2 = id2;
+    });
+
+    contentRefs.current.__raf1 = id1;
+
+    return () => {
+      if (contentRefs.current.__raf1) cancelAnimationFrame(contentRefs.current.__raf1);
+      if (contentRefs.current.__raf2) cancelAnimationFrame(contentRefs.current.__raf2);
+    };
+  }, [tab]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveTabPosition(tab);
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [tab]);
+
+  function saveTabPosition(tabKey) {
+    if (!tabKey) return;
+
+    const wrapper = contentRefs.current[tabKey];
+    const nextPositions = {
+      ...scrollPositionsRef.current,
+      [tabKey]: {
+        windowScroll: window.scrollY,
+        innerScroll: wrapper ? wrapper.scrollTop : 0,
+      },
+    };
+
+    scrollPositionsRef.current = nextPositions;
+    sessionStorage.setItem(TAB_SCROLL_KEY, JSON.stringify(nextPositions));
+    sessionStorage.setItem(LAST_TAB_KEY, tabKey);
+  }
+
+  function handleTabChange(nextTab) {
+    if (nextTab === tab) return;
+    saveTabPosition(tab);
+    setTab(nextTab);
+  }
+
   function logout() {
+    saveTabPosition(tab);
     clearToken();
     window.location.href = "/login";
   }
@@ -254,7 +354,7 @@ export default function Dashboard() {
           {canAccessMonthly && (
             <div
               style={styles.tab(tab === "main")}
-              onClick={() => setTab("main")}
+              onClick={() => handleTabChange("main")}
             >
               📅 Monthly Tuitions
             </div>
@@ -263,7 +363,7 @@ export default function Dashboard() {
           {canAccessDemo && (
             <div
               style={styles.tab(tab === "target")}
-              onClick={() => setTab("target")}
+              onClick={() => handleTabChange("target")}
             >
               🔥 Today Demo
             </div>
@@ -272,7 +372,7 @@ export default function Dashboard() {
           {canAccessPayment && (
             <div
               style={styles.tab(tab === "payment")}
-              onClick={() => setTab("payment")}
+              onClick={() => handleTabChange("payment")}
             >
               💳 Payment Sheet
             </div>
@@ -281,7 +381,7 @@ export default function Dashboard() {
           {canAccessTrash && (
             <div
               style={styles.tab(tab === "trash")}
-              onClick={() => setTab("trash")}
+              onClick={() => handleTabChange("trash")}
             >
               🗑️ Recycle Bin
             </div>
@@ -290,7 +390,7 @@ export default function Dashboard() {
           {canAccessStaff && (
             <div
               style={styles.tab(tab === "staff")}
-              onClick={() => setTab("staff")}
+              onClick={() => handleTabChange("staff")}
             >
               👥 Staff
             </div>
@@ -324,6 +424,7 @@ export default function Dashboard() {
       <div className="overflow-hidden">
         {mountedTabs.target && (
           <div
+            ref={(el) => { contentRefs.current.target = el; }}
             className="fade-in"
             style={{ display: tab === "target" ? "block" : "none" }}
           >
@@ -333,6 +434,7 @@ export default function Dashboard() {
 
         {mountedTabs.main && (
           <div
+            ref={(el) => { contentRefs.current.main = el; }}
             className="fade-in"
             style={{ display: tab === "main" ? "block" : "none" }}
           >
@@ -342,6 +444,7 @@ export default function Dashboard() {
 
         {mountedTabs.payment && (
           <div
+            ref={(el) => { contentRefs.current.payment = el; }}
             className="fade-in"
             style={{ display: tab === "payment" ? "block" : "none" }}
           >
@@ -351,6 +454,7 @@ export default function Dashboard() {
 
         {mountedTabs.trash && (
           <div
+            ref={(el) => { contentRefs.current.trash = el; }}
             className="fade-in"
             style={{ display: tab === "trash" ? "block" : "none" }}
           >
@@ -360,6 +464,7 @@ export default function Dashboard() {
 
         {mountedTabs.staff && (
           <div
+            ref={(el) => { contentRefs.current.staff = el; }}
             className="fade-in"
             style={{ display: tab === "staff" ? "block" : "none" }}
           >
@@ -412,6 +517,7 @@ export default function Dashboard() {
                   onChange={(e) => setRegData({ ...regData, password: e.target.value })}
                 />
               </div>
+
               <div style={styles.inputGroup}>
                 <label style={styles.label}>Role</label>
                 <select

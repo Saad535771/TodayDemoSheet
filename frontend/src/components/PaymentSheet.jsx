@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/api.js";
 
+const LIVE_REFRESH_MS = 3000;
+
 const styles = {
   page: {
     padding: "24px",
@@ -69,6 +71,16 @@ const styles = {
     cursor: "pointer",
     fontWeight: "600",
     fontSize: "14px",
+  },
+  liveBadge: {
+    background: "#ecfdf5",
+    color: "#065f46",
+    border: "1px solid #a7f3d0",
+    borderRadius: "999px",
+    padding: "6px 10px",
+    fontSize: "12px",
+    fontWeight: "700",
+    whiteSpace: "nowrap",
   },
   tableWrapper: {
     overflowX: "auto",
@@ -170,6 +182,10 @@ function getRowId(row) {
   return row?.id ?? row?.paymentId ?? row?._id ?? row?.rowId;
 }
 
+function rowsAreSame(a = [], b = []) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 function getStatusStyle(status) {
   switch ((status || "").trim()) {
     case "Fees Receive":
@@ -236,8 +252,10 @@ function EditableCell({
   const [currentValue, setCurrentValue] = useState(value ?? "");
 
   useEffect(() => {
-    setCurrentValue(value ?? "");
-  }, [value]);
+    if (!editing) {
+      setCurrentValue(value ?? "");
+    }
+  }, [value, editing]);
 
   const save = () => {
     setEditing(false);
@@ -310,32 +328,52 @@ export default function PaymentSheet() {
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState("");
   const mountedRef = useRef(true);
+  const itemsRef = useRef([]);
+  const pollingRef = useRef(null);
 
   useEffect(() => {
     mountedRef.current = true;
-    loadPayments();
+
+    loadPayments({ initial: true });
+
+    pollingRef.current = setInterval(() => {
+      if (document.hidden) return;
+      loadPayments({ silent: true });
+    }, LIVE_REFRESH_MS);
 
     return () => {
       mountedRef.current = false;
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
     };
   }, []);
 
-  async function loadPayments() {
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  async function loadPayments({ initial = false, silent = false } = {}) {
     try {
-      setLoading(true);
+      if (initial) {
+        setLoading(true);
+      }
+
       const res = await api.get("/payments");
       const rows = Array.isArray(res.data) ? res.data : res.data.items || [];
 
-      if (mountedRef.current) {
+      if (!mountedRef.current) return;
+
+      if (!rowsAreSame(itemsRef.current, rows)) {
         setItems(rows);
       }
     } catch (err) {
       console.error("Failed to load payments:", err);
-      if (mountedRef.current) {
+      if (!silent && mountedRef.current && initial) {
         setItems([]);
       }
     } finally {
-      if (mountedRef.current) {
+      if (mountedRef.current && initial) {
         setLoading(false);
       }
     }
@@ -366,7 +404,7 @@ export default function PaymentSheet() {
       if (created && getRowId(created) !== undefined) {
         setItems((prev) => [created, ...prev]);
       } else {
-        await loadPayments();
+        await loadPayments({ silent: true });
       }
     } catch (err) {
       console.error("Failed to add payment row:", err);
@@ -383,7 +421,7 @@ export default function PaymentSheet() {
       return;
     }
 
-    const oldItems = items;
+    const oldItems = itemsRef.current;
     const updatedRow = { ...row, [field]: newValue };
 
     setItems((prev) =>
@@ -392,6 +430,7 @@ export default function PaymentSheet() {
 
     try {
       await api.patch(`/payments/${encodeURIComponent(rowId)}`, updatedRow);
+      await loadPayments({ silent: true });
     } catch (err) {
       console.error("Failed to update payment row:", err);
       setItems(oldItems);
@@ -408,11 +447,12 @@ export default function PaymentSheet() {
 
     if (!window.confirm("Is payment row ko delete karna hai?")) return;
 
-    const oldItems = items;
+    const oldItems = itemsRef.current;
     setItems((prev) => prev.filter((item) => getRowId(item) !== rowId));
 
     try {
       await api.delete(`/payments/${encodeURIComponent(rowId)}`);
+      await loadPayments({ silent: true });
     } catch (err) {
       console.error("Failed to delete payment row:", err);
       setItems(oldItems);
@@ -458,6 +498,8 @@ export default function PaymentSheet() {
           </div>
 
           <div style={styles.actions}>
+            <div style={styles.liveBadge}>● Live Sync</div>
+
             <input
               type="text"
               placeholder="Search by tuition id, name, country, tutor..."
@@ -465,9 +507,11 @@ export default function PaymentSheet() {
               onChange={(e) => setSearch(e.target.value)}
               style={styles.searchInput}
             />
-            <button onClick={loadPayments} style={styles.refreshBtn}>
+
+            <button onClick={() => loadPayments({ initial: true })} style={styles.refreshBtn}>
               Refresh
             </button>
+
             <button onClick={addRow} style={styles.addBtn} disabled={adding}>
               {adding ? "Adding..." : "+ Add Row"}
             </button>
