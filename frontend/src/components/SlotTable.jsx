@@ -117,7 +117,9 @@ const styles = {
     display: "inline-block",
   },
   pickerPopup: {
-    position: "fixed",
+    position: "static",
+    top:"0px" ,
+    left: "0px",
     background: "white",
     border: "1px solid #ccc",
     padding: "10px",
@@ -137,7 +139,7 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 1000,
+    
   },
   modalCard: {
     background: "white",
