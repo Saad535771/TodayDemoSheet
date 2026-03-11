@@ -4,37 +4,37 @@ import { api } from "../api/api.js";
 const styles = {
   card: { background: "#ffffff", borderRadius: "16px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)", padding: "24px", marginBottom: "24px", border: "1px solid #eef0f3" },
   title: { fontSize: "22px", fontWeight: "700", color: "#1e3c72", margin: 0 },
-  tableWrapper: { 
-    overflowX: "auto", 
-    height:"100%",
-    marginTop: "0px",           
-  
+  tableWrapper: {
+    overflowX: "auto",
+    height: "100%",
+    marginTop: "0px",
+
   },
-  table: { width: "100%",height:"100%",  fontSize: "12px",},
-  th: { 
-    background: "#f3f2f1", 
-    color: "#323130", 
-    fontWeight: "600", 
-    padding: "8px 10px", 
-    textAlign: "center", 
-    border: "1px solid #c8c6c4", 
-    position: "sticky", 
-    top: 0, 
+  table: { width: "100%", height: "100%", fontSize: "12px", },
+  th: {
+    background: "#f3f2f1",
+    color: "#323130",
+    fontWeight: "600",
+    padding: "8px 10px",
+    textAlign: "center",
+    border: "1px solid #c8c6c4",
+    position: "sticky",
+    top: 0,
     height: "100%",
     zIndex: 10,
-    position: "relative"          
+    position: "relative"
   },
-  td: { padding: "0", border: "1px solid #c8c4", textAlign: "center", verticalAlign: "middle", height: "15px", width:"15px" },
+  td: { padding: "0", border: "1px solid #c8c4", textAlign: "center", verticalAlign: "middle", height: "15px", width: "15px" },
   inlineInput: { width: "100%", height: "100%", padding: "8px 10px", border: "none", borderRadius: "0", fontSize: "14px", background: "transparent", outline: "none", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif" },
   inlineSelect: { width: "100%", height: "100%", padding: "8px 10px", border: "none", borderRadius: "0", fontSize: "14px", background: "transparent", outline: "none", boxSizing: "border-box", fontFamily: "'Calibri', sans-serif", cursor: "pointer" },
   actionBtn: { padding: "6px 10px", borderRadius: "4px", border: "none", fontSize: "12px", fontWeight: "600", cursor: "pointer", background: "#fee2e2", color: "#b91c1c", fontFamily: "'Calibri', sans-serif" },
   moveBtn: { cursor: "pointer", border: "none", background: "transparent", fontSize: "14px", padding: "2px 6px", color: "#555" },
-  colorSwatch: { 
-    width: "18px", 
-    height: "18px", 
-    border: "2px solid #666", 
-    cursor: "pointer", 
-    borderRadius: "4px", 
+  colorSwatch: {
+    width: "18px",
+    height: "18px",
+    border: "2px solid #666",
+    cursor: "pointer",
+    borderRadius: "4px",
     overflow: "hidden",
     display: "inline-block"
   },
@@ -43,7 +43,7 @@ const styles = {
     background: "white",
     border: "1px solid #ccc",
     padding: "10px",
-    margin:"0px",
+    margin: "0px",
     borderRadius: "6px",
     boxShadow: "0 6px 16px rgba(0,0,0,0.15)",
     zIndex: 3000,
@@ -67,7 +67,7 @@ const ColorSwatch = ({ color = "#ffffff", onChange }) => {
   const swatchRef = useRef(null);
 
   const presets = [
-    "#ffffff", "#f8f9fa", "#ffebee", "#fff3e0", "#f3e5f5", "#e8f5e9", 
+    "#ffffff", "#f8f9fa", "#ffebee", "#fff3e0", "#f3e5f5", "#e8f5e9",
     "#e3f2fd", "#fff8e1", "#fce4ec", "#e0f2f1", "#f1f8e9", "#e8eaf6",
     "#ef5350", "#ff9800", "#fdd835", "#209024", "#2196f3", "#9c27b0",
     "#f44336", "#ff5722", "#ffc107", "#8bc34a", "#03a9f4", "#673ab7"
@@ -91,13 +91,13 @@ const ColorSwatch = ({ color = "#ffffff", onChange }) => {
 
   return (
     <div ref={swatchRef} style={{ position: "relative", display: "inline-block" }}>
-      <div 
+      <div
         onClick={openPopup}
         style={{ ...styles.colorSwatch, backgroundColor: color }}
         title="Click to change color (Excel style)"
       />
       {showPopup && (
-        <div 
+        <div
           style={{ ...styles.pickerPopup, left: popupPos.left }}
           onClick={e => e.stopPropagation()}
         >
@@ -115,9 +115,9 @@ const ColorSwatch = ({ color = "#ffffff", onChange }) => {
           </div>
           <div style={{ borderTop: "1px solid #eee", paddingTop: "8px" }}>
             <div style={{ fontSize: "13px", marginBottom: "4px" }}>Custom Color</div>
-            <input 
-              type="color" 
-              value={color} 
+            <input
+              type="color"
+              value={color}
               onChange={(e) => onChange(e.target.value)}
               style={{ width: "100%", height: "32px", cursor: "pointer" }}
             />
@@ -130,47 +130,47 @@ const ColorSwatch = ({ color = "#ffffff", onChange }) => {
 
 const demoRatings = ["", "Average Demo", "Strong Demo", "Weak Demo"];
 const sourcesList = ["", "mahad", "areeba", "sibgha"];
-const statusList = ["", "1st Demo Done", "2nd Demo Done", 
-  "payment Process", 
-  "Tuition Done", 
-  "Tuition Cancelled", 
+const statusList = ["", "1st Demo Done", "2nd Demo Done",
+  "payment Process",
+  "Tuition Done",
+  "Tuition Cancelled",
   "irrelevant", "Not available", "Pending"];
 
-const getStatusStyle = (status) => { 
+const getStatusStyle = (status) => {
   switch (status) {
     case "1st Demo Done": return { backgroundColor: "black", color: "white", border: "1px solid black" };
-    case "2nd Demo Done": return { backgroundColor: "#8B4513", color: "white", border: "1px solid #8B4513" }; 
-    case "payment Process": return { backgroundColor: "#fef08a", color: "black", border: "1px solid #fef08a" }; 
-    case "Tuition Done": return { backgroundColor: "#22c55e", color: "white", border: "1px solid #22c55e" }; 
-    case "Tuition Cancelled": return { backgroundColor: "#ef4444", color: "white", border: "1px solid #ef4444" }; 
-    case "irrelevant": return { backgroundColor: "white", color: "black", border: "1px solid #9ca3af" }; 
-    case "Not available": return { backgroundColor: "#4c1d95", color: "white", border: "1px solid #4c1d95" }; 
-    case "Pending": return { backgroundColor: "#3b82f6", color: "white", border: "1px solid #3b82f6" }; 
+    case "2nd Demo Done": return { backgroundColor: "#8B4513", color: "white", border: "1px solid #8B4513" };
+    case "payment Process": return { backgroundColor: "#fef08a", color: "black", border: "1px solid #fef08a" };
+    case "Tuition Done": return { backgroundColor: "#22c55e", color: "white", border: "1px solid #22c55e" };
+    case "Tuition Cancelled": return { backgroundColor: "#ef4444", color: "white", border: "1px solid #ef4444" };
+    case "irrelevant": return { backgroundColor: "white", color: "black", border: "1px solid #9ca3af" };
+    case "Not available": return { backgroundColor: "#4c1d95", color: "white", border: "1px solid #4c1d95" };
+    case "Pending": return { backgroundColor: "#3b82f6", color: "white", border: "1px solid #3b82f6" };
     default: return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
   }
 };
 
-const getDemoRatingStyle = (rating) => { 
+const getDemoRatingStyle = (rating) => {
   switch (rating) {
-    case "Average Demo": return { backgroundColor: "#ca8a04", color: "white", border: "1px solid #ca8a04" }; 
-    case "Strong Demo": return { backgroundColor: "#22c55e", color: "white", border: "1px solid #22c55e" }; 
-    case "Weak Demo": return { backgroundColor: "#ef4444", color: "white", border: "1px solid #ef4444" }; 
+    case "Average Demo": return { backgroundColor: "#ca8a04", color: "white", border: "1px solid #ca8a04" };
+    case "Strong Demo": return { backgroundColor: "#22c55e", color: "white", border: "1px solid #22c55e" };
+    case "Weak Demo": return { backgroundColor: "#ef4444", color: "white", border: "1px solid #ef4444" };
     default: return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
   }
 };
 
-const getSourceStyle = (source) => { 
+const getSourceStyle = (source) => {
   switch (source) {
-    case "mahad": return { backgroundColor: "#0ea5e9", color: "white", border: "1px solid #0ea5e9" }; 
-    case "areeba": return { backgroundColor: "#ec4899", color: "white", border: "1px solid #ec4899" }; 
-    case "sibgha": return { backgroundColor: "#14b8a6", color: "white", border: "1px solid #14b8a6" }; 
+    case "mahad": return { backgroundColor: "#0ea5e9", color: "white", border: "1px solid #0ea5e9" };
+    case "areeba": return { backgroundColor: "#ec4899", color: "white", border: "1px solid #ec4899" };
+    case "sibgha": return { backgroundColor: "#14b8a6", color: "white", border: "1px solid #14b8a6" };
     default: return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
   }
 };
 
 const columnColors = { "Rejected Tutor": "#ffebee" };
 
-function format12Hour(time24) { 
+function format12Hour(time24) {
   if (!time24) return "";
   const [h, m] = time24.split(':');
   let hours = parseInt(h, 10);
@@ -179,7 +179,7 @@ function format12Hour(time24) {
   return `${hours}:${m} ${ampm}`;
 }
 
-const renderPill = (val, styleFn) => { 
+const renderPill = (val, styleFn) => {
   if (!val) return "";
   const style = styleFn(val);
   return (
@@ -189,7 +189,7 @@ const renderPill = (val, styleFn) => {
   );
 };
 
-export const handleGridKeyDown = (e) => { 
+export const handleGridKeyDown = (e) => {
   const td = e.currentTarget;
   if (['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(e.key)) {
     e.preventDefault();
@@ -217,7 +217,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     setSelectedRows(new Set());
   }, [items]);
 
-  const allColumns = [ 
+  const allColumns = [
     { key: "tuitionId", label: "Tuition Id" },
     { key: "tuitionName", label: "Tuition Name" },
     { key: "tutorName", label: "Tutor Name" },
@@ -244,7 +244,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const [assignedFilter, setAssignedFilter] = useState("");
   const [isSearching, setIsSearching] = useState(false);
 
-  const performSearch = async (query) => { 
+  const performSearch = async (query) => {
     try {
       if (!query) { setLocalItems(items); return; }
       setIsSearching(true);
@@ -262,30 +262,30 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     return () => clearTimeout(timer);
   }, [searchTerm, sortField, sortDir, assignedFilter]);
 
-  const updateRecord = async (item, field, newValue) => { 
+  const updateRecord = async (item, field, newValue) => {
     try {
       setLocalItems(prev => prev.map(x => x.tuitionId === item.tuitionId ? { ...x, [field]: newValue } : x));
       const payload = { ...item, [field]: newValue, _source: "main" };
       await api.patch(`/tuitions/${encodeURIComponent(item.tuitionId)}`, payload);
-    } catch(e) {
+    } catch (e) {
       alert("Update failed.");
-      load(); 
+      load();
     }
   };
 
-  async function removeItem(tuitionId) { 
+  async function removeItem(tuitionId) {
     if (!window.confirm("Delete this row?")) return;
     try {
       await api.delete(`/tuitions/${encodeURIComponent(tuitionId)}`);
       await load();
-    } catch (e) { 
-      alert("Delete failed"); 
+    } catch (e) {
+      alert("Delete failed");
     }
   }
 
-  const moveRow = async (index, direction) => { 
-    if (direction === 'up' && index === 0) return; 
-    if (direction === 'down' && index === localItems.length - 1) return; 
+  const moveRow = async (index, direction) => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === localItems.length - 1) return;
 
     const newItems = [...localItems];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
@@ -297,7 +297,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       await api.post("/tuitions/reorder", { items: reorderPayload });
     } catch (error) {
       console.error("Failed to save reorder", error);
-      load(); 
+      load();
     }
   };
 
@@ -312,7 +312,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     const selectedItems = indices.sort((a, b) => a - b).map(i => newItems[i]);
     newItems = newItems.filter(item => !selectedSet.has(item.tuitionId));
 
-    let insertIndex = direction === 'up' 
+    let insertIndex = direction === 'up'
       ? Math.max(0, indices[0] - 1)
       : Math.min(newItems.length, indices[indices.length - 1] - selectedItems.length + 1);
 
@@ -324,7 +324,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       await api.post("/tuitions/reorder", { items: reorderPayload });
     } catch (error) {
       console.error("Failed to save reorder", error);
-      load(); 
+      load();
     }
   };
 
@@ -358,7 +358,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   return (
     <div style={styles.card}>
       <style>{`.excel-cell:focus { outline: 2px solid #107c41; outline-offset: -2px; }`}</style>
-      
+
       <div style={styles.fixedSearchContainer}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "end", gap: 16, maxWidth: "1100px", margin: "0 auto" }}>
           <input
@@ -367,7 +367,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ padding: "12px 16px", borderRadius: 8, border: "1px solid #c8c6c4", fontSize: "15px", flex: 1, maxWidth: "520px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}
           />
-          <button 
+          <button
             onClick={() => { setSearchTerm(""); setLocalItems(items); setSelectedRows(new Set()); }}
             style={{ padding: "10px 16px", borderRadius: 6, background: "#f3f2f1", border: "none", fontWeight: "600" }}
           >
@@ -415,8 +415,8 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
               <tr>
                 <TH style={{ width: "42px", textAlign: "center" }}>✓</TH>
                 <TH style={{ width: "40px", textAlign: "center" }}>Sort</TH>
-                <TH style={{ width: "36px", textAlign: "center" }}>🎨</TH> 
-                
+                <TH style={{ width: "36px", textAlign: "center" }}>🎨</TH>
+
                 <TH style={{ position: "relative", minWidth: "110px" }}>
                   Demo Time
                   <div onMouseDown={(e) => handleResizeStart(e, 2)} style={{ position: "absolute", right: "-2px", top: 0, width: "4px", height: "100%", cursor: "col-resize", zIndex: 20 }} />
@@ -489,6 +489,13 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                   Sync
                   <div onMouseDown={(e) => handleResizeStart(e, 19)} style={{ position: "absolute", right: "-2px", top: 0, width: "4px", height: "100%", cursor: "col-resize", zIndex: 20 }} />
                 </TH>
+                <TH style={{ position: "relative", minWidth: "120px" }}>
+                  OTM Name
+                  <div
+                    onMouseDown={(e) => handleResizeStart(e, 15)}
+                    style={{ position: "absolute", right: "-2px", top: 0, width: "4px", height: "100%", cursor: "col-resize", zIndex: 20 }}
+                  />
+                </TH>
                 <TH style={{ textAlign: "center", minWidth: "80px" }}>
                   Action
                   <div onMouseDown={(e) => handleResizeStart(e, 20)} style={{ position: "absolute", right: "-2px", top: 0, width: "4px", height: "100%", cursor: "col-resize", zIndex: 20 }} />
@@ -497,29 +504,29 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
             </thead>
             <tbody>
               {localItems.length === 0 ? (
-                <tr><td colSpan="22" style={{padding: 20, textAlign: "center", color: "#888"}}>No records found</td></tr>
+                <tr><td colSpan="22" style={{ padding: 20, textAlign: "center", color: "#888" }}>No records found</td></tr>
               ) : localItems.map((it, index) => (
                 <tr key={it.tuitionId} style={{ backgroundColor: it.rowColor || "inherit", transition: "background 0.2s" }}>
-                  <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
-                    <input 
-                      type="checkbox" 
+                  <td style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
+                    <input
+                      type="checkbox"
                       checked={selectedRows.has(it.tuitionId)}
                       onChange={() => toggleRowSelection(it.tuitionId)}
                       style={{ cursor: "pointer", width: "18px", height: "18px" }}
                     />
                   </td>
 
-                  <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
+                  <td style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                      <button onClick={() => moveRow(index, 'up')} disabled={index === 0} style={{...styles.moveBtn, opacity: index === 0 ? 0.3 : 1}}>▲</button>
-                      <button onClick={() => moveRow(index, 'down')} disabled={index === localItems.length - 1} style={{...styles.moveBtn, opacity: index === localItems.length - 1 ? 0.3 : 1}}>▼</button>
+                      <button onClick={() => moveRow(index, 'up')} disabled={index === 0} style={{ ...styles.moveBtn, opacity: index === 0 ? 0.3 : 1 }}>▲</button>
+                      <button onClick={() => moveRow(index, 'down')} disabled={index === localItems.length - 1} style={{ ...styles.moveBtn, opacity: index === localItems.length - 1 ? 0.3 : 1 }}>▼</button>
                     </div>
                   </td>
 
-                  <td style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
+                  <td style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
                     <ColorSwatch color={it.rowColor || "#ffffff"} onChange={(c) => updateRecord(it, "rowColor", c)} />
                   </td>
-                  
+
                   <EditableCell val={it.demoTime} type="time" onSave={(val) => updateRecord(it, "demoTime", val)} width={100} />
 
                   <EditableTuitionNameCell
@@ -529,7 +536,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                     onSaveColor={(c) => updateRecord(it, "tuitionNameColor", c)}
                     width={180}
                   />
-                  
+
                   <EditableCell val={it.status} options={statusList} onSave={(val) => updateRecord(it, "status", val)} width={140} customRender={(val) => renderPill(val, getStatusStyle)} />
                   <EditableCell val={it.estimatedFee} onSave={(val) => updateRecord(it, "estimatedFee", val)} width={100} />
                   <EditableCell val={it.tutorName} onSave={(val) => updateRecord(it, "tutorName", val)} width={140} />
@@ -544,14 +551,18 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                   <EditableCell val={it.source} options={sourcesList} onSave={(val) => updateRecord(it, "source", val)} width={110} customRender={(val) => renderPill(val, getSourceStyle)} />
                   <EditableCell val={it.demoDate} type="date" onSave={(val) => updateRecord(it, "demoDate", val)} width={120} />
 
-                  <td tabIndex={0} onKeyDown={handleGridKeyDown} className="excel-cell" style={{...styles.td, padding: "0 10px", fontWeight: "bold", color: "#555", backgroundColor: "inherit"}}>
+                  <td tabIndex={0} onKeyDown={handleGridKeyDown} className="excel-cell" style={{ ...styles.td, padding: "0 10px", fontWeight: "bold", color: "#555", backgroundColor: "inherit" }}>
                     {it.tuitionId}
                   </td>
-                  
+                  <EditableCell
+                    val={it.otmName}
+                    onSave={(val) => updateRecord(it, "otmName", val)}
+                    width={120}
+                  />
                   <EditableCell val={it.demoRating} options={demoRatings} onSave={(val) => updateRecord(it, "demoRating", val)} width={130} customRender={(val) => renderPill(val, getDemoRatingStyle)} />
                   <EditableCell val={it.syncFlag || it.sync} onSave={(val) => updateRecord(it, "sync", val)} width={80} />
-                  
-                  <td tabIndex={0} onKeyDown={handleGridKeyDown} className="excel-cell" style={{...styles.td, textAlign: "center", backgroundColor: "inherit"}}>
+
+                  <td tabIndex={0} onKeyDown={handleGridKeyDown} className="excel-cell" style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
                     <button style={styles.actionBtn} onClick={() => removeItem(it.tuitionId)}>Del</button>
                   </td>
                 </tr>
@@ -564,7 +575,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   );
 }
 
-const TH = ({ children, style }) => <th style={{...styles.th, ...style}}>{children}</th>;
+const TH = ({ children, style }) => <th style={{ ...styles.th, ...style }}>{children}</th>;
 
 function EditableCell({ val, type = "text", options = [], onSave, bg, width, customRender }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -596,17 +607,17 @@ function EditableCell({ val, type = "text", options = [], onSave, bg, width, cus
 
   if (!isEditing) {
     return (
-      <td 
+      <td
         ref={tdRef}
         tabIndex={0}
         className="excel-cell"
-        onClick={() => setIsEditing(true)} 
+        onClick={() => setIsEditing(true)}
         onKeyDown={(e) => { if (e.key === 'Enter') setIsEditing(true); else handleGridKeyDown(e); }}
-        style={{ 
-          ...styles.td, 
-          backgroundColor: bg ? bg : "inherit", 
-          minWidth: width, 
-          padding: customRender ? "0 5px" : "0 10px", 
+        style={{
+          ...styles.td,
+          backgroundColor: bg ? bg : "inherit",
+          minWidth: width,
+          padding: customRender ? "0 5px" : "0 10px",
           height: "35px",
           cursor: "cell"
         }}

@@ -453,7 +453,7 @@ export default function PaymentSheet() {
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>Payment Sheet</h2>
             <p style={styles.subtitle}>
-              Tuition Done records yahan auto-sync honge, aur manual row bhi add ho sakti hai.
+              Monthly Sheet me status Tuition Done hote hi yahan record auto aa jayega.
             </p>
           </div>
 
