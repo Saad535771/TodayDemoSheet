@@ -4,11 +4,23 @@ import TargetBoard from "../components/TargetBoard.jsx";
 import StaffManager from "../components/StaffManager.jsx";
 import TrashBin from "../components/TrashBin.jsx";
 import PaymentSheet from "../components/PaymentSheet.jsx";
+import ActiveUsersPanel from "../components/ActiveUsersPanel.jsx";
 import { api, clearToken, getStoredToken, setAuthToken } from "../api/api.js";
 import Logo from "../assets/Logo-1-Blue.png";
 
 const LAST_TAB_KEY = "dashboard_active_tab";
 const TAB_SCROLL_KEY = "dashboard_tab_scroll_positions";
+const SESSION_KEY = "dashboard_session_id";
+const HEARTBEAT_MS = 20000;
+
+function getOrCreateSessionId() {
+  let sessionId = sessionStorage.getItem(SESSION_KEY);
+  if (!sessionId) {
+    sessionId = `sess-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+    sessionStorage.setItem(SESSION_KEY, sessionId);
+  }
+  return sessionId;
+}
 
 const styles = {
   dashboardContainer: {
@@ -177,7 +189,6 @@ function getSavedScrollPositions() {
 
 function getPreferredTab(userData) {
   const savedTab = sessionStorage.getItem(LAST_TAB_KEY);
-
   const allowedTabs = [];
 
   if (userData.role === "admin" || userData.role === "hod" || userData.access_monthly) {
@@ -186,9 +197,9 @@ function getPreferredTab(userData) {
   if (userData.role === "admin" || userData.role === "hod" || userData.access_demo) {
     allowedTabs.push("target");
   }
- if (userData.role === "admin" || userData.role === "hod" || userData.access_payment_sheet) {
-  allowedTabs.push("payment");
-}
+  if (userData.role === "admin" || userData.role === "hod" || userData.access_payment_sheet) {
+    allowedTabs.push("payment");
+  }
   if (userData.role === "admin" || userData.access_trash) {
     allowedTabs.push("trash");
   }
@@ -215,12 +226,38 @@ export default function Dashboard() {
 
   const contentRefs = useRef({});
   const scrollPositionsRef = useRef(getSavedScrollPositions());
+  const heartbeatIntervalRef = useRef(null);
 
   const canAccessMonthly = me?.role === "admin" || me?.role === "hod" || me?.access_monthly;
   const canAccessDemo = me?.role === "admin" || me?.role === "hod" || me?.access_demo;
   const canAccessPayment = me?.role === "admin" || me?.role === "hod" || me?.access_payment_sheet;
   const canAccessTrash = me?.role === "admin" || me?.access_trash;
   const canAccessStaff = me?.role === "admin";
+
+  async function sendHeartbeat(currentTab) {
+    try {
+      const session_id = getOrCreateSessionId();
+      await api.put("/auth/presence/heartbeat", {
+        session_id,
+        current_sheet: currentTab || "dashboard",
+      });
+    } catch (err) {
+      console.error("Heartbeat failed:", err?.response?.data || err.message);
+    }
+  }
+
+  async function markOffline() {
+    try {
+      const session_id = sessionStorage.getItem(SESSION_KEY);
+      if (!session_id) return;
+
+      await api.post("/auth/presence/logout", {
+        session_id,
+      });
+    } catch (err) {
+      console.error("Presence logout failed:", err?.response?.data || err.message);
+    }
+  }
 
   useEffect(() => {
     const token = getStoredToken();
@@ -242,6 +279,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!tab) return;
+
     setMountedTabs((prev) => {
       if (prev[tab]) return prev;
       return { ...prev, [tab]: true };
@@ -290,6 +328,40 @@ export default function Dashboard() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [tab]);
 
+  useEffect(() => {
+    if (!me || !tab || tab === "no_access") return;
+    sendHeartbeat(tab);
+  }, [me, tab]);
+
+  useEffect(() => {
+    if (!me) return;
+
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+    }
+
+    heartbeatIntervalRef.current = setInterval(() => {
+      sendHeartbeat(tab);
+    }, HEARTBEAT_MS);
+
+    return () => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+      }
+    };
+  }, [me, tab]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && me) {
+        sendHeartbeat(tab);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [me, tab]);
+
   function saveTabPosition(tabKey) {
     if (!tabKey) return;
 
@@ -313,8 +385,9 @@ export default function Dashboard() {
     setTab(nextTab);
   }
 
-  function logout() {
+  async function logout() {
     saveTabPosition(tab);
+    await markOffline();
     clearToken();
     window.location.href = "/login";
   }
@@ -323,10 +396,12 @@ export default function Dashboard() {
     e.preventDefault();
     setRegLoading(true);
     setRegMsg("");
+
     try {
       await api.post("/auth/register", regData);
       setRegMsg("✅ User created successfully!");
       setRegData({ email: "", password: "", role: "staff" });
+
       setTimeout(() => {
         setShowRegModal(false);
         setRegMsg("");
@@ -352,46 +427,31 @@ export default function Dashboard() {
 
         <div style={styles.tabsContainer}>
           {canAccessMonthly && (
-            <div
-              style={styles.tab(tab === "main")}
-              onClick={() => handleTabChange("main")}
-            >
+            <div style={styles.tab(tab === "main")} onClick={() => handleTabChange("main")}>
               📅 Monthly Tuitions
             </div>
           )}
 
           {canAccessDemo && (
-            <div
-              style={styles.tab(tab === "target")}
-              onClick={() => handleTabChange("target")}
-            >
+            <div style={styles.tab(tab === "target")} onClick={() => handleTabChange("target")}>
               🔥 Today Demo
             </div>
           )}
 
           {canAccessPayment && (
-            <div
-              style={styles.tab(tab === "payment")}
-              onClick={() => handleTabChange("payment")}
-            >
+            <div style={styles.tab(tab === "payment")} onClick={() => handleTabChange("payment")}>
               💳 Payment Sheet
             </div>
           )}
 
           {canAccessTrash && (
-            <div
-              style={styles.tab(tab === "trash")}
-              onClick={() => handleTabChange("trash")}
-            >
+            <div style={styles.tab(tab === "trash")} onClick={() => handleTabChange("trash")}>
               🗑️ Recycle Bin
             </div>
           )}
 
           {canAccessStaff && (
-            <div
-              style={styles.tab(tab === "staff")}
-              onClick={() => handleTabChange("staff")}
-            >
+            <div style={styles.tab(tab === "staff")} onClick={() => handleTabChange("staff")}>
               👥 Staff
             </div>
           )}
@@ -451,6 +511,7 @@ export default function Dashboard() {
             <PaymentSheet me={me} />
           </div>
         )}
+
         {mountedTabs.trash && (
           <div
             ref={(el) => { contentRefs.current.trash = el; }}
@@ -460,13 +521,17 @@ export default function Dashboard() {
             <TrashBin />
           </div>
         )}
+
         {mountedTabs.staff && (
           <div
             ref={(el) => { contentRefs.current.staff = el; }}
             className="fade-in"
             style={{ display: tab === "staff" ? "block" : "none" }}
           >
-            <StaffManager />
+            <div style={{ padding: "24px" }}>
+              <ActiveUsersPanel />
+              <StaffManager />
+            </div>
           </div>
         )}
 

@@ -1,8 +1,19 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api,storeToken } from "../api/api";
-import Logo from "../assets/logo-white.png"; // Yeh add karein
-// --- CSS Styles (Injected via JS for easy copy-paste) ---
+import { api, storeToken } from "../api/api";
+import Logo from "../assets/logo-white.png";
+
+const SESSION_KEY = "dashboard_session_id";
+
+function getOrCreateSessionId() {
+  let sessionId = sessionStorage.getItem(SESSION_KEY);
+  if (!sessionId) {
+    sessionId = `sess-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+    sessionStorage.setItem(SESSION_KEY, sessionId);
+  }
+  return sessionId;
+}
+
 const styles = {
   container: {
     display: "flex",
@@ -90,7 +101,7 @@ const styles = {
     fontSize: "15px",
     transition: "border-color 0.2s",
     outline: "none",
-    boxSizing: "border-box", // Fixes padding issues
+    boxSizing: "border-box",
   },
   eyeIcon: {
     position: "absolute",
@@ -129,9 +140,10 @@ const styles = {
     background: "rgba(255,255,255,0.1)",
   },
 };
+
 export default function Login() {
   const nav = useNavigate();
-  // State
+
   const [role, setRole] = useState("admin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -139,102 +151,104 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Theme Colors based on Role
   const themeColor =
-  role === "admin"
-    ? "#1e3c72"
-    : role === "hod"
-    ? "#0f9b8e"
-    : "#7b4397";
- const bgGradient =
-  role === "admin"
-    ? "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)"
-    : role === "hod"
-    ? "linear-gradient(135deg, #0f9b8e 0%, #38ef7d 100%)"
-    : "linear-gradient(135deg, #7b4397 0%, #dc2430 100%)";
+    role === "admin"
+      ? "#1e3c72"
+      : role === "hod"
+      ? "#0f9b8e"
+      : "#7b4397";
 
- const handleRoleChange = (newRole) => {
-  setRole(newRole);
-  setError("");
-  setEmail("");
-  setPassword("");
-};
+  const bgGradient =
+    role === "admin"
+      ? "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)"
+      : role === "hod"
+      ? "linear-gradient(135deg, #0f9b8e 0%, #38ef7d 100%)"
+      : "linear-gradient(135deg, #7b4397 0%, #dc2430 100%)";
 
-async function onSubmit(e) {
-  e.preventDefault();
-  setError("");
-  setLoading(true);
+  const handleRoleChange = (newRole) => {
+    setRole(newRole);
+    setError("");
+    setEmail("");
+    setPassword("");
+  };
 
-  try {
-    const res = await api.post("/auth/login", {
-      email,
-      password,
-      role
-    });
+  async function onSubmit(e) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-    const data = res.data;
+    try {
+      const session_id = getOrCreateSessionId();
 
-    storeToken(data.token);
-    nav("/");
-  } catch (err) {
-    console.log(err);
+      const res = await api.post("/auth/login", {
+        email,
+        password,
+        role,
+        session_id,
+      });
 
-    if (err.response?.data?.message) {
-      setError(err.response.data.message);
-    } else if (err.response?.data?.errors?.length) {
-      setError(err.response.data.errors[0].msg);
-    } else {
-      setError("Login failed");
+      const data = res.data;
+
+      storeToken(data.token);
+      nav("/");
+    } catch (err) {
+      console.log(err);
+
+      if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else if (err.response?.data?.errors?.length) {
+        setError(err.response.data.errors[0].msg);
+      } else {
+        setError("Login failed");
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
   }
-}
 
   return (
     <div style={styles.container}>
-      
-      {/* Left Side: Branding & Art */}
-      <div style={{...styles.leftPanel, background: bgGradient}} className="hidden-mobile">
-        <div style={{...styles.decorativeCircle, width: 300, height: 300, top: -50, left: -50}}></div>
-        <div style={{...styles.decorativeCircle, width: 200, height: 200, bottom: 50, right: 50}}></div>
+      <div style={{ ...styles.leftPanel, background: bgGradient }} className="hidden-mobile">
+        <div style={{ ...styles.decorativeCircle, width: 300, height: 300, top: -50, left: -50 }}></div>
+        <div style={{ ...styles.decorativeCircle, width: 200, height: 200, bottom: 50, right: 50 }}></div>
+
         <div className="d-flex w-75 justify-content-center align-items-center mb-4" style={{ zIndex: 1 }}>
-          <img src={Logo} className="w-50 h-100  img-fluid" alt="" />
-           </div>
+          <img src={Logo} className="w-50 h-100 img-fluid" alt="" />
+        </div>
+
         <h1 style={{ fontSize: "3rem", marginBottom: "10px", zIndex: 1 }}>Tuition Portal</h1>
         <p style={{ fontSize: "1.2rem", opacity: 0.9, zIndex: 1 }}>
           Manage your tuitions, tutors, and students efficiently.
         </p>
       </div>
 
-      {/* Right Side: Login Form */}
       <div style={styles.rightPanel}>
         <div style={styles.card}>
-          
           <div style={styles.header}>
             <h2 style={styles.title}>Welcome Back!</h2>
             <p style={styles.subtitle}>Please login to access the dashboard.</p>
           </div>
 
-          {/* Role Switcher */}
           <div style={styles.roleSwitcher}>
-            <button 
+            <button
               type="button"
-              style={styles.roleBtn(role === "admin", "#1e3c72")} 
+              style={styles.roleBtn(role === "admin", "#1e3c72")}
               onClick={() => handleRoleChange("admin")}
             >
               Admin Login
             </button>
-             <button
-    type="button"
-    style={styles.roleBtn(role === "hod", "#0f9b8e")}
-    onClick={() => handleRoleChange("hod")}
-  >
-    HOD Login
-  </button>
-            <button 
+
+            <button
               type="button"
-              style={styles.roleBtn(role === "staff", "#7b4397")} 
+              style={styles.roleBtn(role === "hod", "#0f9b8e")}
+              onClick={() => handleRoleChange("hod")}
+            >
+              HOD Login
+            </button>
+
+            <button
+              type="button"
+              style={styles.roleBtn(role === "staff", "#7b4397")}
               onClick={() => handleRoleChange("staff")}
             >
               Staff Login
@@ -244,35 +258,33 @@ async function onSubmit(e) {
           {error && <div style={styles.error}>{error}</div>}
 
           <form onSubmit={onSubmit}>
-            {/* Email Field */}
             <div style={styles.inputGroup}>
               <label style={styles.label}>Email Address</label>
-              <input 
-                style={{...styles.input, borderColor: error ? "#ffcccc" : "#eef0f3"}}
-                value={email} 
-                onChange={(e) => setEmail(e.target.value)} 
+              <input
+                style={{ ...styles.input, borderColor: error ? "#ffcccc" : "#eef0f3" }}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
                 required
-                onFocus={(e) => e.target.style.borderColor = themeColor}
-                onBlur={(e) => e.target.style.borderColor = "#eef0f3"}
+                onFocus={(e) => (e.target.style.borderColor = themeColor)}
+                onBlur={(e) => (e.target.style.borderColor = "#eef0f3")}
               />
             </div>
 
-            {/* Password Field */}
             <div style={styles.inputGroup}>
               <label style={styles.label}>Password</label>
-              <input 
-                style={{...styles.input, borderColor: error ? "#ffcccc" : "#eef0f3"}}
-                type={showPassword ? "text" : "password"} 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
+              <input
+                style={{ ...styles.input, borderColor: error ? "#ffcccc" : "#eef0f3" }}
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                onFocus={(e) => e.target.style.borderColor = themeColor}
-                onBlur={(e) => e.target.style.borderColor = "#eef0f3"}
+                onFocus={(e) => (e.target.style.borderColor = themeColor)}
+                onBlur={(e) => (e.target.style.borderColor = "#eef0f3")}
               />
-              <span 
-                style={styles.eyeIcon} 
+              <span
+                style={styles.eyeIcon}
                 onClick={() => setShowPassword(!showPassword)}
                 title={showPassword ? "Hide Password" : "Show Password"}
               >
@@ -280,31 +292,28 @@ async function onSubmit(e) {
               </span>
             </div>
 
-            {/* Submit Button */}
-            <button 
+            <button
               className="hover-effect"
-              style={styles.button(themeColor, loading)} 
-              type="submit" 
+              style={styles.button(themeColor, loading)}
+              type="submit"
               disabled={loading}
             >
-             {loading ? "Signing in..." : `Login as ${role.toUpperCase()}`}
+              {loading ? "Signing in..." : `Login as ${role.toUpperCase()}`}
             </button>
           </form>
-
         </div>
       </div>
 
-      {/* Helper CSS for Mobile responsiveness */}
       <style>{`
         @media (max-width: 768px) {
           .hidden-mobile { display: none !important; }
         }
         .hover-effect:hover {
-           transform: translateY(-2px);
-           opacity: 0.95;
+          transform: translateY(-2px);
+          opacity: 0.95;
         }
         .input:focus {
-           box-shadow: 0 0 0 4px rgba(30, 60, 114, 0.1);
+          box-shadow: 0 0 0 4px rgba(30, 60, 114, 0.1);
         }
       `}</style>
     </div>
