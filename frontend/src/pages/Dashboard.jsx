@@ -186,9 +186,9 @@ function getPreferredTab(userData) {
   if (userData.role === "admin" || userData.role === "hod" || userData.access_demo) {
     allowedTabs.push("target");
   }
-  if (userData.role === "admin" || userData.role === "hod" || userData.access_monthly) {
-    allowedTabs.push("payment");
-  }
+ if (userData.role === "admin" || userData.role === "hod" || userData.access_payment_sheet) {
+  allowedTabs.push("payment");
+}
   if (userData.role === "admin" || userData.access_trash) {
     allowedTabs.push("trash");
   }
@@ -218,7 +218,7 @@ export default function Dashboard() {
 
   const canAccessMonthly = me?.role === "admin" || me?.role === "hod" || me?.access_monthly;
   const canAccessDemo = me?.role === "admin" || me?.role === "hod" || me?.access_demo;
-  const canAccessPayment = me?.role === "admin" || me?.role === "hod" || me?.access_monthly;
+  const canAccessPayment = me?.role === "admin" || me?.role === "hod" || me?.access_payment_sheet;
   const canAccessTrash = me?.role === "admin" || me?.access_trash;
   const canAccessStaff = me?.role === "admin";
 
@@ -448,10 +448,9 @@ export default function Dashboard() {
             className="fade-in"
             style={{ display: tab === "payment" ? "block" : "none" }}
           >
-            <PaymentSheet />
+            <PaymentSheet me={me} />
           </div>
         )}
-
         {mountedTabs.trash && (
           <div
             ref={(el) => { contentRefs.current.trash = el; }}
@@ -461,7 +460,6 @@ export default function Dashboard() {
             <TrashBin />
           </div>
         )}
-
         {mountedTabs.staff && (
           <div
             ref={(el) => { contentRefs.current.staff = el; }}

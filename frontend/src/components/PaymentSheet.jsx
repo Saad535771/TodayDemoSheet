@@ -322,7 +322,7 @@ function EditableCell({
   );
 }
 
-export default function PaymentSheet() {
+export default function PaymentSheet({ me }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -330,6 +330,21 @@ export default function PaymentSheet() {
   const mountedRef = useRef(true);
   const itemsRef = useRef([]);
   const pollingRef = useRef(null);
+
+  const canSeeTutorShare =
+    me?.role === "admin" || me?.role === "hod" || !!me?.access_tutor_share;
+
+  const canSeeLacasShare =
+    me?.role === "admin" || me?.role === "hod" || !!me?.access_lacas_share;
+
+  const canSeeTotalFees =
+    me?.role === "admin" || me?.role === "hod" || !!me?.access_total_fees;
+
+  const visibleColumnCount =
+    10 +
+    (canSeeTutorShare ? 1 : 0) +
+    (canSeeLacasShare ? 1 : 0) +
+    (canSeeTotalFees ? 1 : 0);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -528,9 +543,19 @@ export default function PaymentSheet() {
                 <th style={{ ...styles.th, minWidth: "110px" }}>Country</th>
                 <th style={{ ...styles.th, minWidth: "100px" }}>Class</th>
                 <th style={{ ...styles.th, minWidth: "150px" }}>Tutor Name</th>
-                <th style={{ ...styles.th, minWidth: "120px" }}>Tutor Share</th>
-                <th style={{ ...styles.th, minWidth: "120px" }}>Lacas Share</th>
-                <th style={{ ...styles.th, minWidth: "120px" }}>Total Fees</th>
+
+                {canSeeTutorShare && (
+                  <th style={{ ...styles.th, minWidth: "120px" }}>Tutor Share</th>
+                )}
+
+                {canSeeLacasShare && (
+                  <th style={{ ...styles.th, minWidth: "120px" }}>Lacas Share</th>
+                )}
+
+                {canSeeTotalFees && (
+                  <th style={{ ...styles.th, minWidth: "120px" }}>Total Fees</th>
+                )}
+
                 <th style={{ ...styles.th, minWidth: "150px" }}>Status</th>
                 <th style={{ ...styles.th, minWidth: "220px" }}>Feedback</th>
                 <th style={{ ...styles.th, minWidth: "150px" }}>OTM Name</th>
@@ -541,13 +566,13 @@ export default function PaymentSheet() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="13" style={styles.loading}>
+                  <td colSpan={visibleColumnCount} style={styles.loading}>
                     Loading payment sheet...
                   </td>
                 </tr>
               ) : filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan="13" style={styles.emptyState}>
+                  <td colSpan={visibleColumnCount} style={styles.emptyState}>
                     No payment records found.
                   </td>
                 </tr>
@@ -582,21 +607,31 @@ export default function PaymentSheet() {
                         value={row.tutorName || ""}
                         onSave={(val) => updateRow(row, "tutorName", val)}
                       />
-                      <EditableCell
-                        value={row.tutorShare || ""}
-                        type="number"
-                        onSave={(val) => updateRow(row, "tutorShare", val)}
-                      />
-                      <EditableCell
-                        value={row.lacasShare || ""}
-                        type="number"
-                        onSave={(val) => updateRow(row, "lacasShare", val)}
-                      />
-                      <EditableCell
-                        value={row.totalFees || ""}
-                        type="number"
-                        onSave={(val) => updateRow(row, "totalFees", val)}
-                      />
+
+                      {canSeeTutorShare && (
+                        <EditableCell
+                          value={row.tutorShare || ""}
+                          type="number"
+                          onSave={(val) => updateRow(row, "tutorShare", val)}
+                        />
+                      )}
+
+                      {canSeeLacasShare && (
+                        <EditableCell
+                          value={row.lacasShare || ""}
+                          type="number"
+                          onSave={(val) => updateRow(row, "lacasShare", val)}
+                        />
+                      )}
+
+                      {canSeeTotalFees && (
+                        <EditableCell
+                          value={row.totalFees || ""}
+                          type="number"
+                          onSave={(val) => updateRow(row, "totalFees", val)}
+                        />
+                      )}
+
                       <EditableCell
                         value={row.status || ""}
                         options={statusOptions}
