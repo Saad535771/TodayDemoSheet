@@ -117,9 +117,7 @@ const styles = {
     display: "inline-block",
   },
   pickerPopup: {
-    position: "static",
-    top:"0px" ,
-    left: "0px",
+    position: "fixed",
     background: "white",
     border: "1px solid #ccc",
     padding: "10px",
@@ -139,7 +137,6 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    
   },
   modalCard: {
     background: "white",
@@ -401,16 +398,13 @@ function GlobalSearchHost() {
         <div
           style={{
             width: "min(1100px,95vw)",
-           
             padding: "12px 18px",
             borderRadius: "10px",
             display: "flex",
             gap: "12px",
             alignItems: "center",
-          
           }}
         >
-
           <input
             ref={inputRef}
             type="text"
@@ -432,152 +426,13 @@ function GlobalSearchHost() {
               }
             }}
           />
-
-          <button
-            type="button"
-            onClick={() => {
-              setDraftTerm("");
-              manager.clear();
-            }}
-            style={{
-              border: "1px solid #d1d5db",
-              background: "#fff",
-              padding: "10px 14px",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontWeight: 600,
-            }}
-          >
-            Clear
-          </button>
         </div>
       </div>
     </div>
   );
 }
 
-/* ==================== ColorSwatch ==================== */
-const ColorSwatch = ({ color = "#ffffff", onChange }) => {
-  const [showPopup, setShowPopup] = useState(false);
-  const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
-  const swatchRef = useRef(null);
-
-  const presets = [
-    "#ffffff",
-    "#f8f9fa",
-    "#ffebee",
-    "#fff3e0",
-    "#f3e5f5",
-    "#e8f5e9",
-    "#e3f2fd",
-    "#fff8e1",
-    "#fce4ec",
-    "#e0f2f1",
-    "#f1f8e9",
-    "#e8eaf6",
-    "#ef5350",
-    "#ff9800",
-    "#fdd835",
-    "#4caf50",
-    "#2196f3",
-    "#9c27b0",
-    "#f44336",
-    "#ff5722",
-    "#ffc107",
-    "#8bc34a",
-    "#03a9f4",
-    "#673ab7",
-  ];
-
-  const openPopup = () => {
-    if (!swatchRef.current) return;
-    const rect = swatchRef.current.getBoundingClientRect();
-    setPopupPos({
-      top: `${rect.bottom + 8}px`,
-      left: `${rect.left}px`,
-    });
-    setShowPopup(true);
-  };
-
-  useEffect(() => {
-    if (!showPopup) return;
-
-    const handleOutside = (e) => {
-      if (swatchRef.current && !swatchRef.current.contains(e.target)) {
-        setShowPopup(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, [showPopup]);
-
-  return (
-    <div ref={swatchRef} style={{ position: "relative", display: "inline-block" }}>
-      <div
-        onClick={openPopup}
-        style={{ ...styles.colorSwatch, backgroundColor: color }}
-        title="Click to change color (Excel style)"
-      />
-
-      {showPopup && (
-        <div
-          style={{
-            ...styles.pickerPopup,
-            top: popupPos.top,
-            left: popupPos.left,
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div style={{ marginBottom: "8px", fontSize: "13px", fontWeight: "600", color: "#444" }}>
-            Default Colors
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(6, 28px)",
-              gap: "6px",
-              marginBottom: "12px",
-            }}
-          >
-            {presets.map((c, i) => (
-              <div
-                key={i}
-                onClick={() => {
-                  onChange(c);
-                  setShowPopup(false);
-                }}
-                style={{
-                  width: "28px",
-                  height: "28px",
-                  backgroundColor: c,
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
-              />
-            ))}
-          </div>
-
-          <div style={{ borderTop: "1px solid #eee", paddingTop: "8px" }}>
-            <div style={{ fontSize: "13px", marginBottom: "4px" }}>Custom Color</div>
-            <input
-              type="color"
-              value={color}
-              onChange={(e) => onChange(e.target.value)}
-              style={{ width: "100%", height: "32px", cursor: "pointer" }}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-/* ====================
-   Utilities & constants
-   ==================== */
+/* ==================== constants & helpers ==================== */
 function format12Hour(time24) {
   if (!time24) return "";
   const [h, m] = time24.split(":");
@@ -588,8 +443,8 @@ function format12Hour(time24) {
 }
 
 const DEMO_RATING_VALUES = ["", "Average Demo", "Strong Demo", "Weak Demo"];
-const sourcesList = ["", "mahad", "areeba", "sibgha"];
-const statusList = [
+const SOURCES_LIST = ["", "mahad", "areeba", "sibgha"];
+const STATUS_LIST = [
   "",
   "1st Demo Done",
   "2nd Demo Done",
@@ -602,6 +457,36 @@ const statusList = [
 ];
 const columnColors = { "Rejected Tutor": "#ffebee" };
 const PASSWORD_SECRET = "admin123";
+
+const gridColumns = [
+  { id: "demoTime", label: "Demo Time", width: 100, editable: true, field: "demoTime", type: "time" },
+  { id: "tuitionName", label: "Tuition Name", width: 150, editable: true, field: "tuitionName", kind: "tuitionName" },
+  { id: "source", label: "Source", width: 110, editable: true, field: "source", kind: "select", options: SOURCES_LIST, pill: "source" },
+  { id: "country", label: "Country", width: 100, editable: true, field: "country" },
+  { id: "parentsContact", label: "Parent Contact", width: 130, editable: true, field: "parentsContact" },
+  { id: "className", label: "Class", width: 100, editable: true, field: "className" },
+  { id: "subjects", label: "Subject", width: 120, editable: true, field: "subjects" },
+  { id: "tutorName", label: "Tutor Name", width: 140, editable: true, field: "tutorName" },
+  { id: "tutorFees", label: "Tutor Fees", width: 100, editable: true, field: "tutorFees" },
+  { id: "rejectedTutor", label: "Rejected Tutor", width: 120, editable: true, field: "rejectedTutor" },
+  { id: "status", label: "Status", width: 140, editable: true, field: "status", kind: "select", options: STATUS_LIST, pill: "status" },
+  { id: "feedback", label: "Feedback", width: 180, editable: true, field: "feedback" },
+  { id: "demoDate", label: "Demo Date", width: 120, editable: true, field: "demoDate", type: "date" },
+  { id: "tuitionId", label: "Tuition Id", width: 120, editable: false, field: "tuitionId", kind: "readonly" },
+  { id: "demoRating", label: "Demo Rating", width: 130, editable: true, field: "demoRating", kind: "select", options: DEMO_RATING_VALUES, pill: "demoRating" },
+  { id: "syncFlag", label: "Sync", width: 80, editable: true, field: "syncFlag" },
+];
+
+const gridColumnIds = gridColumns.map((c) => c.id);
+const gridColumnMap = Object.fromEntries(gridColumns.map((c) => [c.id, c]));
+const firstEditableColumnId = gridColumns[0]?.id || "demoTime";
+
+const getCellKey = (rowIndex, colId) => `${rowIndex}__${colId}`;
+
+const parseCellKey = (key) => {
+  const [rowIndex, ...rest] = key.split("__");
+  return { rowIndex: Number(rowIndex), colId: rest.join("__") };
+};
 
 const getStatusStyle = (status) => {
   switch (status) {
@@ -671,7 +556,6 @@ const renderPill = (val, styleFn, searchTerm = "") => {
   );
 };
 
-/* keyboard nav */
 export const handleGridKeyDown = (e) => {
   const td = e.currentTarget;
 
@@ -693,7 +577,6 @@ export const handleGridKeyDown = (e) => {
   }
 };
 
-/* TableSkeleton */
 const TableSkeleton = () => {
   const rows = Array.from({ length: 3 });
   const cols = Array.from({ length: 20 });
@@ -713,6 +596,140 @@ const TableSkeleton = () => {
   );
 };
 
+const ColorSwatch = ({
+  color = "#ffffff",
+  onChange,
+  pickerId,
+  activeColorPicker,
+  onOpen,
+  onClose,
+}) => {
+  const swatchRef = useRef(null);
+
+  const presets = [
+    "#ffffff",
+    "#f8f9fa",
+    "#ffebee",
+    "#fff3e0",
+    "#f3e5f5",
+    "#e8f5e9",
+    "#e3f2fd",
+    "#fff8e1",
+    "#fce4ec",
+    "#e0f2f1",
+    "#f1f8e9",
+    "#e8eaf6",
+    "#ef5350",
+    "#ff9800",
+    "#fdd835",
+    "#4caf50",
+    "#2196f3",
+    "#9c27b0",
+    "#f44336",
+    "#ff5722",
+    "#ffc107",
+    "#8bc34a",
+    "#03a9f4",
+    "#673ab7",
+  ];
+
+  const isOpen = activeColorPicker?.id === pickerId;
+  const popupPos = isOpen
+    ? { top: activeColorPicker.top, left: activeColorPicker.left }
+    : { top: 0, left: 0 };
+
+  const openPopup = () => {
+    if (!swatchRef.current) return;
+    const rect = swatchRef.current.getBoundingClientRect();
+
+    if (isOpen) {
+      onClose();
+      return;
+    }
+
+    onOpen({
+      id: pickerId,
+      top: rect.top,
+      left: rect.left,
+    });
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleOutside = (e) => {
+      if (swatchRef.current && !swatchRef.current.contains(e.target)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [isOpen, onClose]);
+
+  return (
+    <div ref={swatchRef} style={{ position: "relative", display: "inline-block" }}>
+      <div
+        onClick={openPopup}
+        style={{ ...styles.colorSwatch, backgroundColor: color }}
+        title="Click to change color (Excel style)"
+      />
+
+      {isOpen && (
+        <div
+          style={{
+            ...styles.pickerPopup,
+            top: popupPos.top,
+            left: popupPos.left,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ marginBottom: "8px", fontSize: "13px", fontWeight: "600", color: "#444" }}>
+            Default Colors
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(6, 28px)",
+              gap: "6px",
+              marginBottom: "12px",
+            }}
+          >
+            {presets.map((c, i) => (
+              <div
+                key={i}
+                onClick={() => {
+                  onChange(c);
+                  onClose();
+                }}
+                style={{
+                  width: "28px",
+                  height: "28px",
+                  backgroundColor: c,
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                }}
+              />
+            ))}
+          </div>
+
+          <div style={{ borderTop: "1px solid #eee", paddingTop: "8px" }}>
+            <div style={{ fontSize: "13px", marginBottom: "4px" }}>Custom Color</div>
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => onChange(e.target.value)}
+              style={{ width: "100%", height: "32px", cursor: "pointer" }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 /* =========================
    SlotTable component
    ========================= */
@@ -723,6 +740,13 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   const [isUpdating, setIsUpdating] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRows, setSelectedRows] = useState(new Set());
+
+  const [selectedCell, setSelectedCell] = useState(null);
+  const [anchorCell, setAnchorCell] = useState(null);
+  const [selectedCells, setSelectedCells] = useState(new Set());
+  const [editingCell, setEditingCell] = useState(null);
+  const [editValue, setEditValue] = useState("");
+  const [activeColorPicker, setActiveColorPicker] = useState(null);
 
   const role = "admin";
   const themeColor = role === "admin" ? "#1e3c72" : "#7b4397";
@@ -736,6 +760,39 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   const instanceKey = useRef(
     sanitizeKey(slot.slotHeader || `slot-${Math.random().toString(36).slice(2, 8)}`)
   ).current;
+
+  const tableWrapperRef = useRef(null);
+  const localItemsRef = useRef(localItems);
+  const filteredItemsRef = useRef([]);
+  const editingCellRef = useRef(editingCell);
+  const editValueRef = useRef(editValue);
+  const inputRef = useRef(null);
+  const shouldSelectAllOnFocusRef = useRef(true);
+  const moveCaretToEndOnFocusRef = useRef(false);
+  const isMouseSelectingRef = useRef(false);
+  const dragAnchorCellRef = useRef(null);
+
+  useEffect(() => {
+    localItemsRef.current = localItems;
+  }, [localItems]);
+
+  useEffect(() => {
+    editingCellRef.current = editingCell;
+  }, [editingCell]);
+
+  useEffect(() => {
+    editValueRef.current = editValue;
+  }, [editValue]);
+
+  useEffect(() => {
+    const stopMouseSelection = () => {
+      isMouseSelectingRef.current = false;
+      dragAnchorCellRef.current = null;
+    };
+
+    document.addEventListener("mouseup", stopMouseSelection);
+    return () => document.removeEventListener("mouseup", stopMouseSelection);
+  }, []);
 
   useEffect(() => {
     setLocalItems(slot.items || []);
@@ -769,6 +826,53 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   const filteredItems = useMemo(() => {
     return localItems.filter((item) => itemMatchesSearch(item, searchTerm));
   }, [localItems, searchTerm]);
+
+  useEffect(() => {
+    filteredItemsRef.current = filteredItems;
+  }, [filteredItems]);
+
+  useEffect(() => {
+    if (!filteredItems.length) {
+      setSelectedCell(null);
+      setAnchorCell(null);
+      setSelectedCells(new Set());
+      setEditingCell(null);
+      editingCellRef.current = null;
+      setEditValue("");
+      editValueRef.current = "";
+      return;
+    }
+
+    if (!selectedCell || selectedCell.rowIndex >= filteredItems.length) {
+      const first = { rowIndex: 0, colId: firstEditableColumnId };
+      setSelectedCell(first);
+      setAnchorCell(first);
+      setSelectedCells(new Set([getCellKey(0, firstEditableColumnId)]));
+      setEditingCell(null);
+      editingCellRef.current = null;
+      setEditValue("");
+      editValueRef.current = "";
+    }
+  }, [filteredItems.length, selectedCell]);
+
+  useEffect(() => {
+    if (editingCell && inputRef.current) {
+      inputRef.current.focus();
+
+      if (
+        moveCaretToEndOnFocusRef.current &&
+        typeof inputRef.current.setSelectionRange === "function"
+      ) {
+        const len = String(inputRef.current.value || "").length;
+        inputRef.current.setSelectionRange(len, len);
+      } else if (
+        shouldSelectAllOnFocusRef.current &&
+        typeof inputRef.current.select === "function"
+      ) {
+        inputRef.current.select();
+      }
+    }
+  }, [editingCell]);
 
   const firstMatchRowId =
     searchTerm && filteredItems[0]?.tuitionId
@@ -809,42 +913,494 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     return () => clearTimeout(timer);
   }, [firstMatchRowId, open]);
 
-  const updateRecord = async (item, field, newValue) => {
-    try {
-      setLocalItems((prev) =>
-        prev.map((x) => (x.tuitionId === item.tuitionId ? { ...x, [field]: newValue } : x))
+  const getColumnIndex = (colId) => gridColumnIds.findIndex((id) => id === colId);
+
+  const focusCell = (rowIndex, colId) => {
+    requestAnimationFrame(() => {
+      const root = tableWrapperRef.current;
+      if (!root) return;
+
+      const target = root.querySelector(
+        `[data-grid-row="${rowIndex}"][data-grid-col="${colId}"]`
       );
 
-      const payload = { ...item, [field]: newValue, _source: "target" };
+      if (target && typeof target.focus === "function") {
+        target.focus({ preventScroll: false });
+      }
+    });
+  };
+
+  const selectSingleCell = (rowIndex, colId, shouldFocus = true) => {
+    const cell = { rowIndex, colId };
+    setSelectedCell(cell);
+    setAnchorCell(cell);
+    setSelectedCells(new Set([getCellKey(rowIndex, colId)]));
+    if (shouldFocus) focusCell(rowIndex, colId);
+  };
+
+  const getRangeCells = (start, end) => {
+    if (!start || !end) return new Set();
+
+    const startRow = Math.min(start.rowIndex, end.rowIndex);
+    const endRow = Math.max(start.rowIndex, end.rowIndex);
+    const startColIndex = getColumnIndex(start.colId);
+    const endColIndex = getColumnIndex(end.colId);
+
+    if (startColIndex < 0 || endColIndex < 0) return new Set();
+
+    const minCol = Math.min(startColIndex, endColIndex);
+    const maxCol = Math.max(startColIndex, endColIndex);
+
+    const range = new Set();
+
+    for (let r = startRow; r <= endRow; r++) {
+      for (let c = minCol; c <= maxCol; c++) {
+        range.add(getCellKey(r, gridColumnIds[c]));
+      }
+    }
+
+    return range;
+  };
+
+  const getCellValue = (item, col) => {
+    if (!item || !col) return "";
+
+    switch (col.id) {
+      case "parentsContact":
+        return item.parentsContact ?? item.parentContact ?? "";
+      case "className":
+        return item.className ?? item.class ?? "";
+      case "subjects":
+        return item.subjects ?? item.subject ?? "";
+      case "tutorFees":
+        return item.tutorFees ?? item.tutorFee ?? "";
+      case "syncFlag":
+        return item.syncFlag ?? item.sync ?? "";
+      default:
+        return item[col.field] ?? "";
+    }
+  };
+
+  const buildPatchForColumn = (colId, value) => {
+    switch (colId) {
+      case "demoTime":
+        return { demoTime: value };
+      case "tuitionName":
+        return { tuitionName: value };
+      case "source":
+        return { source: value };
+      case "country":
+        return { country: value };
+      case "parentsContact":
+        return { parentsContact: value, parentContact: value };
+      case "className":
+        return { className: value, class: value };
+      case "subjects":
+        return { subjects: value, subject: value };
+      case "tutorName":
+        return { tutorName: value };
+      case "tutorFees":
+        return { tutorFees: value, tutorFee: value };
+      case "rejectedTutor":
+        return { rejectedTutor: value };
+      case "status":
+        return { status: value };
+      case "feedback":
+        return { feedback: value };
+      case "demoDate":
+        return { demoDate: value };
+      case "demoRating":
+        return { demoRating: value };
+      case "syncFlag":
+        return { syncFlag: value, sync: value };
+      default:
+        return {};
+    }
+  };
+
+  const updateRecordFields = async (item, patchFields, refreshAfter = true) => {
+    try {
+      setLocalItems((prev) =>
+        prev.map((x) =>
+          x.tuitionId === item.tuitionId
+            ? {
+                ...x,
+                ...patchFields,
+              }
+            : x
+        )
+      );
+
+      const currentItem =
+        localItemsRef.current.find((x) => x.tuitionId === item.tuitionId) || item;
+
+      const payload = { ...currentItem, ...patchFields, _source: "target" };
+
       await api.patch(`/target/${encodeURIComponent(item.tuitionId)}`, payload);
 
-      if (onChanged) await onChanged();
+      if (onChanged && refreshAfter) {
+        onChanged();
+      }
     } catch (e) {
       alert("Update failed.");
       if (onChanged) await onChanged();
     }
   };
 
-  async function removeItem(tuitionId) {
-    if (
-      !window.confirm(
-        "Kya aap is row ko TODAY DEMO se delete karna chahte hain?\n\n(Monthly Sheet mein record safe rahega)"
-      )
-    ) {
+  const updateRecord = async (item, field, newValue) => {
+    await updateRecordFields(item, { [field]: newValue });
+  };
+
+  const setEditingState = (cell, value, options = {}) => {
+    const { selectAll = true, moveCaretToEnd = false } = options;
+    shouldSelectAllOnFocusRef.current = selectAll;
+    moveCaretToEndOnFocusRef.current = moveCaretToEnd;
+
+    editingCellRef.current = cell;
+    setEditingCell(cell);
+    editValueRef.current = value;
+    setEditValue(value);
+  };
+
+  const clearEditingState = () => {
+    editingCellRef.current = null;
+    setEditingCell(null);
+    editValueRef.current = "";
+    setEditValue("");
+    shouldSelectAllOnFocusRef.current = true;
+    moveCaretToEndOnFocusRef.current = false;
+  };
+
+  const startEditingCell = (rowIndex, colId, forcedValue = null, options = {}) => {
+    const col = gridColumnMap[colId];
+    const item = filteredItemsRef.current[rowIndex];
+
+    if (!col?.editable || !item) return;
+
+    const currentVal = getCellValue(item, col);
+    const nextValue = forcedValue !== null ? forcedValue : String(currentVal ?? "");
+
+    setSelectedCell({ rowIndex, colId });
+    setAnchorCell({ rowIndex, colId });
+    setSelectedCells(new Set([getCellKey(rowIndex, colId)]));
+    setEditingState({ rowIndex, colId }, nextValue, options);
+  };
+
+  const cancelEdit = (focusTarget = null) => {
+    clearEditingState();
+    if (focusTarget) {
+      focusCell(focusTarget.rowIndex, focusTarget.colId);
+    }
+  };
+
+  const commitEdit = (focusTarget = null) => {
+    const currentEditingCell = editingCellRef.current;
+    if (!currentEditingCell) {
+      if (focusTarget) focusCell(focusTarget.rowIndex, focusTarget.colId);
       return;
     }
 
-    try {
-      setIsUpdating(true);
-      await api.delete(`/target/${encodeURIComponent(tuitionId)}`);
-      if (onChanged) await onChanged();
-    } catch (error) {
-      const msg = error.response?.data?.message || "Delete failed";
-      alert("Delete failed: " + msg);
-    } finally {
-      setIsUpdating(false);
+    const { rowIndex, colId } = currentEditingCell;
+    const col = gridColumnMap[colId];
+    const item = filteredItemsRef.current[rowIndex];
+
+    const newValue = String(editValueRef.current ?? "");
+    clearEditingState();
+
+    if (!item || !col?.editable) {
+      if (focusTarget) focusCell(focusTarget.rowIndex, focusTarget.colId);
+      return;
     }
-  }
+
+    const oldValue = String(getCellValue(item, col) ?? "");
+
+    if (newValue !== oldValue) {
+      const patch = buildPatchForColumn(colId, newValue);
+      if (Object.keys(patch).length > 0) {
+        updateRecordFields(item, patch);
+      }
+    }
+
+    if (focusTarget) {
+      focusCell(focusTarget.rowIndex, focusTarget.colId);
+    }
+  };
+
+  const clearSelectedCells = async () => {
+    if (!selectedCells.size) return;
+
+    const updatesById = new Map();
+
+    selectedCells.forEach((key) => {
+      const { rowIndex, colId } = parseCellKey(key);
+      const col = gridColumnMap[colId];
+      const item = filteredItemsRef.current[rowIndex];
+
+      if (!item || !col?.editable) return;
+
+      const patch = buildPatchForColumn(colId, "");
+      if (!Object.keys(patch).length) return;
+
+      const prevPatch = updatesById.get(item.tuitionId) || {};
+      updatesById.set(item.tuitionId, { item, patch: { ...prevPatch, ...patch } });
+    });
+
+    if (!updatesById.size) return;
+
+    setLocalItems((prev) =>
+      prev.map((item) => {
+        const entry = updatesById.get(item.tuitionId);
+        return entry ? { ...item, ...entry.patch } : item;
+      })
+    );
+
+    clearEditingState();
+
+    for (const [, entry] of updatesById.entries()) {
+      try {
+        const currentItem =
+          localItemsRef.current.find((x) => x.tuitionId === entry.item.tuitionId) || entry.item;
+        const payload = { ...currentItem, ...entry.patch, _source: "target" };
+        await api.patch(`/target/${encodeURIComponent(entry.item.tuitionId)}`, payload);
+      } catch (error) {
+        console.error("Bulk clear update failed", error);
+      }
+    }
+
+    if (onChanged) onChanged();
+  };
+
+  const moveSelection = (rowDelta, colDelta, extendRange = false) => {
+    if (!filteredItems.length) return;
+
+    const baseCell =
+      selectedCell || { rowIndex: 0, colId: firstEditableColumnId };
+
+    const currentColIndex = getColumnIndex(baseCell.colId);
+    const nextRow = Math.max(
+      0,
+      Math.min(filteredItems.length - 1, baseCell.rowIndex + rowDelta)
+    );
+    const nextColIndex = Math.max(
+      0,
+      Math.min(gridColumns.length - 1, currentColIndex + colDelta)
+    );
+    const nextColId = gridColumnIds[nextColIndex];
+    const nextCell = { rowIndex: nextRow, colId: nextColId };
+
+    if (extendRange && anchorCell) {
+      setSelectedCell(nextCell);
+      setSelectedCells(getRangeCells(anchorCell, nextCell));
+      focusCell(nextRow, nextColId);
+      return;
+    }
+
+    selectSingleCell(nextRow, nextColId, true);
+  };
+
+  const handleCellMouseDown = (rowIndex, colId, e) => {
+    if (
+      editingCellRef.current &&
+      (editingCellRef.current.rowIndex !== rowIndex ||
+        editingCellRef.current.colId !== colId)
+    ) {
+      commitEdit({ rowIndex, colId });
+    }
+
+    const clickedCell = { rowIndex, colId };
+    const clickedKey = getCellKey(rowIndex, colId);
+
+    if (e.shiftKey && anchorCell) {
+      setSelectedCell(clickedCell);
+      setSelectedCells(getRangeCells(anchorCell, clickedCell));
+      focusCell(rowIndex, colId);
+      isMouseSelectingRef.current = false;
+      dragAnchorCellRef.current = null;
+      return;
+    }
+
+    if (e.ctrlKey || e.metaKey) {
+      setSelectedCells((prev) => {
+        const next = new Set(prev);
+        if (next.has(clickedKey)) next.delete(clickedKey);
+        else next.add(clickedKey);
+        return next;
+      });
+      setSelectedCell(clickedCell);
+      setAnchorCell(clickedCell);
+      focusCell(rowIndex, colId);
+      isMouseSelectingRef.current = false;
+      dragAnchorCellRef.current = null;
+      return;
+    }
+
+    isMouseSelectingRef.current = true;
+    dragAnchorCellRef.current = clickedCell;
+
+    setSelectedCell(clickedCell);
+    setAnchorCell(clickedCell);
+    setSelectedCells(new Set([clickedKey]));
+    focusCell(rowIndex, colId);
+  };
+
+  const handleCellMouseEnter = (rowIndex, colId) => {
+    if (!isMouseSelectingRef.current || !dragAnchorCellRef.current) return;
+
+    const hoverCell = { rowIndex, colId };
+    setSelectedCell(hoverCell);
+    setSelectedCells(getRangeCells(dragAnchorCellRef.current, hoverCell));
+  };
+
+  const handleCellKeyDown = (e, rowIndex, colId) => {
+    const col = gridColumnMap[colId];
+    if (!col) return;
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+      e.preventDefault();
+      const all = new Set();
+      for (let r = 0; r < filteredItems.length; r++) {
+        for (const id of gridColumnIds) {
+          all.add(getCellKey(r, id));
+        }
+      }
+      setSelectedCells(all);
+      setSelectedCell({ rowIndex, colId });
+      setAnchorCell({ rowIndex, colId });
+      return;
+    }
+
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      clearSelectedCells();
+      return;
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (col.editable) {
+        startEditingCell(rowIndex, colId);
+      }
+      return;
+    }
+
+    if (e.key === "F2") {
+      e.preventDefault();
+      if (col.editable) {
+        startEditingCell(rowIndex, colId);
+      }
+      return;
+    }
+
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      moveSelection(-1, 0, e.shiftKey);
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      moveSelection(1, 0, e.shiftKey);
+      return;
+    }
+
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      moveSelection(0, -1, e.shiftKey);
+      return;
+    }
+
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      moveSelection(0, 1, e.shiftKey);
+      return;
+    }
+
+    if (e.key === "Tab") {
+      e.preventDefault();
+      moveSelection(0, e.shiftKey ? -1 : 1, false);
+      return;
+    }
+
+    if (
+      col.editable &&
+      e.key.length === 1 &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      !e.altKey
+    ) {
+      e.preventDefault();
+      const item = filteredItemsRef.current[rowIndex];
+      const currentValue = String(getCellValue(item, col) ?? "");
+      startEditingCell(rowIndex, colId, currentValue + e.key, {
+        selectAll: false,
+        moveCaretToEnd: true,
+      });
+    }
+  };
+
+  const handleEditInputKeyDown = (e, rowIndex, colId, col) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const nextRow = Math.min(rowIndex + 1, filteredItems.length - 1);
+      commitEdit({ rowIndex: nextRow, colId });
+      selectSingleCell(nextRow, colId, true);
+      return;
+    }
+
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const currentColIndex = getColumnIndex(colId);
+      const nextColIndex = Math.max(
+        0,
+        Math.min(gridColumns.length - 1, currentColIndex + (e.shiftKey ? -1 : 1))
+      );
+      const nextColId = gridColumnIds[nextColIndex];
+      commitEdit({ rowIndex, colId: nextColId });
+      selectSingleCell(rowIndex, nextColId, true);
+      return;
+    }
+
+    if (col?.kind !== "select" && e.key === "ArrowUp") {
+      e.preventDefault();
+      const nextRow = Math.max(0, rowIndex - 1);
+      commitEdit({ rowIndex: nextRow, colId });
+      selectSingleCell(nextRow, colId, true);
+      return;
+    }
+
+    if (col?.kind !== "select" && e.key === "ArrowDown") {
+      e.preventDefault();
+      const nextRow = Math.min(filteredItems.length - 1, rowIndex + 1);
+      commitEdit({ rowIndex: nextRow, colId });
+      selectSingleCell(nextRow, colId, true);
+      return;
+    }
+
+    if (col?.kind !== "select" && e.key === "ArrowLeft") {
+      e.preventDefault();
+      const currentColIndex = getColumnIndex(colId);
+      const nextColIndex = Math.max(0, currentColIndex - 1);
+      const nextColId = gridColumnIds[nextColIndex];
+      commitEdit({ rowIndex, colId: nextColId });
+      selectSingleCell(rowIndex, nextColId, true);
+      return;
+    }
+
+    if (col?.kind !== "select" && e.key === "ArrowRight") {
+      e.preventDefault();
+      const currentColIndex = getColumnIndex(colId);
+      const nextColIndex = Math.min(gridColumns.length - 1, currentColIndex + 1);
+      const nextColId = gridColumnIds[nextColIndex];
+      commitEdit({ rowIndex, colId: nextColId });
+      selectSingleCell(rowIndex, nextColId, true);
+      return;
+    }
+
+    if (e.key === "Escape") {
+      e.preventDefault();
+      cancelEdit({ rowIndex, colId });
+    }
+  };
 
   const moveRow = async (index, direction) => {
     if (direction === "up" && index === 0) return;
@@ -870,23 +1426,29 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   const moveSelected = async (direction) => {
     if (selectedRows.size === 0) return;
 
-    let newItems = [...localItems];
     const selectedSet = new Set(selectedRows);
-    const indices = [];
+    const newItems = [...localItems];
 
-    newItems.forEach((item, idx) => {
-      if (selectedSet.has(item.tuitionId)) indices.push(idx);
-    });
+    if (direction === "up") {
+      for (let i = 1; i < newItems.length; i++) {
+        const currentSelected = selectedSet.has(newItems[i].tuitionId);
+        const prevSelected = selectedSet.has(newItems[i - 1].tuitionId);
 
-    const selectedItems = indices.sort((a, b) => a - b).map((i) => newItems[i]);
-    newItems = newItems.filter((item) => !selectedSet.has(item.tuitionId));
+        if (currentSelected && !prevSelected) {
+          [newItems[i - 1], newItems[i]] = [newItems[i], newItems[i - 1]];
+        }
+      }
+    } else {
+      for (let i = newItems.length - 2; i >= 0; i--) {
+        const currentSelected = selectedSet.has(newItems[i].tuitionId);
+        const nextSelected = selectedSet.has(newItems[i + 1].tuitionId);
 
-    const insertIndex =
-      direction === "up"
-        ? Math.max(0, indices[0] - 1)
-        : Math.min(newItems.length, indices[indices.length - 1] - selectedItems.length + 1);
+        if (currentSelected && !nextSelected) {
+          [newItems[i], newItems[i + 1]] = [newItems[i + 1], newItems[i]];
+        }
+      }
+    }
 
-    newItems.splice(insertIndex, 0, ...selectedItems);
     setLocalItems(newItems);
 
     const mgr = managerRef.current;
@@ -940,6 +1502,212 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     });
   };
 
+  async function removeItem(tuitionId) {
+    if (
+      !window.confirm(
+        "Kya aap is row ko TODAY DEMO se delete karna chahte hain?\n\n(Monthly Sheet mein record safe rahega)"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setIsUpdating(true);
+      await api.delete(`/target/${encodeURIComponent(tuitionId)}`);
+      if (onChanged) await onChanged();
+    } catch (error) {
+      const msg = error.response?.data?.message || "Delete failed";
+      alert("Delete failed: " + msg);
+    } finally {
+      setIsUpdating(false);
+    }
+  }
+
+  const renderDisplayValue = (col, val, item) => {
+    if (col.pill === "status") return renderPill(val, getStatusStyle, searchTerm);
+    if (col.pill === "source") return renderPill(val, getSourceStyle, searchTerm);
+    if (col.pill === "demoRating") return renderPill(val, getDemoRatingStyle, searchTerm);
+    if (col.type === "time" && val) return highlightText(format12Hour(val), searchTerm);
+    return highlightText(val || "", searchTerm);
+  };
+
+  const getCellBaseBackground = (item, col) => {
+    if (col.id === "tuitionName") return item.tuitionNameColor || "inherit";
+    if (col.id === "rejectedTutor") return columnColors["Rejected Tutor"];
+    return "inherit";
+  };
+
+  const renderGridCell = (item, rowIndex, col) => {
+    const cellKey = getCellKey(rowIndex, col.id);
+    const isSelected = selectedCells.has(cellKey);
+    const isEditing =
+      editingCell?.rowIndex === rowIndex && editingCell?.colId === col.id;
+
+    const value = getCellValue(item, col);
+    const baseBackground = getCellBaseBackground(item, col);
+
+    const commonTdStyle = {
+      ...styles.td,
+      minWidth: col.width,
+      width: col.width,
+      padding: col.kind === "tuitionName" ? "0 10px" : col.pill ? "0 5px" : "0 10px",
+      height: "35px",
+      cursor: col.editable ? "cell" : "default",
+      backgroundColor: isEditing ? "#ffffff" : baseBackground,
+      boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
+      position: "relative",
+      textAlign: col.pill ? "center" : "left",
+    };
+
+    if (isEditing && col.kind === "select") {
+      return (
+        <td style={commonTdStyle}>
+          <select
+            ref={inputRef}
+            autoFocus
+            style={styles.inlineSelect}
+            value={editValue}
+            onChange={(e) => {
+              editValueRef.current = e.target.value;
+              setEditValue(e.target.value);
+            }}
+            onBlur={() => commitEdit({ rowIndex, colId: col.id })}
+            onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
+          >
+            {col.options.map((o) => (
+              <option key={o} value={o}>
+                {o || "--"}
+              </option>
+            ))}
+          </select>
+        </td>
+      );
+    }
+
+    if (isEditing && col.kind === "tuitionName") {
+      return (
+        <td style={{ ...commonTdStyle, backgroundColor: item.tuitionNameColor || "#ffffff" }}>
+          <div style={{ display: "flex", alignItems: "center", height: "100%", gap: "8px" }}>
+            <input
+              ref={inputRef}
+              autoFocus
+              type="text"
+              value={editValue}
+              onChange={(e) => {
+                editValueRef.current = e.target.value;
+                setEditValue(e.target.value);
+              }}
+              onBlur={() => commitEdit({ rowIndex, colId: col.id })}
+              onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
+              style={{ ...styles.inlineInput, flex: 1 }}
+            />
+
+            <div
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            >
+              <ColorSwatch
+                color={item.tuitionNameColor || "#ffffff"}
+                onChange={(c) => updateRecord(item, "tuitionNameColor", c)}
+                pickerId={`tuitionNameColor-${instanceKey}-${item.tuitionId}`}
+                activeColorPicker={activeColorPicker}
+                onOpen={setActiveColorPicker}
+                onClose={() => setActiveColorPicker(null)}
+              />
+            </div>
+          </div>
+        </td>
+      );
+    }
+
+    if (isEditing) {
+      return (
+        <td style={commonTdStyle}>
+          <input
+            ref={inputRef}
+            autoFocus
+            type={col.type || "text"}
+            style={{ ...styles.inlineInput, flex: 1 }}
+            value={editValue}
+            onChange={(e) => {
+              editValueRef.current = e.target.value;
+              setEditValue(e.target.value);
+            }}
+            onBlur={() => commitEdit({ rowIndex, colId: col.id })}
+            onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
+          />
+        </td>
+      );
+    }
+
+    if (col.kind === "tuitionName") {
+      return (
+        <td
+          data-grid-row={rowIndex}
+          data-grid-col={col.id}
+          tabIndex={0}
+          className="excel-cell"
+          onMouseDown={(e) => handleCellMouseDown(rowIndex, col.id, e)}
+          onMouseEnter={() => handleCellMouseEnter(rowIndex, col.id)}
+          onDoubleClick={() => startEditingCell(rowIndex, col.id)}
+          onKeyDown={(e) => handleCellKeyDown(e, rowIndex, col.id)}
+          style={commonTdStyle}
+        >
+          <div style={{ display: "flex", alignItems: "center", height: "100%", gap: "8px" }}>
+            <span
+              style={{
+                flex: 1,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {highlightText(value || "", searchTerm)}
+            </span>
+
+            <div
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            >
+              <ColorSwatch
+                color={item.tuitionNameColor || "#ffffff"}
+                onChange={(c) => updateRecord(item, "tuitionNameColor", c)}
+                pickerId={`tuitionNameColor-${instanceKey}-${item.tuitionId}`}
+                activeColorPicker={activeColorPicker}
+                onOpen={setActiveColorPicker}
+                onClose={() => setActiveColorPicker(null)}
+              />
+            </div>
+          </div>
+        </td>
+      );
+    }
+
+    return (
+      <td
+        data-grid-row={rowIndex}
+        data-grid-col={col.id}
+        tabIndex={0}
+        className="excel-cell"
+        onMouseDown={(e) => handleCellMouseDown(rowIndex, col.id, e)}
+        onMouseEnter={() => handleCellMouseEnter(rowIndex, col.id)}
+        onDoubleClick={() => {
+          if (col.editable) startEditingCell(rowIndex, col.id);
+        }}
+        onKeyDown={(e) => handleCellKeyDown(e, rowIndex, col.id)}
+        style={commonTdStyle}
+      >
+        {renderDisplayValue(col, value, item)}
+      </td>
+    );
+  };
+
   const showSkeleton = isLoadingData || isUpdating;
 
   return (
@@ -984,7 +1752,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
         </div>
 
         {open && isUnlocked ? (
-          <div style={styles.tableWrapper}>
+          <div style={styles.tableWrapper} ref={tableWrapperRef}>
             <div
               style={{
                 display: "flex",
@@ -1110,22 +1878,19 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
                     <TH style={{ width: "40px", textAlign: "center", background: "#e5e7eb" }}>Sort</TH>
                     <TH style={{ width: "30px", textAlign: "center", background: "#e5e7eb" }}>🎨</TH>
 
-                    <TH>Demo Time</TH>
-                    <TH>Tuition Name</TH>
-                    <TH>Source</TH>
-                    <TH>Country</TH>
-                    <TH>Parent Contact</TH>
-                    <TH>Class</TH>
-                    <TH>Subject</TH>
-                    <TH>Tutor Name</TH>
-                    <TH>Tutor Fees</TH>
-                    <TH style={{ color: "#d32f2f" }}>Rejected Tutor</TH>
-                    <TH>Status</TH>
-                    <TH>Feedback</TH>
-                    <TH>Demo Date</TH>
-                    <TH>Tuition Id</TH>
-                    <TH>Demo Rating</TH>
-                    <TH>Sync</TH>
+                    {gridColumns.map((col) => (
+                      <TH
+                        key={col.id}
+                        style={{
+                          minWidth: col.width,
+                          width: col.width,
+                          color: col.id === "rejectedTutor" ? "#d32f2f" : undefined,
+                        }}
+                      >
+                        {col.label}
+                      </TH>
+                    ))}
+
                     <TH style={{ textAlign: "center" }}>Action</TH>
                   </tr>
                 </thead>
@@ -1148,7 +1913,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
                       </td>
                     </tr>
                   ) : (
-                    filteredItems.map((it) => {
+                    filteredItems.map((it, visibleIndex) => {
                       const originalIndex = localItems.findIndex((item) => item.tuitionId === it.tuitionId);
                       const rowId = `row-${instanceKey}-${sanitizeKey(String(it.tuitionId))}`;
                       const rowMatched = !!searchTerm && itemMatchesSearch(it, searchTerm);
@@ -1210,151 +1975,14 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
                             <ColorSwatch
                               color={it.rowColor || "#ffffff"}
                               onChange={(c) => updateRecord(it, "rowColor", c)}
+                              pickerId={`rowColor-${instanceKey}-${it.tuitionId}`}
+                              activeColorPicker={activeColorPicker}
+                              onOpen={setActiveColorPicker}
+                              onClose={() => setActiveColorPicker(null)}
                             />
                           </td>
 
-                          <EditableCell
-                            val={it.demoTime}
-                            type="time"
-                            onSave={(val) => updateRecord(it, "demoTime", val)}
-                            width={100}
-                            searchTerm={searchTerm}
-                          />
-
-                          <td
-                            style={{
-                              ...styles.td,
-                              backgroundColor: it.tuitionNameColor || "inherit",
-                              minWidth: 150,
-                              padding: "0 10px",
-                              height: "35px",
-                              cursor: "cell",
-                              textAlign: "left",
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", height: "100%", gap: "8px" }}>
-                              <span style={{ flex: 1 }}>{highlightText(it.tuitionName || "", searchTerm)}</span>
-                              <ColorSwatch
-                                color={it.tuitionNameColor || "#ffffff"}
-                                onChange={(c) => updateRecord(it, "tuitionNameColor", c)}
-                              />
-                            </div>
-                          </td>
-
-                          <EditableCell
-                            val={it.source}
-                            options={sourcesList}
-                            onSave={(val) => updateRecord(it, "source", val)}
-                            width={110}
-                            searchTerm={searchTerm}
-                            customRender={(val, q) => renderPill(val, getSourceStyle, q)}
-                          />
-
-                          <EditableCell
-                            val={it.country}
-                            onSave={(val) => updateRecord(it, "country", val)}
-                            width={100}
-                            searchTerm={searchTerm}
-                          />
-
-                          <EditableCell
-                            val={it.parentsContact || it.parentContact}
-                            onSave={(val) => updateRecord(it, "parentsContact", val)}
-                            width={130}
-                            searchTerm={searchTerm}
-                          />
-
-                          <EditableCell
-                            val={it.className || it.class}
-                            onSave={(val) => updateRecord(it, "className", val)}
-                            width={100}
-                            searchTerm={searchTerm}
-                          />
-
-                          <EditableCell
-                            val={it.subjects || it.subject}
-                            onSave={(val) => updateRecord(it, "subjects", val)}
-                            width={120}
-                            searchTerm={searchTerm}
-                          />
-
-                          <EditableCell
-                            val={it.tutorName}
-                            onSave={(val) => updateRecord(it, "tutorName", val)}
-                            width={140}
-                            searchTerm={searchTerm}
-                          />
-
-                          <EditableCell
-                            val={it.tutorFees || it.tutorFee}
-                            onSave={(val) => updateRecord(it, "tutorFees", val)}
-                            width={100}
-                            searchTerm={searchTerm}
-                          />
-
-                          <EditableCell
-                            val={it.rejectedTutor}
-                            onSave={(val) => updateRecord(it, "rejectedTutor", val)}
-                            bg={columnColors["Rejected Tutor"]}
-                            width={120}
-                            searchTerm={searchTerm}
-                          />
-
-                          <EditableCell
-                            val={it.status}
-                            options={statusList}
-                            onSave={(val) => updateRecord(it, "status", val)}
-                            width={140}
-                            searchTerm={searchTerm}
-                            customRender={(val, q) => renderPill(val, getStatusStyle, q)}
-                          />
-
-                          <EditableCell
-                            val={it.feedback}
-                            onSave={(val) => updateRecord(it, "feedback", val)}
-                            width={180}
-                            searchTerm={searchTerm}
-                          />
-
-                          <EditableCell
-                            val={it.demoDate}
-                            type="date"
-                            onSave={(val) => updateRecord(it, "demoDate", val)}
-                            width={120}
-                            searchTerm={searchTerm}
-                          />
-
-                          <td
-                            tabIndex={0}
-                            onKeyDown={handleGridKeyDown}
-                            className="excel-cell"
-                            style={{
-                              ...styles.td,
-                              padding: "0 10px",
-                              fontWeight: "bold",
-                              color: "#555",
-                              backgroundColor: "inherit",
-                              textAlign: "left",
-                            }}
-                          >
-                            {highlightText(it.tuitionId, searchTerm)}
-                          </td>
-
-                          <EditableCell
-                            val={it.demoRating}
-                            options={DEMO_RATING_VALUES}
-                            onSave={(val) => updateRecord(it, "demoRating", val)}
-                            width={130}
-                            searchTerm={searchTerm}
-                            customRender={(val, q) => renderPill(val, getDemoRatingStyle, q)}
-                          />
-
-                          <EditableCell
-                            val={it.syncFlag || it.sync}
-                            onSave={(val) => updateRecord(it, "syncFlag", val)}
-                            width={80}
-                            searchTerm={searchTerm}
-                          />
+                          {gridColumns.map((col) => renderGridCell(it, visibleIndex, col))}
 
                           <td
                             tabIndex={0}
@@ -1438,106 +2066,6 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
    Subcomponents
    ----------------------- */
 const TH = ({ children, style }) => <th style={{ ...styles.th, ...style }}>{children}</th>;
-
-function EditableCell({
-  val,
-  type = "text",
-  options = [],
-  onSave,
-  bg,
-  width,
-  customRender,
-  searchTerm = "",
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [currentVal, setCurrentVal] = useState(val || "");
-  const tdRef = useRef(null);
-
-  useEffect(() => {
-    setCurrentVal(val || "");
-  }, [val]);
-
-  const handleBlur = () => {
-    setIsEditing(false);
-    if (currentVal !== val) onSave(currentVal);
-  };
-
-  const handleInputKeyDown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      e.target.blur();
-      setTimeout(() => {
-        if (tdRef.current) tdRef.current.focus();
-      }, 10);
-    }
-  };
-
-  const handleTdKeyDown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      setIsEditing(true);
-    } else {
-      handleGridKeyDown(e);
-    }
-  };
-
-  let displayValue = currentVal;
-  if (type === "time" && currentVal) displayValue = format12Hour(currentVal);
-
-  if (!isEditing) {
-    return (
-      <td
-        ref={tdRef}
-        tabIndex={0}
-        className="excel-cell"
-        onClick={() => setIsEditing(true)}
-        onKeyDown={handleTdKeyDown}
-        style={{
-          ...styles.td,
-          backgroundColor: bg || "inherit",
-          cursor: "cell",
-          minWidth: width,
-          padding: customRender ? "0 5px" : "0 10px",
-          height: "35px",
-          textAlign: customRender ? "center" : "left",
-        }}
-      >
-        {customRender ? customRender(displayValue, searchTerm) : highlightText(displayValue || "", searchTerm)}
-      </td>
-    );
-  }
-
-  return (
-    <td style={{ ...styles.td, backgroundColor: "white", minWidth: width }}>
-      {options.length > 0 ? (
-        <select
-          autoFocus
-          style={{ ...styles.inlineSelect, boxShadow: "inset 0 0 0 2px #107c41" }}
-          value={currentVal}
-          onChange={(e) => setCurrentVal(e.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={handleInputKeyDown}
-        >
-          {options.map((o) => (
-            <option key={o} value={o}>
-              {o || "--"}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <input
-          autoFocus
-          type={type}
-          style={{ ...styles.inlineInput, boxShadow: "inset 0 0 0 2px #107c41" }}
-          value={currentVal}
-          onChange={(e) => setCurrentVal(e.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={handleInputKeyDown}
-        />
-      )}
-    </td>
-  );
-}
 
 /* =====================
    Small helpers

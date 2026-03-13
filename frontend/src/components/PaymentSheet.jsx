@@ -507,9 +507,6 @@ export default function PaymentSheet({ me }) {
         <div style={styles.headerRow}>
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>Payment Sheet</h2>
-            <p style={styles.subtitle}>
-              Monthly Sheet me status Tuition Done hote hi yahan record auto aa jayega.
-            </p>
           </div>
 
           <div style={styles.actions}>

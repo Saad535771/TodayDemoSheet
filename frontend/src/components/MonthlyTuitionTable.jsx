@@ -1643,5 +1643,4 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     </div>
   );
 }
-
 const TH = ({ children, style }) => <th style={{ ...styles.th, ...style }}>{children}</th>;
