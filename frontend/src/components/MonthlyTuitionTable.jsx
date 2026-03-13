@@ -132,126 +132,6 @@ const searchColumns = [
   { key: "demoDate", label: "Demo Date" },
 ];
 
-// ==================== EXCEL STYLE COLOR PICKER ====================
-const ColorSwatch = ({ color = "#ffffff", onChange }) => {
-  const [showPopup, setShowPopup] = useState(false);
-  const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
-  const swatchRef = useRef(null);
-
-  const presets = [
-    "#ffffff",
-    "#f8f9fa",
-    "#ffebee",
-    "#fff3e0",
-    "#f3e5f5",
-    "#e8f5e9",
-    "#e3f2fd",
-    "#fff8e1",
-    "#fce4ec",
-    "#e0f2f1",
-    "#f1f8e9",
-    "#e8eaf6",
-    "#ef5350",
-    "#ff9800",
-    "#fdd835",
-    "#209024",
-    "#2196f3",
-    "#9c27b0",
-    "#f44336",
-    "#ff5722",
-    "#ffc107",
-    "#8bc34a",
-    "#03a9f4",
-    "#673ab7",
-  ];
-
-  const openPopup = () => {
-    if (!swatchRef.current) return;
-    const rect = swatchRef.current.getBoundingClientRect();
-    setPopupPos({ top: rect.bottom + 8, left: rect.left });
-    setShowPopup(true);
-  };
-
-  useEffect(() => {
-    if (!showPopup) return;
-    const handleOutside = (e) => {
-      if (swatchRef.current && !swatchRef.current.contains(e.target)) {
-        setShowPopup(false);
-      }
-    };
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, [showPopup]);
-
-  return (
-    <div ref={swatchRef} style={{ position: "relative", display: "inline-block" }}>
-      <div
-        onClick={openPopup}
-        style={{ ...styles.colorSwatch, backgroundColor: color }}
-        title="Click to change color (Excel style)"
-      />
-      {showPopup && (
-        <div
-          style={{
-            ...styles.pickerPopup,
-            top: popupPos.top,
-            left: popupPos.left,
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div
-            style={{
-              marginBottom: "8px",
-              fontSize: "13px",
-              fontWeight: "600",
-              color: "#444",
-            }}
-          >
-            Default Colors
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(6, 28px)",
-              gap: "6px",
-              marginBottom: "12px",
-            }}
-          >
-            {presets.map((c, i) => (
-              <div
-                key={i}
-                onClick={() => {
-                  onChange(c);
-                  setShowPopup(false);
-                }}
-                style={{
-                  width: "28px",
-                  height: "28px",
-                  backgroundColor: c,
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
-              />
-            ))}
-          </div>
-
-          <div style={{ borderTop: "1px solid #eee", paddingTop: "8px" }}>
-            <div style={{ fontSize: "13px", marginBottom: "4px" }}>Custom Color</div>
-            <input
-              type="color"
-              value={color}
-              onChange={(e) => onChange(e.target.value)}
-              style={{ width: "100%", height: "32px", cursor: "pointer" }}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
 const demoRatings = ["", "Average Demo", "Strong Demo", "Weak Demo"];
 const sourcesList = ["", "mahad", "areeba", "sibgha"];
 const statusList = [
@@ -265,6 +145,68 @@ const statusList = [
   "Not available",
   "Pending",
 ];
+
+const gridColumns = [
+  { id: "demoTime", label: "Demo Time", width: 110, editable: true, field: "demoTime", type: "time" },
+  { id: "tuitionName", label: "Tuition Name", width: 180, editable: true, field: "tuitionName", kind: "tuitionName" },
+  { id: "status", label: "Status", width: 140, editable: true, field: "status", kind: "select", options: statusList, pill: "status" },
+  { id: "estimatedFee", label: "Estimated Fee", width: 120, editable: true, field: "estimatedFee" },
+  { id: "tutorName", label: "Tutor Name", width: 160, editable: true, field: "tutorName" },
+  { id: "tutorFees", label: "Tutor Fees", width: 120, editable: true, field: "tutorFees" },
+  { id: "rejectedTutor", label: "Rejected Tutor", width: 140, editable: true, field: "rejectedTutor" },
+  { id: "feedback", label: "Feedback", width: 200, editable: true, field: "feedback" },
+  { id: "country", label: "Country", width: 100, editable: true, field: "country" },
+  { id: "parentsContact", label: "Parent Contact", width: 140, editable: true, field: "parentsContact" },
+  { id: "className", label: "Class", width: 100, editable: true, field: "className" },
+  { id: "subjects", label: "Subject", width: 140, editable: true, field: "subjects" },
+  { id: "daysPerWeek", label: "Days per week", width: 100, editable: true, field: "daysPerWeek" },
+  { id: "source", label: "Source", width: 120, editable: true, field: "source", kind: "select", options: sourcesList, pill: "source" },
+  { id: "demoDate", label: "Demo Date", width: 120, editable: true, field: "demoDate", type: "date" },
+  { id: "tuitionId", label: "Tuition Id", width: 100, editable: false, field: "tuitionId", kind: "readonly" },
+  { id: "otmName", label: "OTM Name", width: 120, editable: true, field: "otmName" },
+  { id: "demoRating", label: "Demo Rating", width: 140, editable: true, field: "demoRating", kind: "select", options: demoRatings, pill: "demoRating" },
+  { id: "sync", label: "Sync", width: 80, editable: true, field: "sync" },
+];
+
+const gridColumnIds = gridColumns.map((c) => c.id);
+const gridColumnMap = Object.fromEntries(gridColumns.map((c) => [c.id, c]));
+const firstEditableColumnId = gridColumns[0]?.id || "demoTime";
+const columnColors = { "Rejected Tutor": "#ffebee" };
+
+const getCellKey = (rowIndex, colId) => `${rowIndex}__${colId}`;
+
+const parseCellKey = (key) => {
+  const [rowIndex, ...rest] = key.split("__");
+  return { rowIndex: Number(rowIndex), colId: rest.join("__") };
+};
+
+function format12Hour(time24) {
+  if (!time24) return "";
+  const [h, m] = time24.split(":");
+  let hours = parseInt(h, 10);
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+  return `${hours}:${m} ${ampm}`;
+}
+
+const renderPill = (val, styleFn) => {
+  if (!val) return "";
+  const style = styleFn(val);
+  return (
+    <span
+      style={{
+        padding: "4px 10px",
+        borderRadius: "12px",
+        fontSize: "12px",
+        fontWeight: "bold",
+        display: "inline-block",
+        ...style,
+      }}
+    >
+      {val}
+    </span>
+  );
+};
 
 const getStatusStyle = (status) => {
   switch (status) {
@@ -315,90 +257,150 @@ const getSourceStyle = (source) => {
   }
 };
 
-const columnColors = { "Rejected Tutor": "#ffebee" };
+const ColorSwatch = ({
+  color = "#ffffff",
+  onChange,
+  pickerId,
+  activeColorPicker,
+  onOpen,
+  onClose,
+}) => {
+  const swatchRef = useRef(null);
 
-function format12Hour(time24) {
-  if (!time24) return "";
-  const [h, m] = time24.split(":");
-  let hours = parseInt(h, 10);
-  const ampm = hours >= 12 ? "PM" : "AM";
-  hours = hours % 12 || 12;
-  return `${hours}:${m} ${ampm}`;
-}
+  const presets = [
+    "#ffffff",
+    "#f8f9fa",
+    "#ffebee",
+    "#fff3e0",
+    "#f3e5f5",
+    "#e8f5e9",
+    "#e3f2fd",
+    "#fff8e1",
+    "#fce4ec",
+    "#e0f2f1",
+    "#f1f8e9",
+    "#e8eaf6",
+    "#ef5350",
+    "#ff9800",
+    "#fdd835",
+    "#209024",
+    "#2196f3",
+    "#9c27b0",
+    "#f44336",
+    "#ff5722",
+    "#ffc107",
+    "#8bc34a",
+    "#03a9f4",
+    "#673ab7",
+  ];
 
-const renderPill = (val, styleFn) => {
-  if (!val) return "";
-  const style = styleFn(val);
-  return (
-    <span
-      style={{
-        padding: "4px 10px",
-        borderRadius: "12px",
-        fontSize: "12px",
-        fontWeight: "bold",
-        display: "inline-block",
-        ...style,
-      }}
-    >
-      {val}
-    </span>
-  );
-};
+  const isOpen = activeColorPicker?.id === pickerId;
+  const popupPos = isOpen
+    ? { top: activeColorPicker.top, left: activeColorPicker.left }
+    : { top: 0, left: 0 };
 
-export const handleGridKeyDown = (e) => {
-  const td = e.currentTarget;
-  if (["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp"].includes(e.key)) {
-    e.preventDefault();
-    let target = null;
-    if (e.key === "ArrowRight") target = td.nextElementSibling;
-    else if (e.key === "ArrowLeft") target = td.previousElementSibling;
-    else if (e.key === "ArrowDown") {
-      const nextTr = td.parentElement.nextElementSibling;
-      if (nextTr) target = nextTr.children[td.cellIndex];
-    } else if (e.key === "ArrowUp") {
-      const prevTr = td.parentElement.previousElementSibling;
-      if (prevTr) target = prevTr.children[td.cellIndex];
+  const openPopup = () => {
+    if (!swatchRef.current) return;
+    const rect = swatchRef.current.getBoundingClientRect();
+
+    if (isOpen) {
+      onClose();
+      return;
     }
-    if (target && target.tagName === "TD") target.focus();
-  }
-};
 
-const gridColumns = [
-  { id: "demoTime", label: "Demo Time", width: 110, editable: true, field: "demoTime", type: "time" },
-  { id: "tuitionName", label: "Tuition Name", width: 180, editable: true, field: "tuitionName", kind: "tuitionName" },
-  { id: "status", label: "Status", width: 140, editable: true, field: "status", kind: "select", options: statusList, pill: "status" },
-  { id: "estimatedFee", label: "Estimated Fee", width: 120, editable: true, field: "estimatedFee" },
-  { id: "tutorName", label: "Tutor Name", width: 160, editable: true, field: "tutorName" },
-  { id: "tutorFees", label: "Tutor Fees", width: 120, editable: true, field: "tutorFees" },
-  { id: "rejectedTutor", label: "Rejected Tutor", width: 140, editable: true, field: "rejectedTutor" },
-  { id: "feedback", label: "Feedback", width: 200, editable: true, field: "feedback" },
-  { id: "country", label: "Country", width: 100, editable: true, field: "country" },
-  { id: "parentsContact", label: "Parent Contact", width: 140, editable: true, field: "parentsContact" },
-  { id: "className", label: "Class", width: 100, editable: true, field: "className" },
-  { id: "subjects", label: "Subject", width: 140, editable: true, field: "subjects" },
-  { id: "daysPerWeek", label: "Days per week", width: 100, editable: true, field: "daysPerWeek" },
-  { id: "source", label: "Source", width: 120, editable: true, field: "source", kind: "select", options: sourcesList, pill: "source" },
-  { id: "demoDate", label: "Demo Date", width: 120, editable: true, field: "demoDate", type: "date" },
-  { id: "tuitionId", label: "Tuition Id", width: 100, editable: false, field: "tuitionId", kind: "readonly" },
-  { id: "otmName", label: "OTM Name", width: 120, editable: true, field: "otmName" },
-  { id: "demoRating", label: "Demo Rating", width: 140, editable: true, field: "demoRating", kind: "select", options: demoRatings, pill: "demoRating" },
-  { id: "sync", label: "Sync", width: 80, editable: true, field: "sync" },
-];
+    onOpen({
+      id: pickerId,
+      top: rect.top,
+      left: rect.left,
+    });
+  };
 
-const gridColumnIds = gridColumns.map((c) => c.id);
-const gridColumnMap = Object.fromEntries(gridColumns.map((c) => [c.id, c]));
-const firstEditableColumnId = gridColumns[0]?.id || "demoTime";
+  useEffect(() => {
+    if (!isOpen) return;
 
-const getCellKey = (rowIndex, colId) => `${rowIndex}__${colId}`;
+    const handleOutside = (e) => {
+      if (swatchRef.current && !swatchRef.current.contains(e.target)) {
+        onClose();
+      }
+    };
 
-const parseCellKey = (key) => {
-  const [rowIndex, ...rest] = key.split("__");
-  return { rowIndex: Number(rowIndex), colId: rest.join("__") };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [isOpen, onClose]);
+
+  return (
+    <div ref={swatchRef} style={{ position: "relative", display: "inline-block" }}>
+      <div
+        onClick={openPopup}
+        style={{ ...styles.colorSwatch, backgroundColor: color }}
+        title="Click to change color (Excel style)"
+      />
+
+      {isOpen && (
+        <div
+          style={{
+            ...styles.pickerPopup,
+            top: popupPos.top,
+            left: popupPos.left,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            style={{
+              marginBottom: "8px",
+              fontSize: "13px",
+              fontWeight: "600",
+              color: "#444",
+            }}
+          >
+            Default Colors
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(6, 28px)",
+              gap: "6px",
+              marginBottom: "12px",
+            }}
+          >
+            {presets.map((c, i) => (
+              <div
+                key={i}
+                onClick={() => {
+                  onChange(c);
+                  onClose();
+                }}
+                style={{
+                  width: "28px",
+                  height: "28px",
+                  backgroundColor: c,
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                }}
+              />
+            ))}
+          </div>
+
+          <div style={{ borderTop: "1px solid #eee", paddingTop: "8px" }}>
+            <div style={{ fontSize: "13px", marginBottom: "4px" }}>Custom Color</div>
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => onChange(e.target.value)}
+              style={{ width: "100%", height: "32px", cursor: "pointer" }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const [localItems, setLocalItems] = useState([]);
-  const [selectedRows, setSelectedRows] = useState([]);
+  const [selectedRows, setSelectedRows] = useState(new Set());
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFields, setSelectedFields] = useState(searchColumns.map((c) => c.key));
@@ -413,6 +415,8 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState("");
 
+  const [activeColorPicker, setActiveColorPicker] = useState(null);
+
   const tableWrapperRef = useRef(null);
   const localItemsRef = useRef(localItems);
   const editingCellRef = useRef(editingCell);
@@ -420,6 +424,9 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const inputRef = useRef(null);
   const shouldSelectAllOnFocusRef = useRef(true);
   const moveCaretToEndOnFocusRef = useRef(false);
+
+  const isMouseSelectingRef = useRef(false);
+  const dragAnchorCellRef = useRef(null);
 
   useEffect(() => {
     localItemsRef.current = localItems;
@@ -432,6 +439,16 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   useEffect(() => {
     editValueRef.current = editValue;
   }, [editValue]);
+
+  useEffect(() => {
+    const stopMouseSelection = () => {
+      isMouseSelectingRef.current = false;
+      dragAnchorCellRef.current = null;
+    };
+
+    document.addEventListener("mouseup", stopMouseSelection);
+    return () => document.removeEventListener("mouseup", stopMouseSelection);
+  }, []);
 
   useEffect(() => {
     setLocalItems(items);
@@ -815,6 +832,8 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       setSelectedCell(clickedCell);
       setSelectedCells(getRangeCells(anchorCell, clickedCell));
       focusCell(rowIndex, colId);
+      isMouseSelectingRef.current = false;
+      dragAnchorCellRef.current = null;
       return;
     }
 
@@ -828,10 +847,26 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       setSelectedCell(clickedCell);
       setAnchorCell(clickedCell);
       focusCell(rowIndex, colId);
+      isMouseSelectingRef.current = false;
+      dragAnchorCellRef.current = null;
       return;
     }
 
-    selectSingleCell(rowIndex, colId, true);
+    isMouseSelectingRef.current = true;
+    dragAnchorCellRef.current = clickedCell;
+
+    setSelectedCell(clickedCell);
+    setAnchorCell(clickedCell);
+    setSelectedCells(new Set([clickedKey]));
+    focusCell(rowIndex, colId);
+  };
+
+  const handleCellMouseEnter = (rowIndex, colId) => {
+    if (!isMouseSelectingRef.current || !dragAnchorCellRef.current) return;
+
+    const hoverCell = { rowIndex, colId };
+    setSelectedCell(hoverCell);
+    setSelectedCells(getRangeCells(dragAnchorCellRef.current, hoverCell));
   };
 
   const handleCellKeyDown = (e, rowIndex, colId) => {
@@ -914,12 +949,10 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       e.preventDefault();
       const item = localItemsRef.current[rowIndex];
       const currentValue = String(getCellValue(item, col) ?? "");
-      startEditingCell(
-        rowIndex,
-        colId,
-        currentValue + e.key,
-        { selectAll: false, moveCaretToEnd: true }
-      );
+      startEditingCell(rowIndex, colId, currentValue + e.key, {
+        selectAll: false,
+        moveCaretToEnd: true,
+      });
     }
   };
 
@@ -988,8 +1021,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   };
 
   const toggleRowSelection = (tuitionId) => {
-    const prevSet = selectedRows instanceof Set ? selectedRows : new Set(selectedRows);
-    const newSet = new Set(prevSet);
+    const newSet = new Set(selectedRows);
     newSet.has(tuitionId) ? newSet.delete(tuitionId) : newSet.add(tuitionId);
     setSelectedRows(newSet);
   };
@@ -1047,25 +1079,31 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   };
 
   const moveSelected = async (direction) => {
-    const selectedSet = selectedRows instanceof Set ? selectedRows : new Set(selectedRows);
-    if (selectedSet.size === 0) return;
+    if (selectedRows.size === 0) return;
 
-    let newItems = [...localItems];
-    const indices = [];
+    const selectedSet = new Set(selectedRows);
+    const newItems = [...localItems];
 
-    newItems.forEach((item, idx) => {
-      if (selectedSet.has(item.tuitionId)) indices.push(idx);
-    });
+    if (direction === "up") {
+      for (let i = 1; i < newItems.length; i++) {
+        const currentSelected = selectedSet.has(newItems[i].tuitionId);
+        const prevSelected = selectedSet.has(newItems[i - 1].tuitionId);
 
-    const selectedItems = indices.sort((a, b) => a - b).map((i) => newItems[i]);
-    newItems = newItems.filter((item) => !selectedSet.has(item.tuitionId));
+        if (currentSelected && !prevSelected) {
+          [newItems[i - 1], newItems[i]] = [newItems[i], newItems[i - 1]];
+        }
+      }
+    } else {
+      for (let i = newItems.length - 2; i >= 0; i--) {
+        const currentSelected = selectedSet.has(newItems[i].tuitionId);
+        const nextSelected = selectedSet.has(newItems[i + 1].tuitionId);
 
-    const insertIndex =
-      direction === "up"
-        ? Math.max(0, indices[0] - 1)
-        : Math.min(newItems.length, indices[indices.length - 1] - selectedItems.length + 1);
+        if (currentSelected && !nextSelected) {
+          [newItems[i], newItems[i + 1]] = [newItems[i + 1], newItems[i]];
+        }
+      }
+    }
 
-    newItems.splice(insertIndex, 0, ...selectedItems);
     setLocalItems(newItems);
 
     try {
@@ -1171,6 +1209,10 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
               <ColorSwatch
                 color={item.tuitionNameColor || "#ffffff"}
                 onChange={(c) => updateRecordFields(item, { tuitionNameColor: c })}
+                pickerId={`tuitionNameColor-${item.tuitionId}`}
+                activeColorPicker={activeColorPicker}
+                onOpen={setActiveColorPicker}
+                onClose={() => setActiveColorPicker(null)}
               />
             </div>
           </div>
@@ -1206,6 +1248,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
           tabIndex={0}
           className="excel-cell"
           onMouseDown={(e) => handleCellMouseDown(rowIndex, col.id, e)}
+          onMouseEnter={() => handleCellMouseEnter(rowIndex, col.id)}
           onDoubleClick={() => startEditingCell(rowIndex, col.id)}
           onKeyDown={(e) => handleCellKeyDown(e, rowIndex, col.id)}
           style={commonTdStyle}
@@ -1240,6 +1283,10 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
               <ColorSwatch
                 color={item.tuitionNameColor || "#ffffff"}
                 onChange={(c) => updateRecordFields(item, { tuitionNameColor: c })}
+                pickerId={`tuitionNameColor-${item.tuitionId}`}
+                activeColorPicker={activeColorPicker}
+                onOpen={setActiveColorPicker}
+                onClose={() => setActiveColorPicker(null)}
               />
             </div>
           </div>
@@ -1254,6 +1301,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
         tabIndex={0}
         className="excel-cell"
         onMouseDown={(e) => handleCellMouseDown(rowIndex, col.id, e)}
+        onMouseEnter={() => handleCellMouseEnter(rowIndex, col.id)}
         onDoubleClick={() => {
           if (col.editable) startEditingCell(rowIndex, col.id);
         }}
@@ -1264,9 +1312,6 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       </td>
     );
   };
-
-  const selectedRowsCount =
-    selectedRows instanceof Set ? selectedRows.size : selectedRows.length;
 
   return (
     <div style={styles.card}>
@@ -1303,24 +1348,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
             }}
           />
 
-          <button
-            onClick={() => {
-              setSearchTerm("");
-              setLocalItems(items);
-              setSelectedRows(new Set());
-            }}
-            style={{
-              padding: "10px 16px",
-              borderRadius: 6,
-              background: "#f3f2f1",
-              border: "none",
-              fontWeight: "600",
-            }}
-          >
-            Clear
-          </button>
-
-          {selectedRowsCount > 0 && (
+          {selectedRows.size > 0 && (
             <>
               <button
                 onClick={() => moveSelected("up")}
@@ -1360,7 +1388,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                   fontSize: "13px",
                 }}
               >
-                {selectedRowsCount} rows selected
+                {selectedRows.size} rows selected
               </span>
             </>
           )}
@@ -1531,7 +1559,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                     >
                       <input
                         type="checkbox"
-                        checked={(selectedRows instanceof Set ? selectedRows : new Set(selectedRows)).has(it.tuitionId)}
+                        checked={selectedRows.has(it.tuitionId)}
                         onChange={() => toggleRowSelection(it.tuitionId)}
                         style={{ cursor: "pointer", width: "18px", height: "18px" }}
                       />
@@ -1582,6 +1610,10 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                       <ColorSwatch
                         color={it.rowColor || "#ffffff"}
                         onChange={(c) => updateRecordFields(it, { rowColor: c })}
+                        pickerId={`rowColor-${it.tuitionId}`}
+                        activeColorPicker={activeColorPicker}
+                        onOpen={setActiveColorPicker}
+                        onClose={() => setActiveColorPicker(null)}
                       />
                     </td>
 
