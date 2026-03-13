@@ -1,0 +1,98 @@
+file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/utils/time.js:79
+    const parts = fmt.formatToParts(d).reduce((acc, p) => (acc[p.type] = p.value, acc), {});
+                      ^
+
+RangeError: Invalid time value
+    at DateTimeFormat.formatToParts (<anonymous>)
+    at toMidnight (file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/utils/time.js:79:23)
+    at computeFilterStatus (file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/utils/time.js:85:14)
+    at file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/controllers/targetController.js:26:50
+    at Array.map (<anonymous>)
+    at list (file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/controllers/targetController.js:25:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+Node.js v22.22.0
+file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/utils/time.js:79
+    const parts = fmt.formatToParts(d).reduce((acc, p) => (acc[p.type] = p.value, acc), {});
+                      ^
+
+RangeError: Invalid time value
+    at DateTimeFormat.formatToParts (<anonymous>)
+    at toMidnight (file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/utils/time.js:79:23)
+    at computeFilterStatus (file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/utils/time.js:85:14)
+    at file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/controllers/targetController.js:26:50
+    at Array.map (<anonymous>)
+    at list (file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/controllers/targetController.js:25:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+Node.js v22.22.0
+file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/utils/time.js:79
+    const parts = fmt.formatToParts(d).reduce((acc, p) => (acc[p.type] = p.value, acc), {});
+                      ^
+
+RangeError: Invalid time value
+    at DateTimeFormat.formatToParts (<anonymous>)
+    at toMidnight (file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/utils/time.js:79:23)
+    at computeFilterStatus (file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/utils/time.js:85:14)
+    at file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/controllers/targetController.js:26:50
+    at Array.map (<anonymous>)
+    at list (file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/controllers/targetController.js:25:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+Node.js v22.22.0
+file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/utils/time.js:79
+    const parts = fmt.formatToParts(d).reduce((acc, p) => (acc[p.type] = p.value, acc), {});
+                      ^
+
+RangeError: Invalid time value
+    at DateTimeFormat.formatToParts (<anonymous>)
+    at toMidnight (file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/utils/time.js:79:23)
+    at computeFilterStatus (file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/utils/time.js:85:14)
+    at file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/controllers/targetController.js:26:50
+    at Array.map (<anonymous>)
+    at list (file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/controllers/targetController.js:25:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+Node.js v22.22.0
+file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/utils/time.js:79
+    const parts = fmt.formatToParts(d).reduce((acc, p) => (acc[p.type] = p.value, acc), {});
+                      ^
+
+RangeError: Invalid time value
+    at DateTimeFormat.formatToParts (<anonymous>)
+    at toMidnight (file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/utils/time.js:79:23)
+    at computeFilterStatus (file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/utils/time.js:85:14)
+    at file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/controllers/targetController.js:26:50
+    at Array.map (<anonymous>)
+    at list (file:///home/alhiotrf/todaydemosheet.excelhometutors.com/src/controllers/targetController.js:25:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+Node.js v22.22.0
+Deprecation warning: value provided is not in a recognized RFC2822 or ISO format. moment construction falls back to js Date(), which is not reliable across all browsers and versions. Non RFC2822/ISO date formats are discouraged. Please refer to http://momentjs.com/guides/#/warnings/js-date/ for more info.
+Arguments: 
+[0] _isAMomentObject: true, _isUTC: false, _useUTC: false, _l: undefined, _i: Invalid date, _f: undefined, _strict: undefined, _locale: [object Object]
+Error
+    at Function.createFromInputFallback (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/moment/moment.js:324:25)
+    at configFromString (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/moment/moment.js:2613:19)
+    at configFromInput (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/moment/moment.js:3056:13)
+    at prepareConfig (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/moment/moment.js:3039:13)
+    at createFromConfig (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/moment/moment.js:3006:44)
+    at createLocalOrUTC (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/moment/moment.js:3100:16)
+    at createLocal (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/moment/moment.js:3104:16)
+    at hooks (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/moment/moment.js:16:29)
+    at DATEONLY._stringify (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/sequelize/lib/data-types.js:352:12)
+    at DATEONLY.stringify (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/sequelize/lib/data-types.js:22:19)
+Deprecation warning: value provided is not in a recognized RFC2822 or ISO format. moment construction falls back to js Date(), which is not reliable across all browsers and versions. Non RFC2822/ISO date formats are discouraged. Please refer to http://momentjs.com/guides/#/warnings/js-date/ for more info.
+Arguments: 
+[0] _isAMomentObject: true, _isUTC: false, _useUTC: false, _l: undefined, _i: Invalid date, _f: undefined, _strict: undefined, _locale: [object Object]
+Error
+    at Function.createFromInputFallback (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/moment/moment.js:324:25)
+    at configFromString (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/moment/moment.js:2613:19)
+    at configFromInput (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/moment/moment.js:3056:13)
+    at prepareConfig (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/moment/moment.js:3039:13)
+    at createFromConfig (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/moment/moment.js:3006:44)
+    at createLocalOrUTC (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/moment/moment.js:3100:16)
+    at createLocal (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/moment/moment.js:3104:16)
+    at hooks (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/moment/moment.js:16:29)
+    at DATEONLY._stringify (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/sequelize/lib/data-types.js:352:12)
+    at DATEONLY.stringify (/home/alhiotrf/nodevenv/todaydemosheet.excelhometutors.com/22/lib/node_modules/sequelize/lib/data-types.js:22:19)
