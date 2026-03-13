@@ -33,11 +33,6 @@ const styles = {
     color: "#1e3c72",
     margin: 0,
   },
-  subtitle: {
-    fontSize: "13px",
-    color: "#666",
-    margin: 0,
-  },
   actions: {
     display: "flex",
     alignItems: "center",
@@ -90,7 +85,7 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "1780px",
+    minWidth: "2000px",
     fontSize: "13px",
   },
   th: {
@@ -165,6 +160,25 @@ const styles = {
     fontSize: "14px",
     padding: "2px 6px",
     color: "#555",
+  },
+  colorSwatch: {
+    width: "20px",
+    height: "20px",
+    border: "2px solid #666",
+    cursor: "pointer",
+    borderRadius: "4px",
+    overflow: "hidden",
+    display: "inline-block",
+  },
+  pickerPopup: {
+    position: "fixed",
+    background: "white",
+    border: "1px solid #ccc",
+    padding: "10px",
+    borderRadius: "6px",
+    boxShadow: "0 6px 16px rgba(0,0,0,0.15)",
+    zIndex: 3000,
+    width: "220px",
   },
   emptyState: {
     padding: "28px",
@@ -248,13 +262,6 @@ function StatusPill({ value }) {
   );
 }
 
-const getCellKey = (rowIndex, colId) => `${rowIndex}__${colId}`;
-
-const parseCellKey = (key) => {
-  const [rowIndex, ...rest] = key.split("__");
-  return { rowIndex: Number(rowIndex), colId: rest.join("__") };
-};
-
 function highlightText(text, term) {
   const value = text === null || text === undefined ? "" : String(text);
   const q = String(term || "").trim();
@@ -266,7 +273,7 @@ function highlightText(text, term) {
   const parts = value.split(regex);
 
   return parts.map((part, index) =>
-    regex.test(part) ? (
+    part.toLowerCase() === q.toLowerCase() ? (
       <mark
         key={`${part}-${index}`}
         style={{
@@ -284,7 +291,148 @@ function highlightText(text, term) {
   );
 }
 
-export default function PaymentSheet({ me }) {
+const getCellKey = (rowIndex, colId) => `${rowIndex}__${colId}`;
+
+const parseCellKey = (key) => {
+  const [rowIndex, ...rest] = key.split("__");
+  return { rowIndex: Number(rowIndex), colId: rest.join("__") };
+};
+
+const ColorSwatch = ({
+  color = "#ffffff",
+  onChange,
+  pickerId,
+  activeColorPicker,
+  onOpen,
+  onClose,
+}) => {
+  const swatchRef = useRef(null);
+
+  const presets = [
+    "#ffffff",
+    "#f8f9fa",
+    "#ffebee",
+    "#fff3e0",
+    "#f3e5f5",
+    "#e8f5e9",
+    "#e3f2fd",
+    "#fff8e1",
+    "#fce4ec",
+    "#e0f2f1",
+    "#f1f8e9",
+    "#e8eaf6",
+    "#ef5350",
+    "#ff9800",
+    "#fdd835",
+    "#4caf50",
+    "#2196f3",
+    "#9c27b0",
+    "#f44336",
+    "#ff5722",
+    "#ffc107",
+    "#8bc34a",
+    "#03a9f4",
+    "#673ab7",
+  ];
+
+  const isOpen = activeColorPicker?.id === pickerId;
+  const popupPos = isOpen
+    ? { top: activeColorPicker.top, left: activeColorPicker.left }
+    : { top: 0, left: 0 };
+
+  const openPopup = () => {
+    if (!swatchRef.current) return;
+    const rect = swatchRef.current.getBoundingClientRect();
+
+    if (isOpen) {
+      onClose();
+      return;
+    }
+
+    onOpen({
+      id: pickerId,
+      top: rect.top,
+      left: rect.left,
+    });
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleOutside = (e) => {
+      if (swatchRef.current && !swatchRef.current.contains(e.target)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [isOpen, onClose]);
+
+  return (
+    <div ref={swatchRef} style={{ position: "relative", display: "inline-block" }}>
+      <div
+        onClick={openPopup}
+        style={{ ...styles.colorSwatch, backgroundColor: color }}
+        title="Change color"
+      />
+
+      {isOpen && (
+        <div
+          style={{
+            ...styles.pickerPopup,
+            top: popupPos.top,
+            left: popupPos.left,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ marginBottom: "8px", fontSize: "13px", fontWeight: "600", color: "#444" }}>
+            Default Colors
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(6, 28px)",
+              gap: "6px",
+              marginBottom: "12px",
+            }}
+          >
+            {presets.map((c, i) => (
+              <div
+                key={i}
+                onClick={() => {
+                  onChange(c);
+                  onClose();
+                }}
+                style={{
+                  width: "28px",
+                  height: "28px",
+                  backgroundColor: c,
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                }}
+              />
+            ))}
+          </div>
+
+          <div style={{ borderTop: "1px solid #eee", paddingTop: "8px" }}>
+            <div style={{ fontSize: "13px", marginBottom: "4px" }}>Custom Color</div>
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => onChange(e.target.value)}
+              style={{ width: "100%", height: "32px", cursor: "pointer" }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default function PaymentSheetWithDate({ me }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -295,6 +443,7 @@ export default function PaymentSheet({ me }) {
   const [selectedCells, setSelectedCells] = useState(new Set());
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState("");
+  const [activeColorPicker, setActiveColorPicker] = useState(null);
 
   const mountedRef = useRef(true);
   const itemsRef = useRef([]);
@@ -338,12 +487,21 @@ export default function PaymentSheet({ me }) {
         align: "left",
       },
       {
+        id: "dateWithMonth",
+        label: "Date With Month",
+        field: "dateWithMonth",
+        editable: true,
+        width: 160,
+        align: "left",
+      },
+      {
         id: "tuitionName",
         label: "Tuition Name",
         field: "tuitionName",
         editable: true,
         width: 180,
         align: "left",
+        kind: "tuitionName",
       },
       {
         id: "country",
@@ -447,23 +605,21 @@ export default function PaymentSheet({ me }) {
   );
 
   const firstEditableColumnId = gridColumns[0]?.id || "tuitionId";
-  const visibleColumnCount = gridColumns.length + 2; // Sort + Action
+  const visibleColumnCount = gridColumns.length + 3; // Sort + Color + Action
 
   useEffect(() => {
     mountedRef.current = true;
 
-    loadPayments({ initial: true });
+    loadRows({ initial: true });
 
     pollingRef.current = setInterval(() => {
       if (document.hidden) return;
-      loadPayments({ silent: true });
+      loadRows({ silent: true });
     }, LIVE_REFRESH_MS);
 
     return () => {
       mountedRef.current = false;
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
+      if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, []);
 
@@ -508,13 +664,11 @@ export default function PaymentSheet({ me }) {
     }
   }, [editingCell]);
 
-  async function loadPayments({ initial = false, silent = false } = {}) {
+  async function loadRows({ initial = false, silent = false } = {}) {
     try {
-      if (initial) {
-        setLoading(true);
-      }
+      if (initial) setLoading(true);
 
-      const res = await api.get("/payments");
+      const res = await api.get("/payments-clone");
       const rows = Array.isArray(res.data) ? res.data : res.data.items || [];
 
       if (!mountedRef.current) return;
@@ -523,14 +677,12 @@ export default function PaymentSheet({ me }) {
         setItems(rows);
       }
     } catch (err) {
-      console.error("Failed to load payments:", err);
+      console.error("Failed to load payment clone rows:", err);
       if (!silent && mountedRef.current && initial) {
         setItems([]);
       }
     } finally {
-      if (mountedRef.current && initial) {
-        setLoading(false);
-      }
+      if (mountedRef.current && initial) setLoading(false);
     }
   }
 
@@ -541,6 +693,7 @@ export default function PaymentSheet({ me }) {
       const newRow = {
         tuitionId: `manual-${Date.now()}`,
         paymentDate: "",
+        dateWithMonth: "",
         tuitionName: "",
         country: "",
         className: "",
@@ -551,19 +704,27 @@ export default function PaymentSheet({ me }) {
         status: "Tuition Pending",
         feedback: "",
         otmName: "",
+        syncFlag: "",
+        assignedStaffId: null,
+        isDeleted: false,
+        deletedFromTodayDemo: false,
+        assignedTo: "",
+        orderIndex: 0,
+        rowColor: "",
+        tuitionNameColor: "",
       };
 
-      const res = await api.post("/payments", newRow);
-      const created = res.data?.item || res.data?.payment || res.data;
+      const res = await api.post("/payments-clone", newRow);
+      const created = res.data?.item || res.data;
 
       if (created && getRowId(created) !== undefined) {
-        setItems((prev) => [created, ...prev]);
+        setItems((prev) => [...prev, created]);
       } else {
-        await loadPayments({ silent: true });
+        await loadRows({ silent: true });
       }
     } catch (err) {
-      console.error("Failed to add payment row:", err);
-      alert("New payment row create nahi hui.");
+      console.error("Failed to add payment clone row:", err);
+      alert("New row create nahi hui.");
     } finally {
       setAdding(false);
     }
@@ -572,7 +733,7 @@ export default function PaymentSheet({ me }) {
   async function updateRowFields(row, patchFields) {
     const rowId = getRowId(row);
     if (rowId === undefined || rowId === null) {
-      alert("Row ID missing hai. Backend record identify nahi ho raha.");
+      alert("Row ID missing hai.");
       return;
     }
 
@@ -584,10 +745,10 @@ export default function PaymentSheet({ me }) {
     );
 
     try {
-      await api.patch(`/payments/${encodeURIComponent(rowId)}`, updatedRow);
-      await loadPayments({ silent: true });
+      await api.patch(`/payments-clone/${encodeURIComponent(rowId)}`, updatedRow);
+      await loadRows({ silent: true });
     } catch (err) {
-      console.error("Failed to update payment row:", err);
+      console.error("Failed to update payment clone row:", err);
       setItems(oldItems);
       alert("Update failed.");
     }
@@ -614,12 +775,12 @@ export default function PaymentSheet({ me }) {
         orderIndex: idx,
       }));
 
-      await api.post("/payments/reorder", { items: reorderPayload });
-      await loadPayments({ silent: true });
+      await api.post("/payments-clone/reorder", { items: reorderPayload });
+      await loadRows({ silent: true });
     } catch (err) {
-      console.error("Failed to reorder payment rows:", err);
+      console.error("Failed to reorder payment clone rows:", err);
       alert("Row reorder save nahi hui.");
-      await loadPayments({ silent: true });
+      await loadRows({ silent: true });
     }
   }
 
@@ -630,16 +791,16 @@ export default function PaymentSheet({ me }) {
       return;
     }
 
-    if (!window.confirm("Is payment row ko delete karna hai?")) return;
+    if (!window.confirm("Is row ko delete karna hai?")) return;
 
     const oldItems = itemsRef.current;
     setItems((prev) => prev.filter((item) => getRowId(item) !== rowId));
 
     try {
-      await api.delete(`/payments/${encodeURIComponent(rowId)}`);
-      await loadPayments({ silent: true });
+      await api.delete(`/payments-clone/${encodeURIComponent(rowId)}`);
+      await loadRows({ silent: true });
     } catch (err) {
-      console.error("Failed to delete payment row:", err);
+      console.error("Failed to delete payment clone row:", err);
       setItems(oldItems);
       alert("Delete failed.");
     }
@@ -653,6 +814,7 @@ export default function PaymentSheet({ me }) {
       const haystack = [
         item.tuitionId,
         item.paymentDate,
+        item.dateWithMonth,
         item.tuitionName,
         item.country,
         item.className,
@@ -1118,14 +1280,17 @@ export default function PaymentSheet({ me }) {
       minWidth: col.width,
       width: col.width,
       boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
-      backgroundColor: isEditing ? "#ffffff" : "#fff",
+      backgroundColor:
+        col.id === "tuitionName"
+          ? row.tuitionNameColor || "#fff"
+          : row.rowColor || "#fff",
       position: "relative",
       cursor: col.editable ? "cell" : "default",
     };
 
     if (isEditing && col.kind === "select") {
       return (
-        <td style={commonTdStyle}>
+        <td style={{ ...commonTdStyle, backgroundColor: "#fff" }}>
           <select
             ref={inputRef}
             autoFocus
@@ -1148,9 +1313,48 @@ export default function PaymentSheet({ me }) {
       );
     }
 
+    if (isEditing && col.kind === "tuitionName") {
+      return (
+        <td style={{ ...commonTdStyle, backgroundColor: row.tuitionNameColor || "#fff" }}>
+          <div style={{ display: "flex", alignItems: "center", height: "100%", gap: "8px" }}>
+            <input
+              ref={inputRef}
+              autoFocus
+              type="text"
+              value={editValue}
+              onChange={(e) => {
+                editValueRef.current = e.target.value;
+                setEditValue(e.target.value);
+              }}
+              onBlur={() => commitEdit({ rowIndex, colId: col.id })}
+              onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
+              style={{ ...styles.input, flex: 1 }}
+            />
+
+            <div
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            >
+              <ColorSwatch
+                color={row.tuitionNameColor || "#ffffff"}
+                onChange={(c) => updateRow(row, "tuitionNameColor", c)}
+                pickerId={`tuitionNameColor-${row.id}`}
+                activeColorPicker={activeColorPicker}
+                onOpen={setActiveColorPicker}
+                onClose={() => setActiveColorPicker(null)}
+              />
+            </div>
+          </div>
+        </td>
+      );
+    }
+
     if (isEditing) {
       return (
-        <td style={commonTdStyle}>
+        <td style={{ ...commonTdStyle, backgroundColor: "#fff" }}>
           <input
             ref={inputRef}
             autoFocus
@@ -1164,6 +1368,48 @@ export default function PaymentSheet({ me }) {
             onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
             style={styles.input}
           />
+        </td>
+      );
+    }
+
+    if (col.kind === "tuitionName") {
+      return (
+        <td
+          data-grid-row={rowIndex}
+          data-grid-col={col.id}
+          tabIndex={0}
+          className="excel-cell"
+          onMouseDown={(e) => handleCellMouseDown(rowIndex, col.id, e)}
+          onMouseEnter={() => handleCellMouseEnter(rowIndex, col.id)}
+          onDoubleClick={() => startEditingCell(rowIndex, col.id)}
+          onKeyDown={(e) => handleCellKeyDown(e, rowIndex, col.id)}
+          style={commonTdStyle}
+        >
+          <div
+            style={{
+              ...styles.readCell,
+              ...styles.textLeft,
+              gap: "8px",
+            }}
+          >
+            <span style={{ flex: 1 }}>{highlightText(value || "", search)}</span>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            >
+              <ColorSwatch
+                color={row.tuitionNameColor || "#ffffff"}
+                onChange={(c) => updateRow(row, "tuitionNameColor", c)}
+                pickerId={`tuitionNameColor-${row.id}`}
+                activeColorPicker={activeColorPicker}
+                onOpen={setActiveColorPicker}
+                onClose={() => setActiveColorPicker(null)}
+              />
+            </div>
+          </div>
         </td>
       );
     }
@@ -1210,7 +1456,7 @@ export default function PaymentSheet({ me }) {
       <div style={styles.card}>
         <div style={styles.headerRow}>
           <div style={styles.titleWrap}>
-            <h2 style={styles.title}>Payment Sheet</h2>
+            <h2 style={styles.title}>Payment Sheet Clone</h2>
           </div>
 
           <div style={styles.actions}>
@@ -1224,7 +1470,7 @@ export default function PaymentSheet({ me }) {
               style={styles.searchInput}
             />
 
-            <button onClick={() => loadPayments({ initial: true })} style={styles.refreshBtn}>
+            <button onClick={() => loadRows({ initial: true })} style={styles.refreshBtn}>
               Refresh
             </button>
 
@@ -1239,6 +1485,7 @@ export default function PaymentSheet({ me }) {
             <thead>
               <tr>
                 <th style={{ ...styles.th, minWidth: "70px" }}>Sort</th>
+                <th style={{ ...styles.th, minWidth: "60px" }}>🎨</th>
 
                 {gridColumns.map((col) => (
                   <th
@@ -1257,13 +1504,13 @@ export default function PaymentSheet({ me }) {
               {loading ? (
                 <tr>
                   <td colSpan={visibleColumnCount} style={styles.loading}>
-                    Loading payment sheet...
+                    Loading payment clone sheet...
                   </td>
                 </tr>
               ) : filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={visibleColumnCount} style={styles.emptyState}>
-                    No payment records found.
+                    No records found.
                   </td>
                 </tr>
               ) : (
@@ -1274,8 +1521,8 @@ export default function PaymentSheet({ me }) {
                   );
 
                   return (
-                    <tr key={rowId ?? visibleIndex}>
-                      <td style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
+                    <tr key={rowId ?? visibleIndex} style={{ backgroundColor: row.rowColor || "#fff" }}>
+                      <td style={{ ...styles.td, textAlign: "center" }}>
                         <div
                           style={{
                             display: "flex",
@@ -1305,6 +1552,19 @@ export default function PaymentSheet({ me }) {
                           >
                             ▼
                           </button>
+                        </div>
+                      </td>
+
+                      <td style={styles.td}>
+                        <div style={styles.readCell}>
+                          <ColorSwatch
+                            color={row.rowColor || "#ffffff"}
+                            onChange={(c) => updateRow(row, "rowColor", c)}
+                            pickerId={`rowColor-${row.id}`}
+                            activeColorPicker={activeColorPicker}
+                            onOpen={setActiveColorPicker}
+                            onClose={() => setActiveColorPicker(null)}
+                          />
                         </div>
                       </td>
 

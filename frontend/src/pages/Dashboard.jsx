@@ -4,6 +4,7 @@ import TargetBoard from "../components/TargetBoard.jsx";
 import StaffManager from "../components/StaffManager.jsx";
 import TrashBin from "../components/TrashBin.jsx";
 import PaymentSheet from "../components/PaymentSheet.jsx";
+import PaymentSheetWithDate from "../components/PaymentSheetWithDate.jsx";
 import ActiveUsersPanel from "../components/ActiveUsersPanel.jsx";
 import { api, clearToken, getStoredToken, setAuthToken } from "../api/api.js";
 import Logo from "../assets/Logo-1-Blue.png";
@@ -509,6 +510,7 @@ export default function Dashboard() {
             style={{ display: tab === "payment" ? "block" : "none" }}
           >
             <PaymentSheet me={me} />
+            <PaymentSheetWithDate me={me} />
           </div>
         )}
 
