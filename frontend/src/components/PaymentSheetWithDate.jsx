@@ -85,7 +85,7 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "2000px",
+    minWidth: "2100px",
     fontSize: "13px",
   },
   th: {
@@ -273,7 +273,7 @@ function highlightText(text, term) {
   const parts = value.split(regex);
 
   return parts.map((part, index) =>
-    part.toLowerCase() === q.toLowerCase() ? (
+    regex.test(part) ? (
       <mark
         key={`${part}-${index}`}
         style={{
@@ -677,7 +677,7 @@ export default function PaymentSheetWithDate({ me }) {
         setItems(rows);
       }
     } catch (err) {
-      console.error("Failed to load payment clone rows:", err);
+      console.error("Failed to load payment with date rows:", err);
       if (!silent && mountedRef.current && initial) {
         setItems([]);
       }
@@ -723,7 +723,7 @@ export default function PaymentSheetWithDate({ me }) {
         await loadRows({ silent: true });
       }
     } catch (err) {
-      console.error("Failed to add payment clone row:", err);
+      console.error("Failed to add row:", err);
       alert("New row create nahi hui.");
     } finally {
       setAdding(false);
@@ -748,7 +748,7 @@ export default function PaymentSheetWithDate({ me }) {
       await api.patch(`/payments-clone/${encodeURIComponent(rowId)}`, updatedRow);
       await loadRows({ silent: true });
     } catch (err) {
-      console.error("Failed to update payment clone row:", err);
+      console.error("Failed to update row:", err);
       setItems(oldItems);
       alert("Update failed.");
     }
@@ -778,7 +778,7 @@ export default function PaymentSheetWithDate({ me }) {
       await api.post("/payments-clone/reorder", { items: reorderPayload });
       await loadRows({ silent: true });
     } catch (err) {
-      console.error("Failed to reorder payment clone rows:", err);
+      console.error("Failed to reorder rows:", err);
       alert("Row reorder save nahi hui.");
       await loadRows({ silent: true });
     }
@@ -800,7 +800,7 @@ export default function PaymentSheetWithDate({ me }) {
       await api.delete(`/payments-clone/${encodeURIComponent(rowId)}`);
       await loadRows({ silent: true });
     } catch (err) {
-      console.error("Failed to delete payment clone row:", err);
+      console.error("Failed to delete row:", err);
       setItems(oldItems);
       alert("Delete failed.");
     }
@@ -1456,7 +1456,7 @@ export default function PaymentSheetWithDate({ me }) {
       <div style={styles.card}>
         <div style={styles.headerRow}>
           <div style={styles.titleWrap}>
-            <h2 style={styles.title}>Payment Sheet Clone</h2>
+            <h2 style={styles.title}>Payment Sheet With Date</h2>
           </div>
 
           <div style={styles.actions}>
@@ -1504,7 +1504,7 @@ export default function PaymentSheetWithDate({ me }) {
               {loading ? (
                 <tr>
                   <td colSpan={visibleColumnCount} style={styles.loading}>
-                    Loading payment clone sheet...
+                    Loading payment sheet with date...
                   </td>
                 </tr>
               ) : filteredItems.length === 0 ? (
