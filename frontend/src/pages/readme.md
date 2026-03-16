@@ -15,7 +15,6 @@ sheets,payment sheet without fees column but we on off in admin panel
 tutor share,lacas share ,total fees
 
 
-
-
 <!-- today sheet reverse sync -->
-tutor name,tutor fee,status
+tutor name,tutor fee,status,feedback
+<!-- yeh today demo mae update karyn toh monthly sheet mae bhi update hony chahiye -->
