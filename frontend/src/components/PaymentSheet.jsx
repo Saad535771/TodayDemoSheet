@@ -92,6 +92,26 @@ const styles = {
     fontWeight: "600",
     fontSize: "13px",
   },
+  dangerToolBtn: {
+    background: "#fff1f2",
+    color: "#be123c",
+    border: "1px solid #fecdd3",
+    borderRadius: "10px",
+    padding: "10px 14px",
+    cursor: "pointer",
+    fontWeight: "700",
+    fontSize: "13px",
+  },
+  mutedToolBtn: {
+    background: "#f8fafc",
+    color: "#475569",
+    border: "1px solid #cbd5e1",
+    borderRadius: "10px",
+    padding: "10px 14px",
+    cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "13px",
+  },
   colorToolWrap: {
     display: "flex",
     alignItems: "center",
@@ -115,6 +135,16 @@ const styles = {
     color: "#475569",
     whiteSpace: "nowrap",
   },
+  selectedCountBadge: {
+    background: "#eff6ff",
+    color: "#1d4ed8",
+    border: "1px solid #bfdbfe",
+    borderRadius: "999px",
+    padding: "6px 10px",
+    fontSize: "12px",
+    fontWeight: "700",
+    whiteSpace: "nowrap",
+  },
   tableWrapper: {
     overflowX: "auto",
     borderRadius: "12px",
@@ -123,7 +153,7 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "2550px",
+    minWidth: "2620px",
     fontSize: "13px",
   },
   th: {
@@ -221,6 +251,17 @@ const styles = {
     fontSize: "12px",
     color: "#334155",
     fontWeight: "600",
+  },
+  checkboxWrap: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "46px",
+  },
+  checkbox: {
+    width: "16px",
+    height: "16px",
+    cursor: "pointer",
   },
 };
 
@@ -372,6 +413,7 @@ export default function PaymentSheet({ me }) {
   const [selectedCell, setSelectedCell] = useState(null);
   const [anchorCell, setAnchorCell] = useState(null);
   const [selectedCells, setSelectedCells] = useState(new Set());
+  const [selectedRowIds, setSelectedRowIds] = useState(new Set());
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState("");
 
@@ -387,6 +429,7 @@ export default function PaymentSheet({ me }) {
   const moveCaretToEndOnFocusRef = useRef(false);
   const isMouseSelectingRef = useRef(false);
   const dragAnchorCellRef = useRef(null);
+  const rowSelectionAnchorRef = useRef(null);
 
   const canSeeTutorShare =
     me?.role === "admin" || me?.role === "hod" || !!me?.access_tutor_share;
@@ -513,8 +556,6 @@ export default function PaymentSheet({ me }) {
         width: 150,
         align: "left",
       },
-
-      // New attached fields in same sequence
       {
         id: "syncFlag",
         label: "Sync Flag",
@@ -605,7 +646,7 @@ export default function PaymentSheet({ me }) {
   );
 
   const firstEditableColumnId = gridColumns[0]?.id || "tuitionId";
-  const visibleColumnCount = gridColumns.length + 2;
+  const visibleColumnCount = gridColumns.length + 3;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -770,10 +811,6 @@ export default function PaymentSheet({ me }) {
     }
   }
 
-  async function updateRow(row, field, newValue) {
-    await updateRowFields(row, { [field]: newValue });
-  }
-
   const filteredItems = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return items;
@@ -813,10 +850,26 @@ export default function PaymentSheet({ me }) {
   }, [filteredItems]);
 
   useEffect(() => {
+    const existingIds = new Set(
+      items
+        .map((row) => getRowId(row))
+        .filter((id) => id !== undefined && id !== null)
+        .map((id) => String(id))
+    );
+
+    setSelectedRowIds((prev) => {
+      const next = new Set([...prev].filter((id) => existingIds.has(id)));
+      if (next.size === prev.size) return prev;
+      return next;
+    });
+  }, [items]);
+
+  useEffect(() => {
     if (!filteredItems.length) {
       setSelectedCell(null);
       setAnchorCell(null);
       setSelectedCells(new Set());
+      setSelectedRowIds(new Set());
       setEditingCell(null);
       editingCellRef.current = null;
       setEditValue("");
@@ -956,6 +1009,7 @@ export default function PaymentSheet({ me }) {
     const currentVal = getEditReadyValue(row, col);
     const nextValue = forcedValue !== null ? forcedValue : String(currentVal ?? "");
 
+    setSelectedRowIds(new Set());
     setSelectedCell({ rowIndex, colId });
     setAnchorCell({ rowIndex, colId });
     setSelectedCells(new Set([getCellKey(rowIndex, colId)]));
@@ -1003,6 +1057,71 @@ export default function PaymentSheet({ me }) {
     }
   };
 
+  const getSelectedVisibleRowIndexesFromCells = () => {
+    const rows = new Set();
+
+    if (selectedCells.size) {
+      selectedCells.forEach((key) => {
+        const { rowIndex } = parseCellKey(key);
+        if (Number.isFinite(rowIndex)) rows.add(rowIndex);
+      });
+    } else if (selectedCell?.rowIndex !== undefined) {
+      rows.add(selectedCell.rowIndex);
+    }
+
+    return Array.from(rows)
+      .filter((rowIndex) => rowIndex >= 0 && rowIndex < filteredItemsRef.current.length)
+      .sort((a, b) => a - b);
+  };
+
+  const getSelectedRowIdsFromCells = () => {
+    return getSelectedVisibleRowIndexesFromCells()
+      .map((rowIndex) => filteredItemsRef.current[rowIndex])
+      .map((row) => getRowId(row))
+      .filter((id) => id !== undefined && id !== null)
+      .map((id) => String(id));
+  };
+
+  const getEffectiveSelectedRowIds = (fallbackRowId = null) => {
+    let ids =
+      selectedRowIds.size > 0
+        ? Array.from(selectedRowIds)
+        : getSelectedRowIdsFromCells();
+
+    if (fallbackRowId !== null && fallbackRowId !== undefined) {
+      const fallbackStr = String(fallbackRowId);
+      if (!ids.includes(fallbackStr)) {
+        ids = [fallbackStr];
+      }
+    }
+
+    return ids;
+  };
+
+  const getVisibleRowIds = () =>
+    filteredItemsRef.current
+      .map((row) => getRowId(row))
+      .filter((id) => id !== undefined && id !== null)
+      .map((id) => String(id));
+
+  const isRowSelected = (rowId) => selectedRowIds.has(String(rowId));
+
+  const allVisibleRowIds = useMemo(
+    () =>
+      filteredItems
+        .map((row) => getRowId(row))
+        .filter((id) => id !== undefined && id !== null)
+        .map((id) => String(id)),
+    [filteredItems]
+  );
+
+  const allVisibleSelected =
+    allVisibleRowIds.length > 0 &&
+    allVisibleRowIds.every((id) => selectedRowIds.has(id));
+
+  const someVisibleSelected =
+    allVisibleRowIds.some((id) => selectedRowIds.has(id)) && !allVisibleSelected;
+
   const clearSelectedCells = async () => {
     if (!selectedCells.size) return;
 
@@ -1014,9 +1133,17 @@ export default function PaymentSheet({ me }) {
       const row = filteredItemsRef.current[rowIndex];
 
       if (!row || !col?.editable) return;
-      if (col.kind === "color") return;
+      if (col.field === "orderIndex") return;
 
-      const patch = buildPatchForColumn(colId, "");
+      const patch =
+        col.kind === "color"
+          ? { [col.field]: "#ffffff" }
+          : col.valueType === "boolean"
+          ? { [col.field]: false }
+          : col.type === "number"
+          ? { [col.field]: null }
+          : { [col.field]: "" };
+
       if (!Object.keys(patch).length) return;
 
       const rowId = getRowId(row);
@@ -1043,6 +1170,54 @@ export default function PaymentSheet({ me }) {
     }
   };
 
+  const buildRowClearPatch = () => {
+    const patch = {};
+
+    gridColumns.forEach((col) => {
+      if (!col.editable || !col.field) return;
+      if (col.field === "orderIndex") return;
+      if (col.field === "tuitionId") return;
+
+      if (col.kind === "color") {
+        patch[col.field] = "#ffffff";
+      } else if (col.valueType === "boolean") {
+        patch[col.field] = false;
+      } else if (col.type === "number") {
+        patch[col.field] = null;
+      } else {
+        patch[col.field] = "";
+      }
+    });
+
+    return patch;
+  };
+
+  const clearSelectedRowsData = async (fallbackRowId = null) => {
+    const rowIds = getEffectiveSelectedRowIds(fallbackRowId);
+
+    if (!rowIds.length) return;
+
+    const idSet = new Set(rowIds);
+    const patch = buildRowClearPatch();
+    const targetRows = itemsRef.current.filter((row) =>
+      idSet.has(String(getRowId(row)))
+    );
+
+    if (!targetRows.length) return;
+
+    setItems((prev) =>
+      prev.map((row) =>
+        idSet.has(String(getRowId(row))) ? { ...row, ...patch } : row
+      )
+    );
+
+    clearEditingState();
+
+    for (const row of targetRows) {
+      await updateRowFields(row, patch);
+    }
+  };
+
   const moveSelection = (rowDelta, colDelta, extendRange = false) => {
     if (!filteredItems.length) return;
 
@@ -1062,37 +1237,15 @@ export default function PaymentSheet({ me }) {
     const nextCell = { rowIndex: nextRow, colId: nextColId };
 
     if (extendRange && anchorCell) {
+      setSelectedRowIds(new Set());
       setSelectedCell(nextCell);
       setSelectedCells(getRangeCells(anchorCell, nextCell));
       focusCell(nextRow, nextColId);
       return;
     }
 
+    setSelectedRowIds(new Set());
     selectSingleCell(nextRow, nextColId, true);
-  };
-
-  const getSelectedVisibleRowIndexes = () => {
-    const rows = new Set();
-
-    if (selectedCells.size) {
-      selectedCells.forEach((key) => {
-        const { rowIndex } = parseCellKey(key);
-        if (Number.isFinite(rowIndex)) rows.add(rowIndex);
-      });
-    } else if (selectedCell?.rowIndex !== undefined) {
-      rows.add(selectedCell.rowIndex);
-    }
-
-    return Array.from(rows)
-      .filter((rowIndex) => rowIndex >= 0 && rowIndex < filteredItemsRef.current.length)
-      .sort((a, b) => a - b);
-  };
-
-  const getSelectedRowIds = () => {
-    return getSelectedVisibleRowIndexes()
-      .map((rowIndex) => filteredItemsRef.current[rowIndex])
-      .map((row) => getRowId(row))
-      .filter((id) => id !== undefined && id !== null);
   };
 
   const reorderArrayByIds = (list, rowIds, direction) => {
@@ -1151,14 +1304,7 @@ export default function PaymentSheet({ me }) {
   }
 
   async function moveRows(direction, fallbackRowId = null) {
-    let rowIds = getSelectedRowIds();
-
-    if (fallbackRowId !== null && fallbackRowId !== undefined) {
-      const selectedSet = new Set(rowIds.map((id) => String(id)));
-      if (!selectedSet.has(String(fallbackRowId))) {
-        rowIds = [fallbackRowId];
-      }
-    }
+    const rowIds = getEffectiveSelectedRowIds(fallbackRowId);
 
     if (!rowIds.length) {
       alert("Pehle row select karo.");
@@ -1169,9 +1315,9 @@ export default function PaymentSheet({ me }) {
     const currentIndexes = currentItems
       .map((item, index) => ({
         index,
-        rowId: getRowId(item),
+        rowId: String(getRowId(item)),
       }))
-      .filter((entry) => rowIds.map(String).includes(String(entry.rowId)))
+      .filter((entry) => rowIds.includes(entry.rowId))
       .map((entry) => entry.index);
 
     if (!currentIndexes.length) return;
@@ -1189,14 +1335,14 @@ export default function PaymentSheet({ me }) {
   }
 
   async function applyColorToSelectedRows(field, colorValue) {
-    const rowIds = getSelectedRowIds();
+    const rowIds = getEffectiveSelectedRowIds();
     if (!rowIds.length) {
       alert("Pehle row select karo.");
       return;
     }
 
     const normalizedColor = safeColor(colorValue, "#ffffff");
-    const idSet = new Set(rowIds.map((id) => String(id)));
+    const idSet = new Set(rowIds);
 
     const targetRows = itemsRef.current.filter((item) =>
       idSet.has(String(getRowId(item)))
@@ -1237,6 +1383,104 @@ export default function PaymentSheet({ me }) {
     }
   }
 
+  async function deleteSelectedRows() {
+    const rowIds = getEffectiveSelectedRowIds();
+
+    if (!rowIds.length) {
+      alert("Pehle rows select karo.");
+      return;
+    }
+
+    if (!window.confirm(`${rowIds.length} selected row(s) delete karni hain?`)) return;
+
+    const oldItems = itemsRef.current;
+    const idSet = new Set(rowIds);
+
+    setItems((prev) => prev.filter((row) => !idSet.has(String(getRowId(row)))));
+    setSelectedRowIds(new Set());
+
+    try {
+      for (const rowId of rowIds) {
+        await api.delete(`/payments/${encodeURIComponent(rowId)}`);
+      }
+      await loadPayments({ silent: true });
+    } catch (err) {
+      console.error("Failed to delete selected payment rows:", err);
+      setItems(oldItems);
+      alert("Bulk delete failed.");
+    }
+  }
+
+  const toggleSelectAllVisibleRows = () => {
+    const visibleIds = getVisibleRowIds();
+
+    setSelectedRowIds((prev) => {
+      const next = new Set(prev);
+      const areAllSelected =
+        visibleIds.length > 0 && visibleIds.every((id) => next.has(id));
+
+      if (areAllSelected) {
+        visibleIds.forEach((id) => next.delete(id));
+      } else {
+        visibleIds.forEach((id) => next.add(id));
+      }
+
+      return next;
+    });
+  };
+
+  const clearRowSelections = () => {
+    setSelectedRowIds(new Set());
+  };
+
+  const handleRowCheckboxChange = (row, visibleIndex, e) => {
+    const rowId = String(getRowId(row));
+    const checked = e.target.checked;
+
+    setSelectedRowIds((prev) => {
+      const next = new Set(prev);
+
+      if (e.shiftKey && rowSelectionAnchorRef.current !== null) {
+        const start = Math.min(rowSelectionAnchorRef.current, visibleIndex);
+        const end = Math.max(rowSelectionAnchorRef.current, visibleIndex);
+        const rangeRows = filteredItemsRef.current.slice(start, end + 1);
+
+        rangeRows.forEach((item) => {
+          const id = String(getRowId(item));
+          if (checked) next.add(id);
+          else next.delete(id);
+        });
+      } else {
+        if (checked) next.add(rowId);
+        else next.delete(rowId);
+      }
+
+      return next;
+    });
+
+    rowSelectionAnchorRef.current = visibleIndex;
+  };
+
+  const handleCheckboxKeyDown = async (e, rowId = null) => {
+    if ((e.altKey || e.ctrlKey || e.metaKey) && e.key === "ArrowUp") {
+      e.preventDefault();
+      await moveRows("up", rowId);
+      return;
+    }
+
+    if ((e.altKey || e.ctrlKey || e.metaKey) && e.key === "ArrowDown") {
+      e.preventDefault();
+      await moveRows("down", rowId);
+      return;
+    }
+
+    if (e.key === "Backspace" || e.key === "Delete") {
+      e.preventDefault();
+      await clearSelectedRowsData(rowId);
+      return;
+    }
+  };
+
   const handleCellMouseDown = (rowIndex, colId, e) => {
     if (
       editingCellRef.current &&
@@ -1250,6 +1494,7 @@ export default function PaymentSheet({ me }) {
     const clickedKey = getCellKey(rowIndex, colId);
 
     if (e.shiftKey && anchorCell) {
+      setSelectedRowIds(new Set());
       setSelectedCell(clickedCell);
       setSelectedCells(getRangeCells(anchorCell, clickedCell));
       focusCell(rowIndex, colId);
@@ -1259,6 +1504,7 @@ export default function PaymentSheet({ me }) {
     }
 
     if (e.ctrlKey || e.metaKey) {
+      setSelectedRowIds(new Set());
       setSelectedCells((prev) => {
         const next = new Set(prev);
         if (next.has(clickedKey)) next.delete(clickedKey);
@@ -1273,6 +1519,7 @@ export default function PaymentSheet({ me }) {
       return;
     }
 
+    setSelectedRowIds(new Set());
     isMouseSelectingRef.current = true;
     dragAnchorCellRef.current = clickedCell;
 
@@ -1290,18 +1537,26 @@ export default function PaymentSheet({ me }) {
     setSelectedCells(getRangeCells(dragAnchorCellRef.current, hoverCell));
   };
 
-  const handleCellKeyDown = (e, rowIndex, colId) => {
+  const handleCellKeyDown = async (e, rowIndex, colId) => {
     const col = gridColumnMap[colId];
     if (!col) return;
 
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
       e.preventDefault();
+
+      if (e.shiftKey) {
+        const allRowIds = getVisibleRowIds();
+        setSelectedRowIds(new Set(allRowIds));
+        return;
+      }
+
       const all = new Set();
       for (let r = 0; r < filteredItems.length; r++) {
         for (const id of gridColumnIds) {
           all.add(getCellKey(r, id));
         }
       }
+      setSelectedRowIds(new Set());
       setSelectedCells(all);
       setSelectedCell({ rowIndex, colId });
       setAnchorCell({ rowIndex, colId });
@@ -1310,19 +1565,24 @@ export default function PaymentSheet({ me }) {
 
     if ((e.altKey || e.ctrlKey || e.metaKey) && e.key === "ArrowUp") {
       e.preventDefault();
-      moveRows("up");
+      await moveRows("up");
       return;
     }
 
     if ((e.altKey || e.ctrlKey || e.metaKey) && e.key === "ArrowDown") {
       e.preventDefault();
-      moveRows("down");
+      await moveRows("down");
       return;
     }
 
     if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
-      clearSelectedCells();
+
+      if (selectedRowIds.size > 0) {
+        await clearSelectedRowsData();
+      } else {
+        await clearSelectedCells();
+      }
       return;
     }
 
@@ -1387,11 +1647,11 @@ export default function PaymentSheet({ me }) {
     }
   };
 
-  const handleEditInputKeyDown = (e, rowIndex, colId, col) => {
+  const handleEditInputKeyDown = async (e, rowIndex, colId, col) => {
     if (e.key === "Enter") {
       e.preventDefault();
       const nextRow = Math.min(rowIndex + 1, filteredItems.length - 1);
-      commitEdit({ rowIndex: nextRow, colId });
+      await commitEdit({ rowIndex: nextRow, colId });
       selectSingleCell(nextRow, colId, true);
       return;
     }
@@ -1404,7 +1664,7 @@ export default function PaymentSheet({ me }) {
         Math.min(gridColumns.length - 1, currentColIndex + (e.shiftKey ? -1 : 1))
       );
       const nextColId = gridColumnIds[nextColIndex];
-      commitEdit({ rowIndex, colId: nextColId });
+      await commitEdit({ rowIndex, colId: nextColId });
       selectSingleCell(rowIndex, nextColId, true);
       return;
     }
@@ -1412,7 +1672,7 @@ export default function PaymentSheet({ me }) {
     if (col?.kind !== "select" && col?.kind !== "color" && e.key === "ArrowUp") {
       e.preventDefault();
       const nextRow = Math.max(0, rowIndex - 1);
-      commitEdit({ rowIndex: nextRow, colId });
+      await commitEdit({ rowIndex: nextRow, colId });
       selectSingleCell(nextRow, colId, true);
       return;
     }
@@ -1420,7 +1680,7 @@ export default function PaymentSheet({ me }) {
     if (col?.kind !== "select" && col?.kind !== "color" && e.key === "ArrowDown") {
       e.preventDefault();
       const nextRow = Math.min(filteredItems.length - 1, rowIndex + 1);
-      commitEdit({ rowIndex: nextRow, colId });
+      await commitEdit({ rowIndex: nextRow, colId });
       selectSingleCell(nextRow, colId, true);
       return;
     }
@@ -1430,7 +1690,7 @@ export default function PaymentSheet({ me }) {
       const currentColIndex = getColumnIndex(colId);
       const nextColIndex = Math.max(0, currentColIndex - 1);
       const nextColId = gridColumnIds[nextColIndex];
-      commitEdit({ rowIndex, colId: nextColId });
+      await commitEdit({ rowIndex, colId: nextColId });
       selectSingleCell(rowIndex, nextColId, true);
       return;
     }
@@ -1440,7 +1700,7 @@ export default function PaymentSheet({ me }) {
       const currentColIndex = getColumnIndex(colId);
       const nextColIndex = Math.min(gridColumns.length - 1, currentColIndex + 1);
       const nextColId = gridColumnIds[nextColIndex];
-      commitEdit({ rowIndex, colId: nextColId });
+      await commitEdit({ rowIndex, colId: nextColId });
       selectSingleCell(rowIndex, nextColId, true);
       return;
     }
@@ -1474,6 +1734,8 @@ export default function PaymentSheet({ me }) {
   };
 
   const renderGridCell = (row, rowIndex, col) => {
+    const rowId = getRowId(row);
+    const rowChecked = isRowSelected(rowId);
     const cellKey = getCellKey(rowIndex, col.id);
     const isSelected = selectedCells.has(cellKey);
     const isEditing =
@@ -1482,18 +1744,23 @@ export default function PaymentSheet({ me }) {
     const value = getCellValue(row, col);
 
     const rowBg = row?.rowColor ? safeColor(row.rowColor, "#ffffff") : "#ffffff";
+    const rowSelectedBg = rowChecked ? "#eef6ff" : rowBg;
     const tuitionNameBg =
       col.id === "tuitionName" && row?.tuitionNameColor
-        ? safeColor(row.tuitionNameColor, rowBg)
-        : rowBg;
+        ? safeColor(row.tuitionNameColor, rowSelectedBg)
+        : rowSelectedBg;
 
-    const cellBackground = col.id === "tuitionName" ? tuitionNameBg : rowBg;
+    const cellBackground = col.id === "tuitionName" ? tuitionNameBg : rowSelectedBg;
 
     const commonTdStyle = {
       ...styles.td,
       minWidth: col.width,
       width: col.width,
-      boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
+      boxShadow: isSelected
+        ? "inset 0 0 0 2px #107c41"
+        : rowChecked
+        ? "inset 0 0 0 1.5px #2563eb"
+        : "none",
       backgroundColor: isEditing ? "#ffffff" : cellBackground,
       position: "relative",
       cursor: col.editable ? "cell" : "default",
@@ -1612,12 +1879,16 @@ export default function PaymentSheet({ me }) {
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>Payment Sheet</h2>
             <p style={styles.subtitle}>
-              Ctrl/Meta + click se multi select, Alt/Ctrl + Arrow Up/Down se selected rows move karo
+              Checkbox sy rows select karo, Backspace/Delete sy clear, Ctrl/Alt + Arrow Up/Down sy sort karo
             </p>
           </div>
 
           <div style={styles.actions}>
             <div style={styles.liveBadge}>● Live Sync</div>
+
+            <div style={styles.selectedCountBadge}>
+              Selected Rows: {selectedRowIds.size}
+            </div>
 
             <input
               type="text"
@@ -1627,12 +1898,24 @@ export default function PaymentSheet({ me }) {
               style={styles.searchInput}
             />
 
+            <button onClick={toggleSelectAllVisibleRows} style={styles.toolBtn}>
+              {allVisibleSelected ? "Unselect Visible" : "Select Visible"}
+            </button>
+
+            <button onClick={clearRowSelections} style={styles.mutedToolBtn}>
+              Clear Rows
+            </button>
+
             <button onClick={() => moveRows("up")} style={styles.toolBtn}>
               ↑ Move Selected
             </button>
 
             <button onClick={() => moveRows("down")} style={styles.toolBtn}>
               ↓ Move Selected
+            </button>
+
+            <button onClick={deleteSelectedRows} style={styles.dangerToolBtn}>
+              Delete Selected
             </button>
 
             <label style={styles.colorToolWrap}>
@@ -1675,6 +1958,21 @@ export default function PaymentSheet({ me }) {
           <table style={styles.table}>
             <thead>
               <tr>
+                <th style={{ ...styles.th, minWidth: "55px" }}>
+                  <div style={styles.checkboxWrap}>
+                    <input
+                      type="checkbox"
+                      style={styles.checkbox}
+                      checked={allVisibleSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = someVisibleSelected;
+                      }}
+                      onChange={toggleSelectAllVisibleRows}
+                      onKeyDown={handleCheckboxKeyDown}
+                    />
+                  </div>
+                </th>
+
                 <th style={{ ...styles.th, minWidth: "70px" }}>Sort</th>
 
                 {gridColumns.map((col) => (
@@ -1706,20 +2004,49 @@ export default function PaymentSheet({ me }) {
               ) : (
                 filteredItems.map((row, visibleIndex) => {
                   const rowId = getRowId(row);
+                  const rowIdStr = String(rowId);
+                  const rowChecked = isRowSelected(rowId);
                   const originalIndex = items.findIndex(
                     (item) => getRowId(item) === rowId
                   );
                   const rowBg = row?.rowColor
                     ? safeColor(row.rowColor, "#ffffff")
                     : "#ffffff";
+                  const effectiveRowBg = rowChecked ? "#eef6ff" : rowBg;
 
                   return (
                     <tr key={rowId ?? visibleIndex}>
                       <td
                         style={{
                           ...styles.td,
+                          backgroundColor: effectiveRowBg,
+                          boxShadow: rowChecked
+                            ? "inset 0 0 0 1.5px #2563eb"
+                            : "none",
+                        }}
+                      >
+                        <div style={styles.checkboxWrap}>
+                          <input
+                            type="checkbox"
+                            style={styles.checkbox}
+                            checked={rowChecked}
+                            onChange={(e) =>
+                              handleRowCheckboxChange(row, visibleIndex, e)
+                            }
+                            onKeyDown={(e) => handleCheckboxKeyDown(e, rowIdStr)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      </td>
+
+                      <td
+                        style={{
+                          ...styles.td,
                           textAlign: "center",
-                          backgroundColor: rowBg,
+                          backgroundColor: effectiveRowBg,
+                          boxShadow: rowChecked
+                            ? "inset 0 0 0 1.5px #2563eb"
+                            : "none",
                         }}
                       >
                         <div
@@ -1732,7 +2059,7 @@ export default function PaymentSheet({ me }) {
                           }}
                         >
                           <button
-                            onClick={() => moveRows("up", rowId)}
+                            onClick={() => moveRows("up", rowIdStr)}
                             disabled={originalIndex === 0}
                             style={{
                               ...styles.moveBtn,
@@ -1742,7 +2069,7 @@ export default function PaymentSheet({ me }) {
                             ▲
                           </button>
                           <button
-                            onClick={() => moveRows("down", rowId)}
+                            onClick={() => moveRows("down", rowIdStr)}
                             disabled={originalIndex === items.length - 1}
                             style={{
                               ...styles.moveBtn,
@@ -1756,7 +2083,15 @@ export default function PaymentSheet({ me }) {
 
                       {gridColumns.map((col) => renderGridCell(row, visibleIndex, col))}
 
-                      <td style={{ ...styles.td, backgroundColor: rowBg }}>
+                      <td
+                        style={{
+                          ...styles.td,
+                          backgroundColor: effectiveRowBg,
+                          boxShadow: rowChecked
+                            ? "inset 0 0 0 1.5px #2563eb"
+                            : "none",
+                        }}
+                      >
                         <div style={styles.readCell}>
                           <button
                             style={styles.deleteBtn}

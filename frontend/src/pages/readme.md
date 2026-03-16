@@ -13,3 +13,9 @@ payments,recycle bin
 sheets,payment sheet without fees column but we on off in admin panel
 <!-- add access button for user -->
 tutor share,lacas share ,total fees
+
+
+
+
+<!-- today sheet reverse sync -->
+tutor name,tutor fee,status

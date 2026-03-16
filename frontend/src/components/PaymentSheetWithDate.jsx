@@ -153,6 +153,25 @@ const styles = {
     fontWeight: "600",
     fontSize: "12px",
   },
+  copyBtn: {
+    background: "#e0f2fe",
+    color: "#075985",
+    border: "none",
+    borderRadius: "8px",
+    padding: "6px 10px",
+    cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "12px",
+  },
+  actionGroup: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    flexWrap: "wrap",
+    minHeight: "46px",
+    padding: "6px",
+  },
   moveBtn: {
     cursor: "pointer",
     border: "none",
@@ -271,9 +290,10 @@ function highlightText(text, term) {
   const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const regex = new RegExp(`(${escaped})`, "ig");
   const parts = value.split(regex);
+  const normalizedQ = q.toLowerCase();
 
   return parts.map((part, index) =>
-    regex.test(part) ? (
+    part.toLowerCase() === normalizedQ ? (
       <mark
         key={`${part}-${index}`}
         style={{
@@ -386,7 +406,14 @@ const ColorSwatch = ({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div style={{ marginBottom: "8px", fontSize: "13px", fontWeight: "600", color: "#444" }}>
+          <div
+            style={{
+              marginBottom: "8px",
+              fontSize: "13px",
+              fontWeight: "600",
+              color: "#444",
+            }}
+          >
             Default Colors
           </div>
 
@@ -457,6 +484,7 @@ export default function PaymentSheetWithDate({ me }) {
   const moveCaretToEndOnFocusRef = useRef(false);
   const isMouseSelectingRef = useRef(false);
   const dragAnchorCellRef = useRef(null);
+  const localClipboardRef = useRef("");
 
   const canSeeTutorShare =
     me?.role === "admin" || me?.role === "hod" || !!me?.access_tutor_share;
@@ -605,7 +633,7 @@ export default function PaymentSheetWithDate({ me }) {
   );
 
   const firstEditableColumnId = gridColumns[0]?.id || "tuitionId";
-  const visibleColumnCount = gridColumns.length + 3; // Sort + Color + Action
+  const visibleColumnCount = gridColumns.length + 3;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -669,7 +697,11 @@ export default function PaymentSheetWithDate({ me }) {
       if (initial) setLoading(true);
 
       const res = await api.get("/payments-clone");
-      const rows = Array.isArray(res.data) ? res.data : res.data.items || [];
+      const rows = Array.isArray(res.data?.items)
+        ? res.data.items
+        : Array.isArray(res.data)
+        ? res.data
+        : [];
 
       if (!mountedRef.current) return;
 
@@ -677,7 +709,7 @@ export default function PaymentSheetWithDate({ me }) {
         setItems(rows);
       }
     } catch (err) {
-      console.error("Failed to load payment with date rows:", err);
+      console.error("Failed to load payment sheet rows:", err);
       if (!silent && mountedRef.current && initial) {
         setItems([]);
       }
@@ -724,7 +756,7 @@ export default function PaymentSheetWithDate({ me }) {
       }
     } catch (err) {
       console.error("Failed to add row:", err);
-      alert("New row create nahi hui.");
+      alert(err?.response?.data?.message || "Failed to create a new row.");
     } finally {
       setAdding(false);
     }
@@ -733,7 +765,7 @@ export default function PaymentSheetWithDate({ me }) {
   async function updateRowFields(row, patchFields) {
     const rowId = getRowId(row);
     if (rowId === undefined || rowId === null) {
-      alert("Row ID missing hai.");
+      alert("Row ID is missing.");
       return;
     }
 
@@ -745,12 +777,12 @@ export default function PaymentSheetWithDate({ me }) {
     );
 
     try {
-      await api.patch(`/payments-clone/${encodeURIComponent(rowId)}`, updatedRow);
+      await api.patch(`/payments-clone/${encodeURIComponent(rowId)}`, patchFields);
       await loadRows({ silent: true });
     } catch (err) {
       console.error("Failed to update row:", err);
       setItems(oldItems);
-      alert("Update failed.");
+      alert(err?.response?.data?.message || "Failed to update the row.");
     }
   }
 
@@ -759,19 +791,28 @@ export default function PaymentSheetWithDate({ me }) {
   }
 
   async function moveRow(index, direction) {
+    if (index < 0) return;
     if (direction === "up" && index === 0) return;
     if (direction === "down" && index === items.length - 1) return;
 
     const newItems = [...items];
     const targetIndex = direction === "up" ? index - 1 : index + 1;
-    [newItems[index], newItems[targetIndex]] = [newItems[targetIndex], newItems[index]];
-    setItems(newItems);
+
+    [newItems[index], newItems[targetIndex]] = [
+      newItems[targetIndex],
+      newItems[index],
+    ];
+
+    const normalized = newItems.map((item, idx) => ({
+      ...item,
+      orderIndex: idx,
+    }));
+
+    setItems(normalized);
 
     try {
-      const reorderPayload = newItems.map((item, idx) => ({
+      const reorderPayload = normalized.map((item, idx) => ({
         id: getRowId(item),
-        paymentId: getRowId(item),
-        rowId: getRowId(item),
         orderIndex: idx,
       }));
 
@@ -779,7 +820,7 @@ export default function PaymentSheetWithDate({ me }) {
       await loadRows({ silent: true });
     } catch (err) {
       console.error("Failed to reorder rows:", err);
-      alert("Row reorder save nahi hui.");
+      alert(err?.response?.data?.message || "Failed to save row order.");
       await loadRows({ silent: true });
     }
   }
@@ -787,11 +828,11 @@ export default function PaymentSheetWithDate({ me }) {
   async function deleteRow(row) {
     const rowId = getRowId(row);
     if (rowId === undefined || rowId === null) {
-      alert("Row ID missing hai.");
+      alert("Row ID is missing.");
       return;
     }
 
-    if (!window.confirm("Is row ko delete karna hai?")) return;
+    if (!window.confirm("Are you sure you want to delete this row?")) return;
 
     const oldItems = itemsRef.current;
     setItems((prev) => prev.filter((item) => getRowId(item) !== rowId));
@@ -802,7 +843,7 @@ export default function PaymentSheetWithDate({ me }) {
     } catch (err) {
       console.error("Failed to delete row:", err);
       setItems(oldItems);
-      alert("Delete failed.");
+      alert(err?.response?.data?.message || "Failed to delete the row.");
     }
   }
 
@@ -910,6 +951,57 @@ export default function PaymentSheetWithDate({ me }) {
     return range;
   };
 
+  const selectEntireRow = (rowIndex, shouldFocus = true) => {
+    if (rowIndex < 0 || !gridColumnIds.length) return;
+
+    const firstColId = gridColumnIds[0];
+    const lastColId = gridColumnIds[gridColumnIds.length - 1];
+
+    const start = { rowIndex, colId: firstColId };
+    const end = { rowIndex, colId: lastColId };
+
+    setSelectedCell(start);
+    setAnchorCell(start);
+    setSelectedCells(getRangeCells(start, end));
+
+    if (shouldFocus) {
+      focusCell(rowIndex, firstColId);
+    }
+  };
+
+  const getSelectionBounds = () => {
+    if (selectedCells.size > 0) {
+      const parsed = [...selectedCells].map(parseCellKey);
+      const rowIndexes = parsed.map((x) => x.rowIndex).filter((x) => x >= 0);
+      const colIndexes = parsed
+        .map((x) => getColumnIndex(x.colId))
+        .filter((x) => x >= 0);
+
+      if (!rowIndexes.length || !colIndexes.length) return null;
+
+      return {
+        minRow: Math.min(...rowIndexes),
+        maxRow: Math.max(...rowIndexes),
+        minCol: Math.min(...colIndexes),
+        maxCol: Math.max(...colIndexes),
+      };
+    }
+
+    if (selectedCell) {
+      const colIndex = getColumnIndex(selectedCell.colId);
+      if (colIndex < 0) return null;
+
+      return {
+        minRow: selectedCell.rowIndex,
+        maxRow: selectedCell.rowIndex,
+        minCol: colIndex,
+        maxCol: colIndex,
+      };
+    }
+
+    return null;
+  };
+
   const getCellValue = (row, col) => {
     if (!row || !col) return "";
     return row[col.field] ?? "";
@@ -919,6 +1011,194 @@ export default function PaymentSheetWithDate({ me }) {
     const col = gridColumnMap[colId];
     if (!col?.field) return {};
     return { [col.field]: value };
+  };
+
+  const getSelectedTextForClipboard = () => {
+    const bounds = getSelectionBounds();
+    if (!bounds) return "";
+
+    const lines = [];
+
+    for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
+      const row = filteredItemsRef.current[r];
+      if (!row) continue;
+
+      const cells = [];
+
+      for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
+        const colId = gridColumnIds[c];
+        const col = gridColumnMap[colId];
+        if (!col) {
+          cells.push("");
+          continue;
+        }
+
+        const key = getCellKey(r, colId);
+        const isIncluded = selectedCells.size <= 1 ? true : selectedCells.has(key);
+        const value = isIncluded ? String(getCellValue(row, col) ?? "") : "";
+        cells.push(value);
+      }
+
+      lines.push(cells.join("\t"));
+    }
+
+    return lines.join("\n");
+  };
+
+  const getRowTextForClipboard = (row) => {
+    if (!row) return "";
+    return gridColumns.map((col) => String(getCellValue(row, col) ?? "")).join("\t");
+  };
+
+  const copyTextToClipboard = async (text) => {
+    if (!text) return false;
+
+    localClipboardRef.current = text;
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      }
+      return true;
+    } catch (err) {
+      console.error("Copy failed:", err);
+      return true;
+    }
+  };
+
+  const copySelectedCellsToClipboard = async () => {
+    const text = getSelectedTextForClipboard();
+    return copyTextToClipboard(text);
+  };
+
+  const copyRowToClipboard = async (row, rowIndex) => {
+    if (typeof rowIndex === "number") {
+      selectEntireRow(rowIndex, false);
+    }
+
+    const text = getRowTextForClipboard(row);
+    const copied = await copyTextToClipboard(text);
+
+    if (!copied) {
+      alert("Failed to copy row data.");
+    }
+  };
+
+  const parseClipboardText = (text) => {
+    const cleaned = String(text || "").replace(/\r/g, "");
+    const rows = cleaned.split("\n");
+
+    if (rows.length && rows[rows.length - 1] === "") {
+      rows.pop();
+    }
+
+    return rows.map((line) => line.split("\t"));
+  };
+
+  const pasteClipboardIntoSelection = async () => {
+    if (!selectedCell) return;
+
+    let clipboardText = "";
+
+    try {
+      if (navigator?.clipboard?.readText) {
+        clipboardText = await navigator.clipboard.readText();
+      }
+    } catch (err) {
+      console.error("Clipboard read failed, using local clipboard fallback:", err);
+    }
+
+    if (!clipboardText) {
+      clipboardText = localClipboardRef.current || "";
+    }
+
+    if (!clipboardText) {
+      alert("Nothing to paste.");
+      return;
+    }
+
+    try {
+      const matrix = parseClipboardText(clipboardText);
+      if (!matrix.length) return;
+
+      const startRow = selectedCell.rowIndex;
+      const startCol = getColumnIndex(selectedCell.colId);
+      if (startCol < 0) return;
+
+      const updatesById = new Map();
+      let maxWidth = 0;
+
+      for (let r = 0; r < matrix.length; r++) {
+        const targetRowIndex = startRow + r;
+        const targetRow = filteredItemsRef.current[targetRowIndex];
+        if (!targetRow) break;
+
+        maxWidth = Math.max(maxWidth, matrix[r].length);
+
+        for (let c = 0; c < matrix[r].length; c++) {
+          const targetColIndex = startCol + c;
+          if (targetColIndex >= gridColumnIds.length) break;
+
+          const targetColId = gridColumnIds[targetColIndex];
+          const col = gridColumnMap[targetColId];
+          if (!col?.editable) continue;
+
+          let nextValue = matrix[r][c] ?? "";
+
+          if (col.kind === "select") {
+            nextValue = nextValue.trim();
+            if (!statusOptions.includes(nextValue)) continue;
+          }
+
+          const rowId = getRowId(targetRow);
+          if (rowId === undefined || rowId === null) continue;
+
+          const prev = updatesById.get(rowId) || { row: targetRow, patch: {} };
+          prev.patch[col.field] = nextValue;
+          updatesById.set(rowId, prev);
+        }
+      }
+
+      if (!updatesById.size) return;
+
+      setItems((prev) =>
+        prev.map((item) => {
+          const rowId = getRowId(item);
+          const entry = updatesById.get(rowId);
+          return entry ? { ...item, ...entry.patch } : item;
+        })
+      );
+
+      await Promise.all(
+        [...updatesById.values()].map((entry) => {
+          const rowId = getRowId(entry.row);
+          return api.patch(`/payments-clone/${encodeURIComponent(rowId)}`, entry.patch);
+        })
+      );
+
+      await loadRows({ silent: true });
+
+      const endRow = Math.min(
+        filteredItemsRef.current.length - 1,
+        startRow + matrix.length - 1
+      );
+      const endColIndex = Math.min(
+        gridColumnIds.length - 1,
+        startCol + Math.max(maxWidth, 1) - 1
+      );
+
+      const startCellObj = { rowIndex: startRow, colId: gridColumnIds[startCol] };
+      const endCellObj = { rowIndex: endRow, colId: gridColumnIds[endColIndex] };
+
+      setSelectedCell(startCellObj);
+      setAnchorCell(startCellObj);
+      setSelectedCells(getRangeCells(startCellObj, endCellObj));
+      focusCell(startRow, gridColumnIds[startCol]);
+    } catch (err) {
+      console.error("Paste failed:", err);
+      alert(err?.response?.data?.message || "Failed to paste clipboard data.");
+      await loadRows({ silent: true });
+    }
   };
 
   const setEditingState = (cell, value, options = {}) => {
@@ -1035,11 +1315,19 @@ export default function PaymentSheetWithDate({ me }) {
     }
   };
 
+  const cutSelectedCellsToClipboard = async () => {
+    const copied = await copySelectedCellsToClipboard();
+    if (!copied) {
+      alert("Failed to cut selected cells.");
+      return;
+    }
+    await clearSelectedCells();
+  };
+
   const moveSelection = (rowDelta, colDelta, extendRange = false) => {
     if (!filteredItems.length) return;
 
-    const baseCell =
-      selectedCell || { rowIndex: 0, colId: firstEditableColumnId };
+    const baseCell = selectedCell || { rowIndex: 0, colId: firstEditableColumnId };
 
     const currentColIndex = getColumnIndex(baseCell.colId);
     const nextRow = Math.max(
@@ -1120,6 +1408,30 @@ export default function PaymentSheetWithDate({ me }) {
     const col = gridColumnMap[colId];
     if (!col) return;
 
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+      e.preventDefault();
+      void copySelectedCellsToClipboard();
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+      e.preventDefault();
+      void pasteClipboardIntoSelection();
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "x") {
+      e.preventDefault();
+      void cutSelectedCellsToClipboard();
+      return;
+    }
+
+    if (e.shiftKey && e.code === "Space") {
+      e.preventDefault();
+      selectEntireRow(rowIndex, true);
+      return;
+    }
+
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
       e.preventDefault();
       const all = new Set();
@@ -1136,7 +1448,7 @@ export default function PaymentSheetWithDate({ me }) {
 
     if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
-      clearSelectedCells();
+      void clearSelectedCells();
       return;
     }
 
@@ -1207,7 +1519,7 @@ export default function PaymentSheetWithDate({ me }) {
     if (e.key === "Enter") {
       e.preventDefault();
       const nextRow = Math.min(rowIndex + 1, filteredItems.length - 1);
-      commitEdit({ rowIndex: nextRow, colId });
+      void commitEdit({ rowIndex: nextRow, colId });
       selectSingleCell(nextRow, colId, true);
       return;
     }
@@ -1220,7 +1532,7 @@ export default function PaymentSheetWithDate({ me }) {
         Math.min(gridColumns.length - 1, currentColIndex + (e.shiftKey ? -1 : 1))
       );
       const nextColId = gridColumnIds[nextColIndex];
-      commitEdit({ rowIndex, colId: nextColId });
+      void commitEdit({ rowIndex, colId: nextColId });
       selectSingleCell(rowIndex, nextColId, true);
       return;
     }
@@ -1228,7 +1540,7 @@ export default function PaymentSheetWithDate({ me }) {
     if (col?.kind !== "select" && e.key === "ArrowUp") {
       e.preventDefault();
       const nextRow = Math.max(0, rowIndex - 1);
-      commitEdit({ rowIndex: nextRow, colId });
+      void commitEdit({ rowIndex: nextRow, colId });
       selectSingleCell(nextRow, colId, true);
       return;
     }
@@ -1236,7 +1548,7 @@ export default function PaymentSheetWithDate({ me }) {
     if (col?.kind !== "select" && e.key === "ArrowDown") {
       e.preventDefault();
       const nextRow = Math.min(filteredItems.length - 1, rowIndex + 1);
-      commitEdit({ rowIndex: nextRow, colId });
+      void commitEdit({ rowIndex: nextRow, colId });
       selectSingleCell(nextRow, colId, true);
       return;
     }
@@ -1246,7 +1558,7 @@ export default function PaymentSheetWithDate({ me }) {
       const currentColIndex = getColumnIndex(colId);
       const nextColIndex = Math.max(0, currentColIndex - 1);
       const nextColId = gridColumnIds[nextColIndex];
-      commitEdit({ rowIndex, colId: nextColId });
+      void commitEdit({ rowIndex, colId: nextColId });
       selectSingleCell(rowIndex, nextColId, true);
       return;
     }
@@ -1256,7 +1568,7 @@ export default function PaymentSheetWithDate({ me }) {
       const currentColIndex = getColumnIndex(colId);
       const nextColIndex = Math.min(gridColumns.length - 1, currentColIndex + 1);
       const nextColId = gridColumnIds[nextColIndex];
-      commitEdit({ rowIndex, colId: nextColId });
+      void commitEdit({ rowIndex, colId: nextColId });
       selectSingleCell(rowIndex, nextColId, true);
       return;
     }
@@ -1274,6 +1586,7 @@ export default function PaymentSheetWithDate({ me }) {
       editingCell?.rowIndex === rowIndex && editingCell?.colId === col.id;
 
     const value = getCellValue(row, col);
+    const rowId = getRowId(row);
 
     const commonTdStyle = {
       ...styles.td,
@@ -1299,7 +1612,7 @@ export default function PaymentSheetWithDate({ me }) {
               editValueRef.current = e.target.value;
               setEditValue(e.target.value);
             }}
-            onBlur={() => commitEdit({ rowIndex, colId: col.id })}
+            onBlur={() => void commitEdit({ rowIndex, colId: col.id })}
             onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
             style={styles.select}
           >
@@ -1326,7 +1639,7 @@ export default function PaymentSheetWithDate({ me }) {
                 editValueRef.current = e.target.value;
                 setEditValue(e.target.value);
               }}
-              onBlur={() => commitEdit({ rowIndex, colId: col.id })}
+              onBlur={() => void commitEdit({ rowIndex, colId: col.id })}
               onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
               style={{ ...styles.input, flex: 1 }}
             />
@@ -1340,8 +1653,8 @@ export default function PaymentSheetWithDate({ me }) {
             >
               <ColorSwatch
                 color={row.tuitionNameColor || "#ffffff"}
-                onChange={(c) => updateRow(row, "tuitionNameColor", c)}
-                pickerId={`tuitionNameColor-${row.id}`}
+                onChange={(c) => void updateRow(row, "tuitionNameColor", c)}
+                pickerId={`tuitionNameColor-${rowId}`}
                 activeColorPicker={activeColorPicker}
                 onOpen={setActiveColorPicker}
                 onClose={() => setActiveColorPicker(null)}
@@ -1364,7 +1677,7 @@ export default function PaymentSheetWithDate({ me }) {
               editValueRef.current = e.target.value;
               setEditValue(e.target.value);
             }}
-            onBlur={() => commitEdit({ rowIndex, colId: col.id })}
+            onBlur={() => void commitEdit({ rowIndex, colId: col.id })}
             onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
             style={styles.input}
           />
@@ -1402,8 +1715,8 @@ export default function PaymentSheetWithDate({ me }) {
             >
               <ColorSwatch
                 color={row.tuitionNameColor || "#ffffff"}
-                onChange={(c) => updateRow(row, "tuitionNameColor", c)}
-                pickerId={`tuitionNameColor-${row.id}`}
+                onChange={(c) => void updateRow(row, "tuitionNameColor", c)}
+                pickerId={`tuitionNameColor-${rowId}`}
                 activeColorPicker={activeColorPicker}
                 onOpen={setActiveColorPicker}
                 onClose={() => setActiveColorPicker(null)}
@@ -1470,11 +1783,11 @@ export default function PaymentSheetWithDate({ me }) {
               style={styles.searchInput}
             />
 
-            <button onClick={() => loadRows({ initial: true })} style={styles.refreshBtn}>
+            <button onClick={() => void loadRows({ initial: true })} style={styles.refreshBtn}>
               Refresh
             </button>
 
-            <button onClick={addRow} style={styles.addBtn} disabled={adding}>
+            <button onClick={() => void addRow()} style={styles.addBtn} disabled={adding}>
               {adding ? "Adding..." : "+ Add Row"}
             </button>
           </div>
@@ -1488,15 +1801,12 @@ export default function PaymentSheetWithDate({ me }) {
                 <th style={{ ...styles.th, minWidth: "60px" }}>🎨</th>
 
                 {gridColumns.map((col) => (
-                  <th
-                    key={col.id}
-                    style={{ ...styles.th, minWidth: `${col.width}px` }}
-                  >
+                  <th key={col.id} style={{ ...styles.th, minWidth: `${col.width}px` }}>
                     {col.label}
                   </th>
                 ))}
 
-                <th style={{ ...styles.th, minWidth: "90px" }}>Action</th>
+                <th style={{ ...styles.th, minWidth: "140px" }}>Action</th>
               </tr>
             </thead>
 
@@ -1520,8 +1830,15 @@ export default function PaymentSheetWithDate({ me }) {
                     (item) => getRowId(item) === rowId
                   );
 
+                  const canMoveUp = originalIndex > 0;
+                  const canMoveDown =
+                    originalIndex >= 0 && originalIndex < items.length - 1;
+
                   return (
-                    <tr key={rowId ?? visibleIndex} style={{ backgroundColor: row.rowColor || "#fff" }}>
+                    <tr
+                      key={rowId ?? visibleIndex}
+                      style={{ backgroundColor: row.rowColor || "#fff" }}
+                    >
                       <td style={{ ...styles.td, textAlign: "center" }}>
                         <div
                           style={{
@@ -1533,21 +1850,21 @@ export default function PaymentSheetWithDate({ me }) {
                           }}
                         >
                           <button
-                            onClick={() => moveRow(originalIndex, "up")}
-                            disabled={originalIndex === 0}
+                            onClick={() => void moveRow(originalIndex, "up")}
+                            disabled={!canMoveUp}
                             style={{
                               ...styles.moveBtn,
-                              opacity: originalIndex === 0 ? 0.3 : 1,
+                              opacity: canMoveUp ? 1 : 0.3,
                             }}
                           >
                             ▲
                           </button>
                           <button
-                            onClick={() => moveRow(originalIndex, "down")}
-                            disabled={originalIndex === items.length - 1}
+                            onClick={() => void moveRow(originalIndex, "down")}
+                            disabled={!canMoveDown}
                             style={{
                               ...styles.moveBtn,
-                              opacity: originalIndex === items.length - 1 ? 0.3 : 1,
+                              opacity: canMoveDown ? 1 : 0.3,
                             }}
                           >
                             ▼
@@ -1559,8 +1876,8 @@ export default function PaymentSheetWithDate({ me }) {
                         <div style={styles.readCell}>
                           <ColorSwatch
                             color={row.rowColor || "#ffffff"}
-                            onChange={(c) => updateRow(row, "rowColor", c)}
-                            pickerId={`rowColor-${row.id}`}
+                            onChange={(c) => void updateRow(row, "rowColor", c)}
+                            pickerId={`rowColor-${rowId}`}
                             activeColorPicker={activeColorPicker}
                             onOpen={setActiveColorPicker}
                             onClose={() => setActiveColorPicker(null)}
@@ -1571,10 +1888,18 @@ export default function PaymentSheetWithDate({ me }) {
                       {gridColumns.map((col) => renderGridCell(row, visibleIndex, col))}
 
                       <td style={styles.td}>
-                        <div style={styles.readCell}>
+                        <div style={styles.actionGroup}>
+                          <button
+                            style={styles.copyBtn}
+                            onClick={() => void copyRowToClipboard(row, visibleIndex)}
+                            title="Copy full row"
+                          >
+                            Copy
+                          </button>
+
                           <button
                             style={styles.deleteBtn}
-                            onClick={() => deleteRow(row)}
+                            onClick={() => void deleteRow(row)}
                           >
                             Del
                           </button>
