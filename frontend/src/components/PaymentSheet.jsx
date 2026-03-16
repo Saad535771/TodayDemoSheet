@@ -82,6 +82,39 @@ const styles = {
     fontWeight: "700",
     whiteSpace: "nowrap",
   },
+  toolBtn: {
+    background: "#ffffff",
+    color: "#1f2937",
+    border: "1px solid #d1d5db",
+    borderRadius: "10px",
+    padding: "10px 14px",
+    cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "13px",
+  },
+  colorToolWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    border: "1px solid #d1d5db",
+    borderRadius: "10px",
+    padding: "6px 10px",
+    background: "#fff",
+  },
+  colorInputMini: {
+    width: "30px",
+    height: "30px",
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    padding: 0,
+  },
+  colorToolLabel: {
+    fontSize: "12px",
+    fontWeight: "700",
+    color: "#475569",
+    whiteSpace: "nowrap",
+  },
   tableWrapper: {
     overflowX: "auto",
     borderRadius: "12px",
@@ -90,7 +123,7 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "1780px",
+    minWidth: "2550px",
     fontSize: "13px",
   },
   th: {
@@ -143,6 +176,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     cursor: "cell",
+    gap: "8px",
   },
   textLeft: {
     justifyContent: "flex-start",
@@ -176,6 +210,18 @@ const styles = {
     textAlign: "center",
     color: "#666",
   },
+  colorSwatch: {
+    width: "18px",
+    height: "18px",
+    borderRadius: "4px",
+    border: "1px solid rgba(0,0,0,0.15)",
+    flexShrink: 0,
+  },
+  colorValue: {
+    fontSize: "12px",
+    color: "#334155",
+    fontWeight: "600",
+  },
 };
 
 const statusOptions = [
@@ -186,12 +232,33 @@ const statusOptions = [
   "Tuition Pending",
 ];
 
+const booleanOptions = [
+  { value: "0", label: "No" },
+  { value: "1", label: "Yes" },
+];
+
 function getRowId(row) {
   return row?.id ?? row?.paymentId ?? row?._id ?? row?.rowId;
 }
 
 function rowsAreSame(a = [], b = []) {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function normalizeBoolean(value) {
+  return (
+    value === true ||
+    value === 1 ||
+    value === "1" ||
+    value === "true" ||
+    value === "TRUE"
+  );
+}
+
+function safeColor(value, fallback = "#ffffff") {
+  const color = String(value || "").trim();
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color)) return color;
+  return fallback;
 }
 
 function getStatusStyle(status) {
@@ -261,12 +328,14 @@ function highlightText(text, term) {
 
   if (!q) return value;
 
+  const lowerQ = q.toLowerCase();
   const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const regex = new RegExp(`(${escaped})`, "ig");
   const parts = value.split(regex);
 
-  return parts.map((part, index) =>
-    regex.test(part) ? (
+  return parts.map((part, index) => {
+    const isMatch = part.toLowerCase() === lowerQ;
+    return isMatch ? (
       <mark
         key={`${part}-${index}`}
         style={{
@@ -280,8 +349,16 @@ function highlightText(text, term) {
       </mark>
     ) : (
       <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>
-    )
-  );
+    );
+  });
+}
+
+function getOptionValue(option) {
+  return typeof option === "object" ? option.value : option;
+}
+
+function getOptionLabel(option) {
+  return typeof option === "object" ? option.label : option || "--";
 }
 
 export default function PaymentSheet({ me }) {
@@ -289,6 +366,8 @@ export default function PaymentSheet({ me }) {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState("");
+  const [bulkRowColor, setBulkRowColor] = useState("#fff8b3");
+  const [bulkNameColor, setBulkNameColor] = useState("#dbeafe");
 
   const [selectedCell, setSelectedCell] = useState(null);
   const [anchorCell, setAnchorCell] = useState(null);
@@ -433,6 +512,85 @@ export default function PaymentSheet({ me }) {
         editable: true,
         width: 150,
         align: "left",
+      },
+
+      // New attached fields in same sequence
+      {
+        id: "syncFlag",
+        label: "Sync Flag",
+        field: "syncFlag",
+        editable: true,
+        width: 110,
+        kind: "select",
+        options: booleanOptions,
+        align: "center",
+        valueType: "boolean",
+      },
+      {
+        id: "assignedStaffId",
+        label: "Assigned Staff Id",
+        field: "assignedStaffId",
+        editable: true,
+        width: 150,
+        type: "number",
+        align: "left",
+      },
+      {
+        id: "isDeleted",
+        label: "Is Deleted",
+        field: "isDeleted",
+        editable: true,
+        width: 110,
+        kind: "select",
+        options: booleanOptions,
+        align: "center",
+        valueType: "boolean",
+      },
+      {
+        id: "deletedFromTodayDemo",
+        label: "Deleted From TodayDemo",
+        field: "deletedFromTodayDemo",
+        editable: true,
+        width: 190,
+        kind: "select",
+        options: booleanOptions,
+        align: "center",
+        valueType: "boolean",
+      },
+      {
+        id: "assignedTo",
+        label: "Assigned To",
+        field: "assignedTo",
+        editable: true,
+        width: 150,
+        align: "left",
+      },
+      {
+        id: "orderIndex",
+        label: "Order Index",
+        field: "orderIndex",
+        editable: true,
+        width: 120,
+        type: "number",
+        align: "left",
+      },
+      {
+        id: "rowColor",
+        label: "Row Color",
+        field: "rowColor",
+        editable: true,
+        width: 130,
+        kind: "color",
+        align: "center",
+      },
+      {
+        id: "tuitionNameColor",
+        label: "Tuition Name Color",
+        field: "tuitionNameColor",
+        editable: true,
+        width: 160,
+        kind: "color",
+        align: "center",
       }
     );
 
@@ -447,7 +605,7 @@ export default function PaymentSheet({ me }) {
   );
 
   const firstEditableColumnId = gridColumns[0]?.id || "tuitionId";
-  const visibleColumnCount = gridColumns.length + 2; // Sort + Action
+  const visibleColumnCount = gridColumns.length + 2;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -461,9 +619,7 @@ export default function PaymentSheet({ me }) {
 
     return () => {
       mountedRef.current = false;
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
+      if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, []);
 
@@ -510,9 +666,7 @@ export default function PaymentSheet({ me }) {
 
   async function loadPayments({ initial = false, silent = false } = {}) {
     try {
-      if (initial) {
-        setLoading(true);
-      }
+      if (initial) setLoading(true);
 
       const res = await api.get("/payments");
       const rows = Array.isArray(res.data) ? res.data : res.data.items || [];
@@ -551,13 +705,21 @@ export default function PaymentSheet({ me }) {
         status: "Tuition Pending",
         feedback: "",
         otmName: "",
+        syncFlag: false,
+        assignedStaffId: "",
+        isDeleted: false,
+        deletedFromTodayDemo: false,
+        assignedTo: "",
+        orderIndex: itemsRef.current.length,
+        rowColor: "#ffffff",
+        tuitionNameColor: "#ffffff",
       };
 
       const res = await api.post("/payments", newRow);
       const created = res.data?.item || res.data?.payment || res.data;
 
       if (created && getRowId(created) !== undefined) {
-        setItems((prev) => [created, ...prev]);
+        setItems((prev) => [...prev, created]);
       } else {
         await loadPayments({ silent: true });
       }
@@ -569,11 +731,13 @@ export default function PaymentSheet({ me }) {
     }
   }
 
-  async function updateRowFields(row, patchFields) {
+  async function updateRowFields(row, patchFields, options = {}) {
+    const { reloadAfter = false } = options;
     const rowId = getRowId(row);
+
     if (rowId === undefined || rowId === null) {
       alert("Row ID missing hai. Backend record identify nahi ho raha.");
-      return;
+      return null;
     }
 
     const oldItems = itemsRef.current;
@@ -584,65 +748,30 @@ export default function PaymentSheet({ me }) {
     );
 
     try {
-      await api.patch(`/payments/${encodeURIComponent(rowId)}`, updatedRow);
-      await loadPayments({ silent: true });
+      const res = await api.patch(`/payments/${encodeURIComponent(rowId)}`, patchFields);
+      const freshItem = res?.data?.item;
+
+      if (freshItem) {
+        setItems((prev) =>
+          prev.map((item) => (getRowId(item) === rowId ? freshItem : item))
+        );
+      }
+
+      if (reloadAfter) {
+        await loadPayments({ silent: true });
+      }
+
+      return freshItem || updatedRow;
     } catch (err) {
       console.error("Failed to update payment row:", err);
       setItems(oldItems);
       alert("Update failed.");
+      return null;
     }
   }
 
   async function updateRow(row, field, newValue) {
     await updateRowFields(row, { [field]: newValue });
-  }
-
-  async function moveRow(index, direction) {
-    if (direction === "up" && index === 0) return;
-    if (direction === "down" && index === items.length - 1) return;
-
-    const newItems = [...items];
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-    [newItems[index], newItems[targetIndex]] = [newItems[targetIndex], newItems[index]];
-    setItems(newItems);
-
-    try {
-      const reorderPayload = newItems.map((item, idx) => ({
-        id: getRowId(item),
-        paymentId: getRowId(item),
-        rowId: getRowId(item),
-        orderIndex: idx,
-      }));
-
-      await api.post("/payments/reorder", { items: reorderPayload });
-      await loadPayments({ silent: true });
-    } catch (err) {
-      console.error("Failed to reorder payment rows:", err);
-      alert("Row reorder save nahi hui.");
-      await loadPayments({ silent: true });
-    }
-  }
-
-  async function deleteRow(row) {
-    const rowId = getRowId(row);
-    if (rowId === undefined || rowId === null) {
-      alert("Row ID missing hai.");
-      return;
-    }
-
-    if (!window.confirm("Is payment row ko delete karna hai?")) return;
-
-    const oldItems = itemsRef.current;
-    setItems((prev) => prev.filter((item) => getRowId(item) !== rowId));
-
-    try {
-      await api.delete(`/payments/${encodeURIComponent(rowId)}`);
-      await loadPayments({ silent: true });
-    } catch (err) {
-      console.error("Failed to delete payment row:", err);
-      setItems(oldItems);
-      alert("Delete failed.");
-    }
   }
 
   const filteredItems = useMemo(() => {
@@ -663,6 +792,14 @@ export default function PaymentSheet({ me }) {
         item.status,
         item.feedback,
         item.otmName,
+        item.syncFlag,
+        item.assignedStaffId,
+        item.isDeleted,
+        item.deletedFromTodayDemo,
+        item.assignedTo,
+        item.orderIndex,
+        item.rowColor,
+        item.tuitionNameColor,
       ]
         .map((v) => String(v ?? "").toLowerCase())
         .join(" ");
@@ -753,9 +890,40 @@ export default function PaymentSheet({ me }) {
     return row[col.field] ?? "";
   };
 
+  const getEditReadyValue = (row, col) => {
+    const raw = getCellValue(row, col);
+
+    if (col.valueType === "boolean") {
+      return normalizeBoolean(raw) ? "1" : "0";
+    }
+
+    if (col.kind === "color") {
+      return safeColor(raw, "#ffffff");
+    }
+
+    return raw ?? "";
+  };
+
   const buildPatchForColumn = (colId, value) => {
     const col = gridColumnMap[colId];
     if (!col?.field) return {};
+
+    if (col.valueType === "boolean") {
+      return { [col.field]: value === "1" };
+    }
+
+    if (col.kind === "color") {
+      return { [col.field]: safeColor(value, "#ffffff") };
+    }
+
+    if (col.type === "number") {
+      if (value === "" || value === null || value === undefined) {
+        return { [col.field]: null };
+      }
+      const n = Number(value);
+      return { [col.field]: Number.isFinite(n) ? n : null };
+    }
+
     return { [col.field]: value };
   };
 
@@ -785,7 +953,7 @@ export default function PaymentSheet({ me }) {
 
     if (!col?.editable || !row) return;
 
-    const currentVal = getCellValue(row, col);
+    const currentVal = getEditReadyValue(row, col);
     const nextValue = forcedValue !== null ? forcedValue : String(currentVal ?? "");
 
     setSelectedCell({ rowIndex, colId });
@@ -820,7 +988,8 @@ export default function PaymentSheet({ me }) {
       return;
     }
 
-    const oldValue = String(getCellValue(row, col) ?? "");
+    const currentRawValue = getEditReadyValue(row, col);
+    const oldValue = String(currentRawValue ?? "");
 
     if (newValue !== oldValue) {
       const patch = buildPatchForColumn(colId, newValue);
@@ -845,6 +1014,7 @@ export default function PaymentSheet({ me }) {
       const row = filteredItemsRef.current[rowIndex];
 
       if (!row || !col?.editable) return;
+      if (col.kind === "color") return;
 
       const patch = buildPatchForColumn(colId, "");
       if (!Object.keys(patch).length) return;
@@ -900,6 +1070,172 @@ export default function PaymentSheet({ me }) {
 
     selectSingleCell(nextRow, nextColId, true);
   };
+
+  const getSelectedVisibleRowIndexes = () => {
+    const rows = new Set();
+
+    if (selectedCells.size) {
+      selectedCells.forEach((key) => {
+        const { rowIndex } = parseCellKey(key);
+        if (Number.isFinite(rowIndex)) rows.add(rowIndex);
+      });
+    } else if (selectedCell?.rowIndex !== undefined) {
+      rows.add(selectedCell.rowIndex);
+    }
+
+    return Array.from(rows)
+      .filter((rowIndex) => rowIndex >= 0 && rowIndex < filteredItemsRef.current.length)
+      .sort((a, b) => a - b);
+  };
+
+  const getSelectedRowIds = () => {
+    return getSelectedVisibleRowIndexes()
+      .map((rowIndex) => filteredItemsRef.current[rowIndex])
+      .map((row) => getRowId(row))
+      .filter((id) => id !== undefined && id !== null);
+  };
+
+  const reorderArrayByIds = (list, rowIds, direction) => {
+    const arr = [...list];
+    const idSet = new Set(rowIds.map((id) => String(id)));
+
+    const selectedIndices = arr
+      .map((row, index) => (idSet.has(String(getRowId(row))) ? index : -1))
+      .filter((index) => index !== -1);
+
+    if (!selectedIndices.length) return arr;
+
+    if (direction === "up") {
+      for (const index of selectedIndices) {
+        if (index <= 0) continue;
+        const prevId = getRowId(arr[index - 1]);
+        if (!idSet.has(String(prevId))) {
+          [arr[index - 1], arr[index]] = [arr[index], arr[index - 1]];
+        }
+      }
+    } else {
+      for (let i = selectedIndices.length - 1; i >= 0; i--) {
+        const index = selectedIndices[i];
+        if (index >= arr.length - 1) continue;
+        const nextId = getRowId(arr[index + 1]);
+        if (!idSet.has(String(nextId))) {
+          [arr[index], arr[index + 1]] = [arr[index + 1], arr[index]];
+        }
+      }
+    }
+
+    return arr;
+  };
+
+  async function persistReorder(nextItems) {
+    const withOrder = nextItems.map((item, idx) => ({
+      ...item,
+      orderIndex: idx,
+    }));
+
+    setItems(withOrder);
+
+    try {
+      const reorderPayload = withOrder.map((item, idx) => ({
+        id: getRowId(item),
+        orderIndex: idx,
+      }));
+
+      await api.post("/payments/reorder", { items: reorderPayload });
+      await loadPayments({ silent: true });
+    } catch (err) {
+      console.error("Failed to reorder payment rows:", err);
+      alert("Row reorder save nahi hui.");
+      await loadPayments({ silent: true });
+    }
+  }
+
+  async function moveRows(direction, fallbackRowId = null) {
+    let rowIds = getSelectedRowIds();
+
+    if (fallbackRowId !== null && fallbackRowId !== undefined) {
+      const selectedSet = new Set(rowIds.map((id) => String(id)));
+      if (!selectedSet.has(String(fallbackRowId))) {
+        rowIds = [fallbackRowId];
+      }
+    }
+
+    if (!rowIds.length) {
+      alert("Pehle row select karo.");
+      return;
+    }
+
+    const currentItems = itemsRef.current;
+    const currentIndexes = currentItems
+      .map((item, index) => ({
+        index,
+        rowId: getRowId(item),
+      }))
+      .filter((entry) => rowIds.map(String).includes(String(entry.rowId)))
+      .map((entry) => entry.index);
+
+    if (!currentIndexes.length) return;
+
+    if (direction === "up" && currentIndexes[0] === 0) return;
+    if (
+      direction === "down" &&
+      currentIndexes[currentIndexes.length - 1] === currentItems.length - 1
+    ) {
+      return;
+    }
+
+    const nextItems = reorderArrayByIds(currentItems, rowIds, direction);
+    await persistReorder(nextItems);
+  }
+
+  async function applyColorToSelectedRows(field, colorValue) {
+    const rowIds = getSelectedRowIds();
+    if (!rowIds.length) {
+      alert("Pehle row select karo.");
+      return;
+    }
+
+    const normalizedColor = safeColor(colorValue, "#ffffff");
+    const idSet = new Set(rowIds.map((id) => String(id)));
+
+    const targetRows = itemsRef.current.filter((item) =>
+      idSet.has(String(getRowId(item)))
+    );
+
+    setItems((prev) =>
+      prev.map((row) =>
+        idSet.has(String(getRowId(row)))
+          ? { ...row, [field]: normalizedColor }
+          : row
+      )
+    );
+
+    for (const row of targetRows) {
+      await updateRowFields(row, { [field]: normalizedColor });
+    }
+  }
+
+  async function deleteRow(row) {
+    const rowId = getRowId(row);
+    if (rowId === undefined || rowId === null) {
+      alert("Row ID missing hai.");
+      return;
+    }
+
+    if (!window.confirm("Is payment row ko delete karna hai?")) return;
+
+    const oldItems = itemsRef.current;
+    setItems((prev) => prev.filter((item) => getRowId(item) !== rowId));
+
+    try {
+      await api.delete(`/payments/${encodeURIComponent(rowId)}`);
+      await loadPayments({ silent: true });
+    } catch (err) {
+      console.error("Failed to delete payment row:", err);
+      setItems(oldItems);
+      alert("Delete failed.");
+    }
+  }
 
   const handleCellMouseDown = (rowIndex, colId, e) => {
     if (
@@ -972,6 +1308,18 @@ export default function PaymentSheet({ me }) {
       return;
     }
 
+    if ((e.altKey || e.ctrlKey || e.metaKey) && e.key === "ArrowUp") {
+      e.preventDefault();
+      moveRows("up");
+      return;
+    }
+
+    if ((e.altKey || e.ctrlKey || e.metaKey) && e.key === "ArrowDown") {
+      e.preventDefault();
+      moveRows("down");
+      return;
+    }
+
     if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
       clearSelectedCells();
@@ -980,17 +1328,13 @@ export default function PaymentSheet({ me }) {
 
     if (e.key === "Enter") {
       e.preventDefault();
-      if (col.editable) {
-        startEditingCell(rowIndex, colId);
-      }
+      if (col.editable) startEditingCell(rowIndex, colId);
       return;
     }
 
     if (e.key === "F2") {
       e.preventDefault();
-      if (col.editable) {
-        startEditingCell(rowIndex, colId);
-      }
+      if (col.editable) startEditingCell(rowIndex, colId);
       return;
     }
 
@@ -1026,6 +1370,8 @@ export default function PaymentSheet({ me }) {
 
     if (
       col.editable &&
+      col.kind !== "select" &&
+      col.kind !== "color" &&
       e.key.length === 1 &&
       !e.ctrlKey &&
       !e.metaKey &&
@@ -1063,7 +1409,7 @@ export default function PaymentSheet({ me }) {
       return;
     }
 
-    if (col?.kind !== "select" && e.key === "ArrowUp") {
+    if (col?.kind !== "select" && col?.kind !== "color" && e.key === "ArrowUp") {
       e.preventDefault();
       const nextRow = Math.max(0, rowIndex - 1);
       commitEdit({ rowIndex: nextRow, colId });
@@ -1071,7 +1417,7 @@ export default function PaymentSheet({ me }) {
       return;
     }
 
-    if (col?.kind !== "select" && e.key === "ArrowDown") {
+    if (col?.kind !== "select" && col?.kind !== "color" && e.key === "ArrowDown") {
       e.preventDefault();
       const nextRow = Math.min(filteredItems.length - 1, rowIndex + 1);
       commitEdit({ rowIndex: nextRow, colId });
@@ -1079,7 +1425,7 @@ export default function PaymentSheet({ me }) {
       return;
     }
 
-    if (col?.kind !== "select" && e.key === "ArrowLeft") {
+    if (col?.kind !== "select" && col?.kind !== "color" && e.key === "ArrowLeft") {
       e.preventDefault();
       const currentColIndex = getColumnIndex(colId);
       const nextColIndex = Math.max(0, currentColIndex - 1);
@@ -1089,7 +1435,7 @@ export default function PaymentSheet({ me }) {
       return;
     }
 
-    if (col?.kind !== "select" && e.key === "ArrowRight") {
+    if (col?.kind !== "select" && col?.kind !== "color" && e.key === "ArrowRight") {
       e.preventDefault();
       const currentColIndex = getColumnIndex(colId);
       const nextColIndex = Math.min(gridColumns.length - 1, currentColIndex + 1);
@@ -1105,6 +1451,28 @@ export default function PaymentSheet({ me }) {
     }
   };
 
+  const renderCellDisplay = (row, col, value) => {
+    if (col.id === "status") {
+      return <StatusPill value={value} />;
+    }
+
+    if (col.valueType === "boolean") {
+      return normalizeBoolean(value) ? "Yes" : "No";
+    }
+
+    if (col.kind === "color") {
+      const finalColor = safeColor(value, "#ffffff");
+      return (
+        <>
+          <span style={{ ...styles.colorSwatch, background: finalColor }} />
+          <span style={styles.colorValue}>{finalColor}</span>
+        </>
+      );
+    }
+
+    return highlightText(value || "", search);
+  };
+
   const renderGridCell = (row, rowIndex, col) => {
     const cellKey = getCellKey(rowIndex, col.id);
     const isSelected = selectedCells.has(cellKey);
@@ -1113,12 +1481,20 @@ export default function PaymentSheet({ me }) {
 
     const value = getCellValue(row, col);
 
+    const rowBg = row?.rowColor ? safeColor(row.rowColor, "#ffffff") : "#ffffff";
+    const tuitionNameBg =
+      col.id === "tuitionName" && row?.tuitionNameColor
+        ? safeColor(row.tuitionNameColor, rowBg)
+        : rowBg;
+
+    const cellBackground = col.id === "tuitionName" ? tuitionNameBg : rowBg;
+
     const commonTdStyle = {
       ...styles.td,
       minWidth: col.width,
       width: col.width,
       boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
-      backgroundColor: isEditing ? "#ffffff" : "#fff",
+      backgroundColor: isEditing ? "#ffffff" : cellBackground,
       position: "relative",
       cursor: col.editable ? "cell" : "default",
     };
@@ -1139,11 +1515,39 @@ export default function PaymentSheet({ me }) {
             style={styles.select}
           >
             {col.options.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt || "--"}
+              <option key={getOptionValue(opt)} value={getOptionValue(opt)}>
+                {getOptionLabel(opt)}
               </option>
             ))}
           </select>
+        </td>
+      );
+    }
+
+    if (isEditing && col.kind === "color") {
+      return (
+        <td style={commonTdStyle}>
+          <input
+            ref={inputRef}
+            autoFocus
+            type="color"
+            value={safeColor(editValue, "#ffffff")}
+            onChange={(e) => {
+              editValueRef.current = e.target.value;
+              setEditValue(e.target.value);
+            }}
+            onBlur={() => commitEdit({ rowIndex, colId: col.id })}
+            onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
+            style={{
+              width: "100%",
+              height: "46px",
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              padding: "4px 10px",
+              boxSizing: "border-box",
+            }}
+          />
         </td>
       );
     }
@@ -1188,11 +1592,7 @@ export default function PaymentSheet({ me }) {
             ...(col.align === "left" ? styles.textLeft : {}),
           }}
         >
-          {col.id === "status" ? (
-            <StatusPill value={value} />
-          ) : (
-            highlightText(value || "", search)
-          )}
+          {renderCellDisplay(row, col, value)}
         </div>
       </td>
     );
@@ -1211,6 +1611,9 @@ export default function PaymentSheet({ me }) {
         <div style={styles.headerRow}>
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>Payment Sheet</h2>
+            <p style={styles.subtitle}>
+              Ctrl/Meta + click se multi select, Alt/Ctrl + Arrow Up/Down se selected rows move karo
+            </p>
           </div>
 
           <div style={styles.actions}>
@@ -1223,6 +1626,40 @@ export default function PaymentSheet({ me }) {
               onChange={(e) => setSearch(e.target.value)}
               style={styles.searchInput}
             />
+
+            <button onClick={() => moveRows("up")} style={styles.toolBtn}>
+              ↑ Move Selected
+            </button>
+
+            <button onClick={() => moveRows("down")} style={styles.toolBtn}>
+              ↓ Move Selected
+            </button>
+
+            <label style={styles.colorToolWrap}>
+              <span style={styles.colorToolLabel}>Row Color</span>
+              <input
+                type="color"
+                value={bulkRowColor}
+                onChange={(e) => {
+                  setBulkRowColor(e.target.value);
+                  applyColorToSelectedRows("rowColor", e.target.value);
+                }}
+                style={styles.colorInputMini}
+              />
+            </label>
+
+            <label style={styles.colorToolWrap}>
+              <span style={styles.colorToolLabel}>Name Color</span>
+              <input
+                type="color"
+                value={bulkNameColor}
+                onChange={(e) => {
+                  setBulkNameColor(e.target.value);
+                  applyColorToSelectedRows("tuitionNameColor", e.target.value);
+                }}
+                style={styles.colorInputMini}
+              />
+            </label>
 
             <button onClick={() => loadPayments({ initial: true })} style={styles.refreshBtn}>
               Refresh
@@ -1272,10 +1709,19 @@ export default function PaymentSheet({ me }) {
                   const originalIndex = items.findIndex(
                     (item) => getRowId(item) === rowId
                   );
+                  const rowBg = row?.rowColor
+                    ? safeColor(row.rowColor, "#ffffff")
+                    : "#ffffff";
 
                   return (
                     <tr key={rowId ?? visibleIndex}>
-                      <td style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
+                      <td
+                        style={{
+                          ...styles.td,
+                          textAlign: "center",
+                          backgroundColor: rowBg,
+                        }}
+                      >
                         <div
                           style={{
                             display: "flex",
@@ -1286,7 +1732,7 @@ export default function PaymentSheet({ me }) {
                           }}
                         >
                           <button
-                            onClick={() => moveRow(originalIndex, "up")}
+                            onClick={() => moveRows("up", rowId)}
                             disabled={originalIndex === 0}
                             style={{
                               ...styles.moveBtn,
@@ -1296,7 +1742,7 @@ export default function PaymentSheet({ me }) {
                             ▲
                           </button>
                           <button
-                            onClick={() => moveRow(originalIndex, "down")}
+                            onClick={() => moveRows("down", rowId)}
                             disabled={originalIndex === items.length - 1}
                             style={{
                               ...styles.moveBtn,
@@ -1310,7 +1756,7 @@ export default function PaymentSheet({ me }) {
 
                       {gridColumns.map((col) => renderGridCell(row, visibleIndex, col))}
 
-                      <td style={styles.td}>
+                      <td style={{ ...styles.td, backgroundColor: rowBg }}>
                         <div style={styles.readCell}>
                           <button
                             style={styles.deleteBtn}
