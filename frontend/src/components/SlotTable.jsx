@@ -435,11 +435,19 @@ function GlobalSearchHost() {
 /* ==================== constants & helpers ==================== */
 function format12Hour(time24) {
   if (!time24) return "";
-  const [h, m] = time24.split(":");
-  let hours = parseInt(h, 10);
+  const clean = String(time24).trim();
+  const match = clean.match(/^(\d{1,2}):(\d{2})/);
+
+  if (!match) return clean;
+
+  let hours = parseInt(match[1], 10);
+  const minutes = match[2];
+
+  if (Number.isNaN(hours)) return clean;
+
   const ampm = hours >= 12 ? "PM" : "AM";
   hours = hours % 12 || 12;
-  return `${hours}:${m} ${ampm}`;
+  return `${hours}:${minutes} ${ampm}`;
 }
 
 const DEMO_RATING_VALUES = ["", "Average Demo", "Strong Demo", "Weak Demo"];
@@ -771,6 +779,8 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   const moveCaretToEndOnFocusRef = useRef(false);
   const isMouseSelectingRef = useRef(false);
   const dragAnchorCellRef = useRef(null);
+  const undoStackRef = useRef([]);
+  const isUndoRunningRef = useRef(false);
 
   useEffect(() => {
     localItemsRef.current = localItems;
@@ -856,23 +866,182 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   }, [filteredItems.length, selectedCell]);
 
   useEffect(() => {
-    if (editingCell && inputRef.current) {
-      inputRef.current.focus();
+    if (!editingCell || !inputRef.current) return;
 
-      if (
-        moveCaretToEndOnFocusRef.current &&
-        typeof inputRef.current.setSelectionRange === "function"
-      ) {
-        const len = String(inputRef.current.value || "").length;
-        inputRef.current.setSelectionRange(len, len);
-      } else if (
-        shouldSelectAllOnFocusRef.current &&
-        typeof inputRef.current.select === "function"
-      ) {
-        inputRef.current.select();
-      }
+    const node = inputRef.current;
+    const col = gridColumnMap[editingCell.colId];
+    const tagName = String(node.tagName || "").toLowerCase();
+    const inputType = String(node.type || "").toLowerCase();
+
+    node.focus();
+
+    const supportsSelectionRange =
+      tagName === "textarea" ||
+      (tagName === "input" &&
+        ["text", "search", "url", "tel", "password"].includes(inputType || "text"));
+
+    const supportsSelectAll =
+      tagName === "textarea" ||
+      (tagName === "input" &&
+        ["text", "search", "url", "tel", "password"].includes(inputType || "text"));
+
+    if (
+      moveCaretToEndOnFocusRef.current &&
+      supportsSelectionRange &&
+      typeof node.setSelectionRange === "function"
+    ) {
+      const len = String(node.value || "").length;
+      node.setSelectionRange(len, len);
+    } else if (
+      shouldSelectAllOnFocusRef.current &&
+      supportsSelectAll &&
+      typeof node.select === "function"
+    ) {
+      node.select();
+    }
+
+    if (col?.kind === "select" || col?.type === "date") {
+      requestAnimationFrame(() => {
+        try {
+          if (typeof node.showPicker === "function") {
+            node.showPicker();
+            return;
+          }
+        } catch (err) {}
+
+        try {
+          node.focus();
+          node.click();
+          node.dispatchEvent(
+            new MouseEvent("mousedown", {
+              view: window,
+              bubbles: true,
+              cancelable: true,
+            })
+          );
+        } catch (err) {}
+
+        if (col?.kind === "select") {
+          try {
+            node.dispatchEvent(
+              new KeyboardEvent("keydown", {
+                key: "ArrowDown",
+                code: "ArrowDown",
+                bubbles: true,
+              })
+            );
+          } catch (err) {}
+        }
+      });
     }
   }, [editingCell]);
+
+  const pushUndoEntry = (changes) => {
+    if (isUndoRunningRef.current || !Array.isArray(changes) || !changes.length) return;
+
+    const normalized = changes
+      .map((change) => {
+        const beforePatch = {};
+        const afterPatch = {};
+
+        Object.keys(change.beforePatch || {}).forEach((key) => {
+          const beforeVal = change.beforePatch[key] ?? "";
+          const afterVal = change.afterPatch?.[key] ?? "";
+
+          if (String(beforeVal) !== String(afterVal)) {
+            beforePatch[key] = beforeVal;
+            afterPatch[key] = afterVal;
+          }
+        });
+
+        if (!Object.keys(beforePatch).length) return null;
+
+        return {
+          tuitionId: change.tuitionId,
+          beforePatch,
+          afterPatch,
+        };
+      })
+      .filter(Boolean);
+
+    if (!normalized.length) return;
+
+    undoStackRef.current.push({
+      changes: normalized,
+      createdAt: Date.now(),
+    });
+
+    if (undoStackRef.current.length > 100) {
+      undoStackRef.current.shift();
+    }
+  };
+
+  const undoLastChange = async () => {
+    if (editingCellRef.current) return;
+
+    const lastEntry = undoStackRef.current.pop();
+    if (!lastEntry?.changes?.length) return;
+
+    const snapshot = [...localItemsRef.current];
+    const revertMap = new Map(
+      lastEntry.changes.map((change) => [change.tuitionId, change.beforePatch])
+    );
+
+    isUndoRunningRef.current = true;
+    clearEditingState();
+
+    setLocalItems((prev) =>
+      prev.map((item) => {
+        const patch = revertMap.get(item.tuitionId);
+        return patch ? { ...item, ...patch } : item;
+      })
+    );
+
+    try {
+      for (const change of lastEntry.changes) {
+        const currentItem = snapshot.find((x) => x.tuitionId === change.tuitionId);
+        if (!currentItem) continue;
+
+        const payload = {
+          ...currentItem,
+          ...change.beforePatch,
+          _source: "target",
+        };
+
+        await api.patch(`/target/${encodeURIComponent(change.tuitionId)}`, payload);
+      }
+    } catch (error) {
+      console.error("Undo failed", error);
+      if (onChanged) await onChanged();
+    } finally {
+      isUndoRunningRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    const handleUndoHotkey = (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey) return;
+      if (String(e.key).toLowerCase() !== "z") return;
+
+      const activeEl = document.activeElement;
+      const insideThisTable = !!tableWrapperRef.current?.contains(activeEl);
+
+      if (!insideThisTable) return;
+
+      const activeTag = String(activeEl?.tagName || "").toUpperCase();
+      const isEditorFocused =
+        editingCellRef.current &&
+        ["INPUT", "TEXTAREA", "SELECT"].includes(activeTag);
+
+      if (isEditorFocused) return;
+
+      e.preventDefault();
+      undoLastChange();
+    };
+
+    document.addEventListener("keydown", handleUndoHotkey);
+    return () => document.removeEventListener("keydown", handleUndoHotkey);
+  }, [onChanged]);
 
   const firstMatchRowId =
     searchTerm && filteredItems[0]?.tuitionId
@@ -914,6 +1083,43 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   }, [firstMatchRowId, open]);
 
   const getColumnIndex = (colId) => gridColumnIds.findIndex((id) => id === colId);
+
+  const openEditorPicker = (element, col) => {
+    if (!element || !(col?.kind === "select" || col?.type === "date")) return;
+
+    requestAnimationFrame(() => {
+      try {
+        if (typeof element.showPicker === "function") {
+          element.showPicker();
+          return;
+        }
+      } catch (err) {}
+
+      try {
+        element.focus();
+        element.click();
+        element.dispatchEvent(
+          new MouseEvent("mousedown", {
+            view: window,
+            bubbles: true,
+            cancelable: true,
+          })
+        );
+      } catch (err) {}
+
+      if (col?.kind === "select") {
+        try {
+          element.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "ArrowDown",
+              code: "ArrowDown",
+              bubbles: true,
+            })
+          );
+        } catch (err) {}
+      }
+    });
+  };
 
   const focusCell = (rowIndex, colId) => {
     requestAnimationFrame(() => {
@@ -1018,8 +1224,38 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     }
   };
 
-  const updateRecordFields = async (item, patchFields, refreshAfter = true) => {
+  const updateRecordFields = async (item, patchFields, options = {}) => {
+    const { refreshAfter = true, skipHistory = false } = options;
+
     try {
+      const currentItem =
+        localItemsRef.current.find((x) => x.tuitionId === item.tuitionId) || item;
+
+      if (!skipHistory) {
+        const beforePatch = {};
+        const afterPatch = {};
+
+        Object.keys(patchFields).forEach((key) => {
+          const beforeVal = currentItem?.[key] ?? "";
+          const afterVal = patchFields[key] ?? "";
+
+          if (String(beforeVal) !== String(afterVal)) {
+            beforePatch[key] = beforeVal;
+            afterPatch[key] = afterVal;
+          }
+        });
+
+        if (Object.keys(afterPatch).length) {
+          pushUndoEntry([
+            {
+              tuitionId: item.tuitionId,
+              beforePatch,
+              afterPatch,
+            },
+          ]);
+        }
+      }
+
       setLocalItems((prev) =>
         prev.map((x) =>
           x.tuitionId === item.tuitionId
@@ -1030,9 +1266,6 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
             : x
         )
       );
-
-      const currentItem =
-        localItemsRef.current.find((x) => x.tuitionId === item.tuitionId) || item;
 
       const payload = { ...currentItem, ...patchFields, _source: "target" };
 
@@ -1047,8 +1280,8 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     }
   };
 
-  const updateRecord = async (item, field, newValue) => {
-    await updateRecordFields(item, { [field]: newValue });
+  const updateRecord = async (item, field, newValue, options = {}) => {
+    await updateRecordFields(item, { [field]: newValue }, options);
   };
 
   const setEditingState = (cell, value, options = {}) => {
@@ -1069,6 +1302,31 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     setEditValue("");
     shouldSelectAllOnFocusRef.current = true;
     moveCaretToEndOnFocusRef.current = false;
+  };
+
+  const getNextEditableCell = (rowIndex, colId, direction = 1) => {
+    let row = rowIndex;
+    let colIndex = getColumnIndex(colId);
+
+    while (true) {
+      colIndex += direction;
+
+      while (colIndex >= 0 && colIndex < gridColumns.length) {
+        const candidate = gridColumns[colIndex];
+        if (candidate?.editable) {
+          return { rowIndex: row, colId: candidate.id };
+        }
+        colIndex += direction;
+      }
+
+      row += direction > 0 ? 1 : -1;
+
+      if (row < 0 || row >= filteredItemsRef.current.length) {
+        return { rowIndex, colId };
+      }
+
+      colIndex = direction > 0 ? -1 : gridColumns.length;
+    }
   };
 
   const startEditingCell = (rowIndex, colId, forcedValue = null, options = {}) => {
@@ -1130,6 +1388,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     if (!selectedCells.size) return;
 
     const updatesById = new Map();
+    const historyChanges = [];
 
     selectedCells.forEach((key) => {
       const { rowIndex, colId } = parseCellKey(key);
@@ -1141,11 +1400,41 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
       const patch = buildPatchForColumn(colId, "");
       if (!Object.keys(patch).length) return;
 
-      const prevPatch = updatesById.get(item.tuitionId) || {};
+      const prevPatch = updatesById.get(item.tuitionId)?.patch || {};
       updatesById.set(item.tuitionId, { item, patch: { ...prevPatch, ...patch } });
     });
 
     if (!updatesById.size) return;
+
+    updatesById.forEach((entry) => {
+      const currentItem =
+        localItemsRef.current.find((x) => x.tuitionId === entry.item.tuitionId) || entry.item;
+
+      const beforePatch = {};
+      const afterPatch = {};
+
+      Object.keys(entry.patch).forEach((field) => {
+        const beforeVal = currentItem?.[field] ?? "";
+        const afterVal = entry.patch[field] ?? "";
+
+        if (String(beforeVal) !== String(afterVal)) {
+          beforePatch[field] = beforeVal;
+          afterPatch[field] = afterVal;
+        }
+      });
+
+      if (Object.keys(afterPatch).length) {
+        historyChanges.push({
+          tuitionId: entry.item.tuitionId,
+          beforePatch,
+          afterPatch,
+        });
+      }
+    });
+
+    if (historyChanges.length) {
+      pushUndoEntry(historyChanges);
+    }
 
     setLocalItems((prev) =>
       prev.map((item) => {
@@ -1255,6 +1544,12 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     const col = gridColumnMap[colId];
     if (!col) return;
 
+    if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === "z") {
+      e.preventDefault();
+      undoLastChange();
+      return;
+    }
+
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
       e.preventDefault();
       const all = new Set();
@@ -1323,6 +1618,9 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
 
     if (
       col.editable &&
+      col.kind !== "select" &&
+      col.type !== "date" &&
+      col.type !== "time" &&
       e.key.length === 1 &&
       !e.ctrlKey &&
       !e.metaKey &&
@@ -1339,8 +1637,20 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   };
 
   const handleEditInputKeyDown = (e, rowIndex, colId, col) => {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && String(e.key).toLowerCase() === "z") {
+      return;
+    }
+
     if (e.key === "Enter") {
       e.preventDefault();
+
+      if (col?.kind === "select" || col?.type === "date") {
+        const nextCell = getNextEditableCell(rowIndex, colId, 1);
+        commitEdit(nextCell);
+        selectSingleCell(nextCell.rowIndex, nextCell.colId, true);
+        return;
+      }
+
       const nextRow = Math.min(rowIndex + 1, filteredItems.length - 1);
       commitEdit({ rowIndex: nextRow, colId });
       selectSingleCell(nextRow, colId, true);
@@ -1349,18 +1659,13 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
 
     if (e.key === "Tab") {
       e.preventDefault();
-      const currentColIndex = getColumnIndex(colId);
-      const nextColIndex = Math.max(
-        0,
-        Math.min(gridColumns.length - 1, currentColIndex + (e.shiftKey ? -1 : 1))
-      );
-      const nextColId = gridColumnIds[nextColIndex];
-      commitEdit({ rowIndex, colId: nextColId });
-      selectSingleCell(rowIndex, nextColId, true);
+      const nextCell = getNextEditableCell(rowIndex, colId, e.shiftKey ? -1 : 1);
+      commitEdit(nextCell);
+      selectSingleCell(nextCell.rowIndex, nextCell.colId, true);
       return;
     }
 
-    if (col?.kind !== "select" && e.key === "ArrowUp") {
+    if (col?.kind !== "select" && col?.type !== "date" && col?.type !== "time" && e.key === "ArrowUp") {
       e.preventDefault();
       const nextRow = Math.max(0, rowIndex - 1);
       commitEdit({ rowIndex: nextRow, colId });
@@ -1368,7 +1673,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
       return;
     }
 
-    if (col?.kind !== "select" && e.key === "ArrowDown") {
+    if (col?.kind !== "select" && col?.type !== "date" && col?.type !== "time" && e.key === "ArrowDown") {
       e.preventDefault();
       const nextRow = Math.min(filteredItems.length - 1, rowIndex + 1);
       commitEdit({ rowIndex: nextRow, colId });
@@ -1376,7 +1681,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
       return;
     }
 
-    if (col?.kind !== "select" && e.key === "ArrowLeft") {
+    if (col?.kind !== "select" && col?.type !== "date" && col?.type !== "time" && e.key === "ArrowLeft") {
       e.preventDefault();
       const currentColIndex = getColumnIndex(colId);
       const nextColIndex = Math.max(0, currentColIndex - 1);
@@ -1386,7 +1691,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
       return;
     }
 
-    if (col?.kind !== "select" && e.key === "ArrowRight") {
+    if (col?.kind !== "select" && col?.type !== "date" && col?.type !== "time" && e.key === "ArrowRight") {
       e.preventDefault();
       const currentColIndex = getColumnIndex(colId);
       const nextColIndex = Math.min(gridColumns.length - 1, currentColIndex + 1);
@@ -1523,7 +1828,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     }
   }
 
-  const renderDisplayValue = (col, val, item) => {
+  const renderDisplayValue = (col, val) => {
     if (col.pill === "status") return renderPill(val, getStatusStyle, searchTerm);
     if (col.pill === "source") return renderPill(val, getSourceStyle, searchTerm);
     if (col.pill === "demoRating") return renderPill(val, getDemoRatingStyle, searchTerm);
@@ -1567,6 +1872,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
             autoFocus
             style={styles.inlineSelect}
             value={editValue}
+            onFocus={(e) => openEditorPicker(e.currentTarget, col)}
             onChange={(e) => {
               editValueRef.current = e.target.value;
               setEditValue(e.target.value);
@@ -1632,6 +1938,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
             type={col.type || "text"}
             style={{ ...styles.inlineInput, flex: 1 }}
             value={editValue}
+            onFocus={(e) => openEditorPicker(e.currentTarget, col)}
             onChange={(e) => {
               editValueRef.current = e.target.value;
               setEditValue(e.target.value);
@@ -1703,7 +2010,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
         onKeyDown={(e) => handleCellKeyDown(e, rowIndex, col.id)}
         style={commonTdStyle}
       >
-        {renderDisplayValue(col, value, item)}
+        {renderDisplayValue(col, value)}
       </td>
     );
   };

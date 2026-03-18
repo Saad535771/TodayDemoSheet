@@ -2,6 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/api.js";
 
 const LIVE_REFRESH_MS = 3000;
+const MIN_ZOOM = 70;
+const MAX_ZOOM = 150;
+const ZOOM_STEP = 10;
+const MAX_UNDO_STACK = 20;
 
 const styles = {
   page: {
@@ -92,6 +96,16 @@ const styles = {
     fontWeight: "600",
     fontSize: "13px",
   },
+  disabledToolBtn: {
+    background: "#f8fafc",
+    color: "#94a3b8",
+    border: "1px solid #e2e8f0",
+    borderRadius: "10px",
+    padding: "10px 14px",
+    cursor: "not-allowed",
+    fontWeight: "600",
+    fontSize: "13px",
+  },
   dangerToolBtn: {
     background: "#fff1f2",
     color: "#be123c",
@@ -145,15 +159,35 @@ const styles = {
     fontWeight: "700",
     whiteSpace: "nowrap",
   },
+  zoomWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "4px",
+    border: "1px solid #d1d5db",
+    borderRadius: "12px",
+    background: "#fff",
+  },
+  zoomLabel: {
+    minWidth: "52px",
+    textAlign: "center",
+    fontSize: "12px",
+    fontWeight: "700",
+    color: "#334155",
+  },
   tableWrapper: {
-    overflowX: "auto",
+    overflow: "auto",
     borderRadius: "12px",
     border: "1px solid #e5e7eb",
+    maxWidth: "100%",
+  },
+  zoomedArea: {
+    transformOrigin: "top left",
   },
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "2620px",
+    minWidth: "2700px",
     fontSize: "13px",
   },
   th: {
@@ -262,6 +296,11 @@ const styles = {
     width: "16px",
     height: "16px",
     cursor: "pointer",
+  },
+  numberCell: {
+    fontWeight: "700",
+    color: "#475569",
+    fontSize: "12px",
   },
 };
 
@@ -402,6 +441,63 @@ function getOptionLabel(option) {
   return typeof option === "object" ? option.label : option || "--";
 }
 
+function isTextLikeSelectionInput(el) {
+  if (!el) return false;
+
+  const tag = String(el.tagName || "").toLowerCase();
+  if (tag === "textarea") return true;
+  if (tag !== "input") return false;
+
+  const type = String(el.type || "text").toLowerCase();
+  return ["text", "search", "url", "tel", "password"].includes(type);
+}
+
+function isPickerLikeColumn(col) {
+  return (
+    col?.kind === "select" ||
+    col?.kind === "color" ||
+    col?.type === "date" ||
+    col?.type === "time"
+  );
+}
+
+function tryOpenPicker(el, col) {
+  if (!el || !col) return;
+
+  requestAnimationFrame(() => {
+    try {
+      if (typeof el.focus === "function") el.focus();
+    } catch (err) {
+      console.error("Focus failed:", err);
+    }
+
+    if (!isPickerLikeColumn(col)) return;
+
+    try {
+      if (typeof el.showPicker === "function") {
+        el.showPicker();
+        return;
+      }
+    } catch (err) {
+      console.warn("showPicker not available:", err);
+    }
+
+    if (col.kind === "select") {
+      try {
+        el.click();
+      } catch (err) {
+        console.warn("Select click failed:", err);
+      }
+
+      try {
+        el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      } catch (err) {
+        console.warn("Select mousedown failed:", err);
+      }
+    }
+  });
+}
+
 export default function PaymentSheet({ me }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -409,6 +505,8 @@ export default function PaymentSheet({ me }) {
   const [search, setSearch] = useState("");
   const [bulkRowColor, setBulkRowColor] = useState("#fff8b3");
   const [bulkNameColor, setBulkNameColor] = useState("#dbeafe");
+  const [zoomLevel, setZoomLevel] = useState(100);
+  const [undoCount, setUndoCount] = useState(0);
 
   const [selectedCell, setSelectedCell] = useState(null);
   const [anchorCell, setAnchorCell] = useState(null);
@@ -430,6 +528,7 @@ export default function PaymentSheet({ me }) {
   const isMouseSelectingRef = useRef(false);
   const dragAnchorCellRef = useRef(null);
   const rowSelectionAnchorRef = useRef(null);
+  const undoStackRef = useRef([]);
 
   const canSeeTutorShare =
     me?.role === "admin" || me?.role === "hod" || !!me?.access_tutor_share;
@@ -646,7 +745,7 @@ export default function PaymentSheet({ me }) {
   );
 
   const firstEditableColumnId = gridColumns[0]?.id || "tuitionId";
-  const visibleColumnCount = gridColumns.length + 3;
+  const visibleColumnCount = gridColumns.length + 4;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -688,22 +787,36 @@ export default function PaymentSheet({ me }) {
 
   useEffect(() => {
     if (editingCell && inputRef.current) {
-      inputRef.current.focus();
+      const col = gridColumnMap[editingCell.colId];
+      const el = inputRef.current;
+
+      if (isPickerLikeColumn(col)) {
+        tryOpenPicker(el, col);
+        return;
+      }
+
+      try {
+        if (typeof el.focus === "function") el.focus();
+      } catch (err) {
+        console.error("Focus failed:", err);
+      }
 
       if (
         moveCaretToEndOnFocusRef.current &&
-        typeof inputRef.current.setSelectionRange === "function"
+        isTextLikeSelectionInput(el) &&
+        typeof el.setSelectionRange === "function"
       ) {
-        const len = String(inputRef.current.value || "").length;
-        inputRef.current.setSelectionRange(len, len);
+        const len = String(el.value || "").length;
+        el.setSelectionRange(len, len);
       } else if (
         shouldSelectAllOnFocusRef.current &&
-        typeof inputRef.current.select === "function"
+        isTextLikeSelectionInput(el) &&
+        typeof el.select === "function"
       ) {
-        inputRef.current.select();
+        el.select();
       }
     }
-  }, [editingCell]);
+  }, [editingCell, gridColumnMap]);
 
   async function loadPayments({ initial = false, silent = false } = {}) {
     try {
@@ -726,6 +839,62 @@ export default function PaymentSheet({ me }) {
       if (mountedRef.current && initial) {
         setLoading(false);
       }
+    }
+  }
+
+  function adjustZoom(delta) {
+    setZoomLevel((prev) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prev + delta)));
+  }
+
+  function resetZoom() {
+    setZoomLevel(100);
+  }
+
+  function pushUndoTransaction(changes) {
+    if (!Array.isArray(changes) || !changes.length) return;
+    const nextStack = [...undoStackRef.current, { changes }].slice(-MAX_UNDO_STACK);
+    undoStackRef.current = nextStack;
+    setUndoCount(nextStack.length);
+  }
+
+  async function undoLastAction() {
+    const last = undoStackRef.current[undoStackRef.current.length - 1];
+    if (!last) return;
+
+    undoStackRef.current = undoStackRef.current.slice(0, -1);
+    setUndoCount(undoStackRef.current.length);
+
+    const patchMap = new Map(
+      last.changes.map((change) => [String(change.rowId), change.before])
+    );
+
+    setItems((prev) =>
+      prev.map((row) => {
+        const rowId = String(getRowId(row));
+        return patchMap.has(rowId) ? { ...row, ...patchMap.get(rowId) } : row;
+      })
+    );
+
+    clearEditingState();
+
+    try {
+      for (const change of last.changes) {
+        const rowId = String(change.rowId);
+        const res = await api.patch(`/payments/${encodeURIComponent(rowId)}`, change.before);
+        const freshItem = res?.data?.item;
+
+        if (freshItem) {
+          setItems((prev) =>
+            prev.map((item) =>
+              String(getRowId(item)) === rowId ? freshItem : item
+            )
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Undo failed:", err);
+      alert("Undo failed.");
+      await loadPayments({ silent: true });
     }
   }
 
@@ -1023,6 +1192,40 @@ export default function PaymentSheet({ me }) {
     }
   };
 
+  const getNextCell = (rowIndex, colId, direction = "down") => {
+    const currentColIndex = getColumnIndex(colId);
+
+    if (direction === "down") {
+      return {
+        rowIndex: Math.min(filteredItemsRef.current.length - 1, rowIndex + 1),
+        colId,
+      };
+    }
+
+    if (direction === "up") {
+      return {
+        rowIndex: Math.max(0, rowIndex - 1),
+        colId,
+      };
+    }
+
+    if (direction === "right") {
+      return {
+        rowIndex,
+        colId: gridColumnIds[Math.min(gridColumnIds.length - 1, currentColIndex + 1)],
+      };
+    }
+
+    if (direction === "left") {
+      return {
+        rowIndex,
+        colId: gridColumnIds[Math.max(0, currentColIndex - 1)],
+      };
+    }
+
+    return { rowIndex, colId };
+  };
+
   const commitEdit = async (focusTarget = null) => {
     const currentEditingCell = editingCellRef.current;
     if (!currentEditingCell) {
@@ -1122,6 +1325,14 @@ export default function PaymentSheet({ me }) {
   const someVisibleSelected =
     allVisibleRowIds.some((id) => selectedRowIds.has(id)) && !allVisibleSelected;
 
+  const buildUndoChangesFromMap = (updatesById) => {
+    return Array.from(updatesById.values()).map((entry) => ({
+      rowId: String(getRowId(entry.row)),
+      before: entry.before,
+      after: entry.after,
+    }));
+  };
+
   const clearSelectedCells = async () => {
     if (!selectedCells.size) return;
 
@@ -1149,24 +1360,47 @@ export default function PaymentSheet({ me }) {
       const rowId = getRowId(row);
       if (rowId === undefined || rowId === null) return;
 
-      const prevPatch = updatesById.get(rowId)?.patch || {};
-      updatesById.set(rowId, { row, patch: { ...prevPatch, ...patch } });
+      const existing = updatesById.get(String(rowId)) || {
+        row,
+        before: {},
+        after: {},
+      };
+
+      Object.keys(patch).forEach((field) => {
+        if (!(field in existing.before)) {
+          existing.before[field] = row[field];
+        }
+        existing.after[field] = patch[field];
+      });
+
+      updatesById.set(String(rowId), existing);
     });
 
     if (!updatesById.size) return;
 
+    pushUndoTransaction(buildUndoChangesFromMap(updatesById));
+
     setItems((prev) =>
       prev.map((row) => {
-        const rowId = getRowId(row);
-        const entry = updatesById.get(rowId);
-        return entry ? { ...row, ...entry.patch } : row;
+        const entry = updatesById.get(String(getRowId(row)));
+        return entry ? { ...row, ...entry.after } : row;
       })
     );
 
     clearEditingState();
 
-    for (const [, entry] of updatesById.entries()) {
-      await updateRowFields(entry.row, entry.patch);
+    try {
+      for (const [, entry] of updatesById.entries()) {
+        await api.patch(
+          `/payments/${encodeURIComponent(String(getRowId(entry.row)))}`,
+          entry.after
+        );
+      }
+      await loadPayments({ silent: true });
+    } catch (err) {
+      console.error("Failed to clear selected cells:", err);
+      alert("Cells clear nahi hui.");
+      await loadPayments({ silent: true });
     }
   };
 
@@ -1205,6 +1439,20 @@ export default function PaymentSheet({ me }) {
 
     if (!targetRows.length) return;
 
+    const changes = targetRows.map((row) => {
+      const before = {};
+      Object.keys(patch).forEach((field) => {
+        before[field] = row[field];
+      });
+      return {
+        rowId: String(getRowId(row)),
+        before,
+        after: patch,
+      };
+    });
+
+    pushUndoTransaction(changes);
+
     setItems((prev) =>
       prev.map((row) =>
         idSet.has(String(getRowId(row))) ? { ...row, ...patch } : row
@@ -1213,8 +1461,18 @@ export default function PaymentSheet({ me }) {
 
     clearEditingState();
 
-    for (const row of targetRows) {
-      await updateRowFields(row, patch);
+    try {
+      for (const row of targetRows) {
+        await api.patch(
+          `/payments/${encodeURIComponent(String(getRowId(row)))}`,
+          patch
+        );
+      }
+      await loadPayments({ silent: true });
+    } catch (err) {
+      console.error("Failed to clear selected rows data:", err);
+      alert("Selected rows clear nahi hui.");
+      await loadPayments({ silent: true });
     }
   };
 
@@ -1356,8 +1614,17 @@ export default function PaymentSheet({ me }) {
       )
     );
 
-    for (const row of targetRows) {
-      await updateRowFields(row, { [field]: normalizedColor });
+    try {
+      for (const row of targetRows) {
+        await api.patch(`/payments/${encodeURIComponent(String(getRowId(row)))}`, {
+          [field]: normalizedColor,
+        });
+      }
+      await loadPayments({ silent: true });
+    } catch (err) {
+      console.error("Failed to apply bulk color:", err);
+      alert("Color apply nahi hua.");
+      await loadPayments({ silent: true });
     }
   }
 
@@ -1462,6 +1729,12 @@ export default function PaymentSheet({ me }) {
   };
 
   const handleCheckboxKeyDown = async (e, rowId = null) => {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
+      e.preventDefault();
+      await undoLastAction();
+      return;
+    }
+
     if ((e.altKey || e.ctrlKey || e.metaKey) && e.key === "ArrowUp") {
       e.preventDefault();
       await moveRows("up", rowId);
@@ -1541,6 +1814,30 @@ export default function PaymentSheet({ me }) {
     const col = gridColumnMap[colId];
     if (!col) return;
 
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
+      e.preventDefault();
+      await undoLastAction();
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && (e.key === "=" || e.key === "+")) {
+      e.preventDefault();
+      adjustZoom(ZOOM_STEP);
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key === "-") {
+      e.preventDefault();
+      adjustZoom(-ZOOM_STEP);
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key === "0") {
+      e.preventDefault();
+      resetZoom();
+      return;
+    }
+
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
       e.preventDefault();
 
@@ -1586,15 +1883,64 @@ export default function PaymentSheet({ me }) {
       return;
     }
 
-    if (e.key === "Enter") {
+    if (e.key === "Enter" || e.key === "F2") {
       e.preventDefault();
       if (col.editable) startEditingCell(rowIndex, colId);
       return;
     }
 
-    if (e.key === "F2") {
+    if (e.altKey && e.key === "ArrowDown") {
       e.preventDefault();
       if (col.editable) startEditingCell(rowIndex, colId);
+      return;
+    }
+
+    if (e.key === "Home") {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) {
+        selectSingleCell(0, gridColumnIds[0], true);
+      } else {
+        selectSingleCell(rowIndex, gridColumnIds[0], true);
+      }
+      return;
+    }
+
+    if (e.key === "End") {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) {
+        selectSingleCell(
+          Math.max(0, filteredItems.length - 1),
+          gridColumnIds[gridColumnIds.length - 1],
+          true
+        );
+      } else {
+        selectSingleCell(rowIndex, gridColumnIds[gridColumnIds.length - 1], true);
+      }
+      return;
+    }
+
+    if (e.key === "PageDown") {
+      e.preventDefault();
+      moveSelection(10, 0, e.shiftKey);
+      return;
+    }
+
+    if (e.key === "PageUp") {
+      e.preventDefault();
+      moveSelection(-10, 0, e.shiftKey);
+      return;
+    }
+
+    if (e.shiftKey && e.key === " ") {
+      e.preventDefault();
+      const currentRow = filteredItemsRef.current[rowIndex];
+      if (!currentRow) return;
+      const rowId = String(getRowId(currentRow));
+      setSelectedRowIds((prev) => {
+        const next = new Set(prev);
+        next.add(rowId);
+        return next;
+      });
       return;
     }
 
@@ -1630,8 +1976,7 @@ export default function PaymentSheet({ me }) {
 
     if (
       col.editable &&
-      col.kind !== "select" &&
-      col.kind !== "color" &&
+      !isPickerLikeColumn(col) &&
       e.key.length === 1 &&
       !e.ctrlKey &&
       !e.metaKey &&
@@ -1648,66 +1993,110 @@ export default function PaymentSheet({ me }) {
   };
 
   const handleEditInputKeyDown = async (e, rowIndex, colId, col) => {
+    const pickerLike = isPickerLikeColumn(col);
+
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
+      return;
+    }
+
     if (e.key === "Enter") {
       e.preventDefault();
-      const nextRow = Math.min(rowIndex + 1, filteredItems.length - 1);
-      await commitEdit({ rowIndex: nextRow, colId });
-      selectSingleCell(nextRow, colId, true);
+      const nextCell = getNextCell(rowIndex, colId, "down");
+      await commitEdit(nextCell);
+      selectSingleCell(nextCell.rowIndex, nextCell.colId, true);
       return;
     }
 
     if (e.key === "Tab") {
       e.preventDefault();
-      const currentColIndex = getColumnIndex(colId);
-      const nextColIndex = Math.max(
-        0,
-        Math.min(gridColumns.length - 1, currentColIndex + (e.shiftKey ? -1 : 1))
-      );
-      const nextColId = gridColumnIds[nextColIndex];
-      await commitEdit({ rowIndex, colId: nextColId });
-      selectSingleCell(rowIndex, nextColId, true);
+      const nextCell = getNextCell(rowIndex, colId, e.shiftKey ? "left" : "right");
+      await commitEdit(nextCell);
+      selectSingleCell(nextCell.rowIndex, nextCell.colId, true);
       return;
     }
 
-    if (col?.kind !== "select" && col?.kind !== "color" && e.key === "ArrowUp") {
+    if (!pickerLike && e.key === "ArrowUp") {
       e.preventDefault();
-      const nextRow = Math.max(0, rowIndex - 1);
-      await commitEdit({ rowIndex: nextRow, colId });
-      selectSingleCell(nextRow, colId, true);
+      const nextCell = getNextCell(rowIndex, colId, "up");
+      await commitEdit(nextCell);
+      selectSingleCell(nextCell.rowIndex, nextCell.colId, true);
       return;
     }
 
-    if (col?.kind !== "select" && col?.kind !== "color" && e.key === "ArrowDown") {
+    if (!pickerLike && e.key === "ArrowDown") {
       e.preventDefault();
-      const nextRow = Math.min(filteredItems.length - 1, rowIndex + 1);
-      await commitEdit({ rowIndex: nextRow, colId });
-      selectSingleCell(nextRow, colId, true);
+      const nextCell = getNextCell(rowIndex, colId, "down");
+      await commitEdit(nextCell);
+      selectSingleCell(nextCell.rowIndex, nextCell.colId, true);
       return;
     }
 
-    if (col?.kind !== "select" && col?.kind !== "color" && e.key === "ArrowLeft") {
-      e.preventDefault();
-      const currentColIndex = getColumnIndex(colId);
-      const nextColIndex = Math.max(0, currentColIndex - 1);
-      const nextColId = gridColumnIds[nextColIndex];
-      await commitEdit({ rowIndex, colId: nextColId });
-      selectSingleCell(rowIndex, nextColId, true);
+    if (!pickerLike && e.key === "ArrowLeft") {
+      const el = e.target;
+      if (
+        isTextLikeSelectionInput(el) &&
+        typeof el.selectionStart === "number" &&
+        typeof el.selectionEnd === "number" &&
+        el.selectionStart === 0 &&
+        el.selectionEnd === 0
+      ) {
+        e.preventDefault();
+        const nextCell = getNextCell(rowIndex, colId, "left");
+        await commitEdit(nextCell);
+        selectSingleCell(nextCell.rowIndex, nextCell.colId, true);
+      }
       return;
     }
 
-    if (col?.kind !== "select" && col?.kind !== "color" && e.key === "ArrowRight") {
-      e.preventDefault();
-      const currentColIndex = getColumnIndex(colId);
-      const nextColIndex = Math.min(gridColumns.length - 1, currentColIndex + 1);
-      const nextColId = gridColumnIds[nextColIndex];
-      await commitEdit({ rowIndex, colId: nextColId });
-      selectSingleCell(rowIndex, nextColId, true);
+    if (!pickerLike && e.key === "ArrowRight") {
+      const el = e.target;
+      const valueLength = String(el?.value || "").length;
+
+      if (
+        isTextLikeSelectionInput(el) &&
+        typeof el.selectionStart === "number" &&
+        typeof el.selectionEnd === "number" &&
+        el.selectionStart === valueLength &&
+        el.selectionEnd === valueLength
+      ) {
+        e.preventDefault();
+        const nextCell = getNextCell(rowIndex, colId, "right");
+        await commitEdit(nextCell);
+        selectSingleCell(nextCell.rowIndex, nextCell.colId, true);
+      }
       return;
     }
 
     if (e.key === "Escape") {
       e.preventDefault();
       cancelEdit({ rowIndex, colId });
+    }
+  };
+
+  const handleWrapperKeyDownCapture = async (e) => {
+    if (editingCellRef.current) return;
+
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
+      e.preventDefault();
+      await undoLastAction();
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && (e.key === "=" || e.key === "+")) {
+      e.preventDefault();
+      adjustZoom(ZOOM_STEP);
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key === "-") {
+      e.preventDefault();
+      adjustZoom(-ZOOM_STEP);
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key === "0") {
+      e.preventDefault();
+      resetZoom();
     }
   };
 
@@ -1879,7 +2268,7 @@ export default function PaymentSheet({ me }) {
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>Payment Sheet</h2>
             <p style={styles.subtitle}>
-              Checkbox sy rows select karo, Backspace/Delete sy clear, Ctrl/Alt + Arrow Up/Down sy sort karo
+              Excel-style keyboard flow, zoom controls, numbering, Enter save + next row, Ctrl + Z undo clear
             </p>
           </div>
 
@@ -1889,6 +2278,20 @@ export default function PaymentSheet({ me }) {
             <div style={styles.selectedCountBadge}>
               Selected Rows: {selectedRowIds.size}
             </div>
+
+            <div style={styles.zoomWrap}>
+              <button type="button" onClick={() => adjustZoom(-ZOOM_STEP)} style={styles.toolBtn}>
+                −
+              </button>
+              <span style={styles.zoomLabel}>{zoomLevel}%</span>
+              <button type="button" onClick={() => adjustZoom(ZOOM_STEP)} style={styles.toolBtn}>
+                +
+              </button>
+            </div>
+
+            <button onClick={resetZoom} style={styles.mutedToolBtn}>
+              Reset Zoom
+            </button>
 
             <input
               type="text"
@@ -1904,6 +2307,14 @@ export default function PaymentSheet({ me }) {
 
             <button onClick={clearRowSelections} style={styles.mutedToolBtn}>
               Clear Rows
+            </button>
+
+            <button
+              onClick={undoLastAction}
+              style={undoCount ? styles.toolBtn : styles.disabledToolBtn}
+              disabled={!undoCount}
+            >
+              Undo Clear ({undoCount})
             </button>
 
             <button onClick={() => moveRows("up")} style={styles.toolBtn}>
@@ -1954,159 +2365,186 @@ export default function PaymentSheet({ me }) {
           </div>
         </div>
 
-        <div style={styles.tableWrapper} ref={tableWrapperRef}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={{ ...styles.th, minWidth: "55px" }}>
-                  <div style={styles.checkboxWrap}>
-                    <input
-                      type="checkbox"
-                      style={styles.checkbox}
-                      checked={allVisibleSelected}
-                      ref={(el) => {
-                        if (el) el.indeterminate = someVisibleSelected;
-                      }}
-                      onChange={toggleSelectAllVisibleRows}
-                      onKeyDown={handleCheckboxKeyDown}
-                    />
-                  </div>
-                </th>
-
-                <th style={{ ...styles.th, minWidth: "70px" }}>Sort</th>
-
-                {gridColumns.map((col) => (
-                  <th
-                    key={col.id}
-                    style={{ ...styles.th, minWidth: `${col.width}px` }}
-                  >
-                    {col.label}
+        <div
+          style={styles.tableWrapper}
+          ref={tableWrapperRef}
+          onKeyDownCapture={handleWrapperKeyDownCapture}
+        >
+          <div
+            style={{
+              ...styles.zoomedArea,
+              zoom: zoomLevel / 100,
+            }}
+          >
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={{ ...styles.th, minWidth: "55px" }}>
+                    <div style={styles.checkboxWrap}>
+                      <input
+                        type="checkbox"
+                        style={styles.checkbox}
+                        checked={allVisibleSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = someVisibleSelected;
+                        }}
+                        onChange={toggleSelectAllVisibleRows}
+                        onKeyDown={handleCheckboxKeyDown}
+                      />
+                    </div>
                   </th>
-                ))}
 
-                <th style={{ ...styles.th, minWidth: "90px" }}>Action</th>
-              </tr>
-            </thead>
+                  <th style={{ ...styles.th, minWidth: "60px" }}>#</th>
 
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={visibleColumnCount} style={styles.loading}>
-                    Loading payment sheet...
-                  </td>
+                  <th style={{ ...styles.th, minWidth: "70px" }}>Sort</th>
+
+                  {gridColumns.map((col) => (
+                    <th
+                      key={col.id}
+                      style={{ ...styles.th, minWidth: `${col.width}px` }}
+                    >
+                      {col.label}
+                    </th>
+                  ))}
+
+                  <th style={{ ...styles.th, minWidth: "90px" }}>Action</th>
                 </tr>
-              ) : filteredItems.length === 0 ? (
-                <tr>
-                  <td colSpan={visibleColumnCount} style={styles.emptyState}>
-                    No payment records found.
-                  </td>
-                </tr>
-              ) : (
-                filteredItems.map((row, visibleIndex) => {
-                  const rowId = getRowId(row);
-                  const rowIdStr = String(rowId);
-                  const rowChecked = isRowSelected(rowId);
-                  const originalIndex = items.findIndex(
-                    (item) => getRowId(item) === rowId
-                  );
-                  const rowBg = row?.rowColor
-                    ? safeColor(row.rowColor, "#ffffff")
-                    : "#ffffff";
-                  const effectiveRowBg = rowChecked ? "#eef6ff" : rowBg;
+              </thead>
 
-                  return (
-                    <tr key={rowId ?? visibleIndex}>
-                      <td
-                        style={{
-                          ...styles.td,
-                          backgroundColor: effectiveRowBg,
-                          boxShadow: rowChecked
-                            ? "inset 0 0 0 1.5px #2563eb"
-                            : "none",
-                        }}
-                      >
-                        <div style={styles.checkboxWrap}>
-                          <input
-                            type="checkbox"
-                            style={styles.checkbox}
-                            checked={rowChecked}
-                            onChange={(e) =>
-                              handleRowCheckboxChange(row, visibleIndex, e)
-                            }
-                            onKeyDown={(e) => handleCheckboxKeyDown(e, rowIdStr)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                      </td>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={visibleColumnCount} style={styles.loading}>
+                      Loading payment sheet...
+                    </td>
+                  </tr>
+                ) : filteredItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={visibleColumnCount} style={styles.emptyState}>
+                      No payment records found.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredItems.map((row, visibleIndex) => {
+                    const rowId = getRowId(row);
+                    const rowIdStr = String(rowId);
+                    const rowChecked = isRowSelected(rowId);
+                    const originalIndex = items.findIndex(
+                      (item) => getRowId(item) === rowId
+                    );
+                    const rowBg = row?.rowColor
+                      ? safeColor(row.rowColor, "#ffffff")
+                      : "#ffffff";
+                    const effectiveRowBg = rowChecked ? "#eef6ff" : rowBg;
 
-                      <td
-                        style={{
-                          ...styles.td,
-                          textAlign: "center",
-                          backgroundColor: effectiveRowBg,
-                          boxShadow: rowChecked
-                            ? "inset 0 0 0 1.5px #2563eb"
-                            : "none",
-                        }}
-                      >
-                        <div
+                    return (
+                      <tr key={rowId ?? visibleIndex}>
+                        <td
                           style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            minHeight: "46px",
+                            ...styles.td,
+                            backgroundColor: effectiveRowBg,
+                            boxShadow: rowChecked
+                              ? "inset 0 0 0 1.5px #2563eb"
+                              : "none",
                           }}
                         >
-                          <button
-                            onClick={() => moveRows("up", rowIdStr)}
-                            disabled={originalIndex === 0}
+                          <div style={styles.checkboxWrap}>
+                            <input
+                              type="checkbox"
+                              style={styles.checkbox}
+                              checked={rowChecked}
+                              onChange={(e) =>
+                                handleRowCheckboxChange(row, visibleIndex, e)
+                              }
+                              onKeyDown={(e) => handleCheckboxKeyDown(e, rowIdStr)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </td>
+
+                        <td
+                          style={{
+                            ...styles.td,
+                            backgroundColor: effectiveRowBg,
+                            boxShadow: rowChecked
+                              ? "inset 0 0 0 1.5px #2563eb"
+                              : "none",
+                          }}
+                        >
+                          <div style={{ ...styles.readCell, ...styles.numberCell }}>
+                            {visibleIndex + 1}
+                          </div>
+                        </td>
+
+                        <td
+                          style={{
+                            ...styles.td,
+                            textAlign: "center",
+                            backgroundColor: effectiveRowBg,
+                            boxShadow: rowChecked
+                              ? "inset 0 0 0 1.5px #2563eb"
+                              : "none",
+                          }}
+                        >
+                          <div
                             style={{
-                              ...styles.moveBtn,
-                              opacity: originalIndex === 0 ? 0.3 : 1,
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              minHeight: "46px",
                             }}
                           >
-                            ▲
-                          </button>
-                          <button
-                            onClick={() => moveRows("down", rowIdStr)}
-                            disabled={originalIndex === items.length - 1}
-                            style={{
-                              ...styles.moveBtn,
-                              opacity: originalIndex === items.length - 1 ? 0.3 : 1,
-                            }}
-                          >
-                            ▼
-                          </button>
-                        </div>
-                      </td>
+                            <button
+                              onClick={() => moveRows("up", rowIdStr)}
+                              disabled={originalIndex === 0}
+                              style={{
+                                ...styles.moveBtn,
+                                opacity: originalIndex === 0 ? 0.3 : 1,
+                              }}
+                            >
+                              ▲
+                            </button>
+                            <button
+                              onClick={() => moveRows("down", rowIdStr)}
+                              disabled={originalIndex === items.length - 1}
+                              style={{
+                                ...styles.moveBtn,
+                                opacity: originalIndex === items.length - 1 ? 0.3 : 1,
+                              }}
+                            >
+                              ▼
+                            </button>
+                          </div>
+                        </td>
 
-                      {gridColumns.map((col) => renderGridCell(row, visibleIndex, col))}
+                        {gridColumns.map((col) => renderGridCell(row, visibleIndex, col))}
 
-                      <td
-                        style={{
-                          ...styles.td,
-                          backgroundColor: effectiveRowBg,
-                          boxShadow: rowChecked
-                            ? "inset 0 0 0 1.5px #2563eb"
-                            : "none",
-                        }}
-                      >
-                        <div style={styles.readCell}>
-                          <button
-                            style={styles.deleteBtn}
-                            onClick={() => deleteRow(row)}
-                          >
-                            Del
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        <td
+                          style={{
+                            ...styles.td,
+                            backgroundColor: effectiveRowBg,
+                            boxShadow: rowChecked
+                              ? "inset 0 0 0 1.5px #2563eb"
+                              : "none",
+                          }}
+                        >
+                          <div style={styles.readCell}>
+                            <button
+                              style={styles.deleteBtn}
+                              onClick={() => deleteRow(row)}
+                            >
+                              Del
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
