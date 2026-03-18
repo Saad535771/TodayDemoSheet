@@ -92,6 +92,7 @@ const styles = {
   },
   pickerPopup: {
     position: "fixed",
+    top: '130px',
     background: "white",
     border: "1px solid #ccc",
     padding: "10px",
@@ -182,11 +183,20 @@ const parseCellKey = (key) => {
 
 function format12Hour(time24) {
   if (!time24) return "";
-  const [h, m] = time24.split(":");
-  let hours = parseInt(h, 10);
+
+  const clean = String(time24).trim();
+  const parts = clean.split(":");
+  if (parts.length < 2) return clean;
+
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1] ?? "00";
+
+  if (Number.isNaN(hours)) return clean;
+
   const ampm = hours >= 12 ? "PM" : "AM";
   hours = hours % 12 || 12;
-  return `${hours}:${m} ${ampm}`;
+
+  return `${hours}:${minutes} ${ampm}`;
 }
 
 const renderPill = (val, styleFn) => {
@@ -340,8 +350,7 @@ const ColorSwatch = ({
         <div
           style={{
             ...styles.pickerPopup,
-            top: popupPos.top,
-            left: popupPos.left,
+
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -1487,6 +1496,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
           <table style={styles.table}>
             <thead>
               <tr>
+                <TH style={{ width: "52px", textAlign: "center" }}>#</TH>
                 <TH style={{ width: "42px", textAlign: "center" }}>✓</TH>
                 <TH style={{ width: "40px", textAlign: "center" }}>Sort</TH>
                 <TH style={{ width: "36px", textAlign: "center" }}>🎨</TH>
@@ -1537,7 +1547,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
             <tbody>
               {localItems.length === 0 ? (
                 <tr>
-                  <td colSpan="23" style={{ padding: 20, textAlign: "center", color: "#888" }}>
+                 <td colSpan={gridColumns.length + 5} style={{ padding: 20, textAlign: "center", color: "#888" }}>
                     No records found
                   </td>
                 </tr>
@@ -1550,6 +1560,18 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                       transition: "background 0.2s",
                     }}
                   >
+                    
+                    <td
+  style={{
+    ...styles.td,
+    textAlign: "center",
+    backgroundColor: "inherit",
+    fontWeight: selectedRows.has(it.tuitionId) ? "700" : "600",
+    color: selectedRows.has(it.tuitionId) ? "#107c41" : "#444",
+  }}
+>
+  {index + 1}
+                    </td>
                     <td
                       style={{
                         ...styles.td,
