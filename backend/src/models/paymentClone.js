@@ -1,8 +1,8 @@
 import { DataTypes } from "sequelize";
 
-export function definePayment(sequelize) {
-  const Payment = sequelize.define(
-    "Payment",
+export function definePaymentClone(sequelize) {
+  const PaymentClone = sequelize.define(
+    "PaymentClone",
     {
       id: {
         type: DataTypes.INTEGER.UNSIGNED,
@@ -23,6 +23,12 @@ export function definePayment(sequelize) {
         field: "payment_date",
       },
 
+      dateWithMonth: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: "date_with_month",
+      },
+
       tuitionName: {
         type: DataTypes.STRING(191),
         allowNull: true,
@@ -32,6 +38,7 @@ export function definePayment(sequelize) {
       country: {
         type: DataTypes.STRING(100),
         allowNull: true,
+        field: "country",
       },
 
       className: {
@@ -73,11 +80,13 @@ export function definePayment(sequelize) {
         ),
         allowNull: false,
         defaultValue: "Tuition Pending",
+        field: "status",
       },
 
       feedback: {
         type: DataTypes.TEXT,
         allowNull: true,
+        field: "feedback",
       },
 
       otmName: {
@@ -87,14 +96,13 @@ export function definePayment(sequelize) {
       },
 
       syncFlag: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: false,
+        type: DataTypes.STRING(50),
+        allowNull: true,
         field: "sync_flag",
       },
 
       assignedStaffId: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.INTEGER.UNSIGNED,
         allowNull: true,
         field: "assigned_staff_id",
       },
@@ -114,7 +122,7 @@ export function definePayment(sequelize) {
       },
 
       assignedTo: {
-        type: DataTypes.STRING(255),
+        type: DataTypes.STRING(100),
         allowNull: true,
         field: "assigned_to",
       },
@@ -127,23 +135,26 @@ export function definePayment(sequelize) {
       },
 
       rowColor: {
-        type: DataTypes.STRING(50),
+        type: DataTypes.STRING(20),
         allowNull: true,
         field: "row_color",
       },
 
       tuitionNameColor: {
-        type: DataTypes.STRING(50),
+        type: DataTypes.STRING(20),
         allowNull: true,
         field: "tuition_name_color",
       },
     },
     {
-      tableName: "payments",
-      underscored: true,
+      tableName: "payments_clone",
+      freezeTableName: true,
       timestamps: true,
+      createdAt: "created_at",
+      updatedAt: "updated_at",
+      underscored: true,
     }
   );
 
-  return Payment;
+  return PaymentClone;
 }

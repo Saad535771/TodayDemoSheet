@@ -6,6 +6,7 @@ export function makePaymentRoutes(paymentController) {
 
   router.get("/", requireAuth, paymentController.list);
   router.post("/", requireAuth, paymentController.create);
+  router.post("/reorder", requireAuth, paymentController.reorder);
   router.patch("/:id", requireAuth, paymentController.update);
   router.delete("/:id", requireAuth, paymentController.remove);
 

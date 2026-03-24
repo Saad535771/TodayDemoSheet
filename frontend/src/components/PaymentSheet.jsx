@@ -1259,7 +1259,6 @@ export default function PaymentSheet({ me }) {
       focusCell(focusTarget.rowIndex, focusTarget.colId);
     }
   };
-
   const getSelectedVisibleRowIndexesFromCells = () => {
     const rows = new Set();
 
