@@ -11,7 +11,7 @@ function toBool(value) {
 function toNullableInt(value) {
   if (value === "" || value === null || value === undefined) return null;
   const n = Number(value);
-  return Number.isFinite(n) ? n : null;
+  return Number.isFinite(n) ? Math.trunc(n) : null;
 }
 
 function toNullableNumber(value) {
@@ -34,20 +34,53 @@ function toNullableDate(value) {
 function normalizePaymentPayload(payload = {}) {
   const data = { ...payload };
 
-  if ("paymentDate" in data) data.paymentDate = toNullableDate(data.paymentDate);
+  // backward compatibility / aliases
+  if (!("date" in data) && "paymentDate" in data) data.date = data.paymentDate;
+  if (!("tuitionName" in data) && "tuition_name" in data) {
+    data.tuitionName = data.tuition_name;
+  }
+  if (!("className" in data) && "class_name" in data) {
+    data.className = data.class_name;
+  }
+  if (!("daysPerWeek" in data) && "days_per_week" in data) {
+    data.daysPerWeek = data.days_per_week;
+  }
+  if (!("tutorName" in data) && "tutor_name" in data) {
+    data.tutorName = data.tutor_name;
+  }
+  if (!("tutorFee" in data) && "tutor_fee" in data) {
+    data.tutorFee = data.tutor_fee;
+  }
+  if (!("tutorFee" in data) && "tutorShare" in data) {
+    data.tutorFee = data.tutorShare;
+  }
+  if (!("totalFee" in data) && "total_fee" in data) {
+    data.totalFee = data.total_fee;
+  }
+  if (!("totalFee" in data) && "totalFees" in data) {
+    data.totalFee = data.totalFees;
+  }
+  if (!("otmName" in data) && "otm_name" in data) {
+    data.otmName = data.otm_name;
+  }
+
+  // normalize new payment fields
+  if ("date" in data) data.date = toNullableDate(data.date);
   if ("tuitionId" in data) data.tuitionId = toNullableString(data.tuitionId);
   if ("tuitionName" in data) data.tuitionName = toNullableString(data.tuitionName);
   if ("country" in data) data.country = toNullableString(data.country);
   if ("className" in data) data.className = toNullableString(data.className);
+  if ("daysPerWeek" in data) data.daysPerWeek = toNullableInt(data.daysPerWeek);
   if ("tutorName" in data) data.tutorName = toNullableString(data.tutorName);
+  if ("tutorFee" in data) data.tutorFee = toNullableNumber(data.tutorFee);
+  if ("lacasShare" in data) data.lacasShare = toNullableNumber(data.lacasShare);
+  if ("totalFee" in data) data.totalFee = toNullableNumber(data.totalFee);
   if ("feedback" in data) data.feedback = toNullableString(data.feedback);
   if ("otmName" in data) data.otmName = toNullableString(data.otmName);
+  if ("notes" in data) data.notes = toNullableString(data.notes);
+
+  // existing internal fields
   if ("assignedTo" in data) data.assignedTo = toNullableString(data.assignedTo);
-
-  if ("tutorShare" in data) data.tutorShare = toNullableNumber(data.tutorShare);
-  if ("lacasShare" in data) data.lacasShare = toNullableNumber(data.lacasShare);
-  if ("totalFees" in data) data.totalFees = toNullableNumber(data.totalFees);
-
   if ("syncFlag" in data) data.syncFlag = toBool(data.syncFlag);
   if ("isDeleted" in data) data.isDeleted = toBool(data.isDeleted);
   if ("deletedFromTodayDemo" in data) {
@@ -67,6 +100,18 @@ function normalizePaymentPayload(payload = {}) {
   if ("tuitionNameColor" in data) {
     data.tuitionNameColor = toNullableString(data.tuitionNameColor);
   }
+
+  // old alias keys remove
+  delete data.paymentDate;
+  delete data.tutorShare;
+  delete data.totalFees;
+  delete data.tuition_name;
+  delete data.class_name;
+  delete data.days_per_week;
+  delete data.tutor_name;
+  delete data.tutor_fee;
+  delete data.total_fee;
+  delete data.otm_name;
 
   return data;
 }

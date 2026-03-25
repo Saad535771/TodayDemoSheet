@@ -23,6 +23,7 @@ export async function syncPaymentFromTuition({ Payment, item }) {
     tuitionName: item.tuitionName || "",
     country: item.country || "",
     className: item.className || item.class || "",
+    daysPerWeek: item.daysPerWeek || item.days_per_week || null,
     tutorName: item.tutorName || "",
     tutorShare,
     lacasShare,

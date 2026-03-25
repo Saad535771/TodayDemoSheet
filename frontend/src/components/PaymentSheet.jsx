@@ -6,24 +6,43 @@ const MIN_ZOOM = 70;
 const MAX_ZOOM = 150;
 const ZOOM_STEP = 10;
 const MAX_UNDO_STACK = 20;
+const DEFAULT_COLOR = "#ffffff";
+const FEEDBACK_BG = "#166534";
+const PRESET_COLORS = [
+  "#ffffff",
+  "#fef3c7",
+  "#fee2e2",
+  "#dbeafe",
+  "#dcfce7",
+  "#ede9fe",
+  "#fce7f3",
+  "#e0f2fe",
+  "#fde68a",
+  "#fecaca",
+];
+
 
 const styles = {
   page: {
-    padding: "24px",
+    padding: "18px",
+    background: "#f5f6f8",
+    minHeight: "100vh",
+    overflowX: "hidden",
+    overscrollBehaviorX: "none",
   },
   card: {
     background: "#ffffff",
     borderRadius: "16px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
-    padding: "24px",
-    border: "1px solid #eef0f3",
+    boxShadow: "0 8px 24px rgba(0,0,0,0.06)",
+    padding: "18px",
+    border: "2px solid #000000",
   },
   headerRow: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: "16px",
-    marginBottom: "18px",
+    gap: "14px",
+    marginBottom: "14px",
     flexWrap: "wrap",
   },
   titleWrap: {
@@ -34,12 +53,12 @@ const styles = {
   title: {
     fontSize: "22px",
     fontWeight: "700",
-    color: "#1e3c72",
+    color: "#111111",
     margin: 0,
   },
   subtitle: {
     fontSize: "13px",
-    color: "#666",
+    color: "#444444",
     margin: 0,
   },
   actions: {
@@ -49,37 +68,41 @@ const styles = {
     flexWrap: "wrap",
   },
   searchInput: {
-    minWidth: "260px",
+    minWidth: "300px",
+    height: "42px",
     padding: "10px 14px",
     borderRadius: "10px",
-    border: "1px solid #d6dbe1",
+    border: "1.5px solid #000000",
     outline: "none",
     fontSize: "14px",
+    textAlign: "center",
+    color: "#111111",
+    background: "#ffffff",
   },
   addBtn: {
-    background: "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)",
+    background: "#000000",
     color: "white",
-    border: "none",
+    border: "1.5px solid #000000",
     borderRadius: "10px",
     padding: "10px 16px",
     cursor: "pointer",
-    fontWeight: "600",
+    fontWeight: "700",
     fontSize: "14px",
   },
   refreshBtn: {
-    background: "#f3f4f6",
-    color: "#333",
-    border: "1px solid #ddd",
+    background: "#ffffff",
+    color: "#111111",
+    border: "1.5px solid #000000",
     borderRadius: "10px",
     padding: "10px 16px",
     cursor: "pointer",
-    fontWeight: "600",
-    fontSize: "14px",
+    fontWeight: "700",
+    fontSize: "13px",
   },
   liveBadge: {
-    background: "#ecfdf5",
+    background: "#dcfce7",
     color: "#065f46",
-    border: "1px solid #a7f3d0",
+    border: "1.5px solid #000000",
     borderRadius: "999px",
     padding: "6px 10px",
     fontSize: "12px",
@@ -88,28 +111,28 @@ const styles = {
   },
   toolBtn: {
     background: "#ffffff",
-    color: "#1f2937",
-    border: "1px solid #d1d5db",
+    color: "#111111",
+    border: "1.5px solid #000000",
     borderRadius: "10px",
     padding: "10px 14px",
     cursor: "pointer",
-    fontWeight: "600",
+    fontWeight: "700",
     fontSize: "13px",
   },
   disabledToolBtn: {
-    background: "#f8fafc",
-    color: "#94a3b8",
-    border: "1px solid #e2e8f0",
+    background: "#f3f4f6",
+    color: "#9ca3af",
+    border: "1.5px solid #000000",
     borderRadius: "10px",
     padding: "10px 14px",
     cursor: "not-allowed",
-    fontWeight: "600",
+    fontWeight: "700",
     fontSize: "13px",
   },
   dangerToolBtn: {
-    background: "#fff1f2",
-    color: "#be123c",
-    border: "1px solid #fecdd3",
+    background: "#7f1d1d",
+    color: "#ffffff",
+    border: "1.5px solid #000000",
     borderRadius: "10px",
     padding: "10px 14px",
     cursor: "pointer",
@@ -117,28 +140,29 @@ const styles = {
     fontSize: "13px",
   },
   mutedToolBtn: {
-    background: "#f8fafc",
-    color: "#475569",
-    border: "1px solid #cbd5e1",
+    background: "#e5e7eb",
+    color: "#111111",
+    border: "1.5px solid #000000",
     borderRadius: "10px",
     padding: "10px 14px",
     cursor: "pointer",
-    fontWeight: "600",
+    fontWeight: "700",
     fontSize: "13px",
   },
   colorToolWrap: {
     display: "flex",
     alignItems: "center",
-    gap: "6px",
-    border: "1px solid #d1d5db",
+    gap: "8px",
+    border: "1.5px solid #000000",
     borderRadius: "10px",
     padding: "6px 10px",
     background: "#fff",
   },
   colorInputMini: {
-    width: "30px",
-    height: "30px",
-    border: "none",
+    width: "32px",
+    height: "32px",
+    border: "1.5px solid #000000",
+    borderRadius: "6px",
     background: "transparent",
     cursor: "pointer",
     padding: 0,
@@ -146,13 +170,13 @@ const styles = {
   colorToolLabel: {
     fontSize: "12px",
     fontWeight: "700",
-    color: "#475569",
+    color: "#111111",
     whiteSpace: "nowrap",
   },
   selectedCountBadge: {
     background: "#eff6ff",
     color: "#1d4ed8",
-    border: "1px solid #bfdbfe",
+    border: "1.5px solid #000000",
     borderRadius: "999px",
     padding: "6px 10px",
     fontSize: "12px",
@@ -164,7 +188,7 @@ const styles = {
     alignItems: "center",
     gap: "6px",
     padding: "4px",
-    border: "1px solid #d1d5db",
+    border: "1.5px solid #000000",
     borderRadius: "12px",
     background: "#fff",
   },
@@ -173,13 +197,18 @@ const styles = {
     textAlign: "center",
     fontSize: "12px",
     fontWeight: "700",
-    color: "#334155",
+    color: "#111111",
   },
   tableWrapper: {
     overflow: "auto",
     borderRadius: "12px",
-    border: "1px solid #e5e7eb",
+    border: "2px solid #000000",
     maxWidth: "100%",
+    maxHeight: "78vh",
+    position: "relative",
+    overscrollBehaviorX: "contain",
+    overscrollBehaviorY: "contain",
+    background: "#ffffff",
   },
   zoomedArea: {
     transformOrigin: "top left",
@@ -187,44 +216,48 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "2700px",
+    minWidth: "3200px",
     fontSize: "13px",
+    tableLayout: "fixed",
   },
   th: {
-    background: "#f8fafc",
-    color: "#334155",
+    background: "#000000",
+    color: "#ffffff",
     fontWeight: "700",
     textAlign: "center",
     padding: "12px 10px",
-    borderBottom: "1px solid #e5e7eb",
-    borderRight: "1px solid #e5e7eb",
+    borderBottom: "1.5px solid #000000",
+    borderRight: "1.5px solid #000000",
     position: "sticky",
     top: 0,
-    zIndex: 2,
+    zIndex: 4,
     whiteSpace: "nowrap",
   },
   td: {
-    borderBottom: "1px solid #eef2f7",
-    borderRight: "1px solid #eef2f7",
+    borderBottom: "1.5px solid #000000",
+    borderRight: "1.5px solid #000000",
     padding: "0",
     textAlign: "center",
-    height: "46px",
+    height: "48px",
     verticalAlign: "middle",
     background: "#fff",
   },
   input: {
     width: "100%",
-    height: "46px",
+    height: "48px",
     border: "none",
     outline: "none",
     padding: "10px 12px",
     fontSize: "13px",
     background: "transparent",
     boxSizing: "border-box",
+    textAlign: "center",
+    color: "inherit",
+    fontWeight: "600",
   },
   select: {
     width: "100%",
-    height: "46px",
+    height: "48px",
     border: "none",
     outline: "none",
     padding: "10px 12px",
@@ -232,75 +265,172 @@ const styles = {
     background: "transparent",
     boxSizing: "border-box",
     cursor: "pointer",
+    textAlign: "center",
+    color: "inherit",
+    fontWeight: "600",
   },
   readCell: {
     padding: "10px 12px",
-    minHeight: "46px",
+    minHeight: "48px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     cursor: "cell",
     gap: "8px",
-  },
-  textLeft: {
-    justifyContent: "flex-start",
-    textAlign: "left",
+    textAlign: "center",
+    color: "inherit",
+    fontWeight: "600",
   },
   deleteBtn: {
-    background: "#fee2e2",
-    color: "#b91c1c",
-    border: "none",
+    background: "#7f1d1d",
+    color: "#ffffff",
+    border: "1.5px solid #000000",
     borderRadius: "8px",
     padding: "6px 10px",
     cursor: "pointer",
-    fontWeight: "600",
+    fontWeight: "700",
     fontSize: "12px",
   },
   moveBtn: {
     cursor: "pointer",
-    border: "none",
-    background: "transparent",
-    fontSize: "14px",
+    border: "1.5px solid #000000",
+    background: "#ffffff",
+    fontSize: "12px",
     padding: "2px 6px",
-    color: "#555",
+    color: "#111111",
+    borderRadius: "6px",
+    fontWeight: "700",
+    minWidth: "28px",
   },
   emptyState: {
     padding: "28px",
     textAlign: "center",
-    color: "#6b7280",
+    color: "#374151",
+    fontWeight: "600",
   },
   loading: {
     padding: "20px",
     textAlign: "center",
-    color: "#666",
+    color: "#111111",
+    fontWeight: "700",
   },
   colorSwatch: {
     width: "18px",
     height: "18px",
     borderRadius: "4px",
-    border: "1px solid rgba(0,0,0,0.15)",
+    border: "1.5px solid #000000",
     flexShrink: 0,
   },
   colorValue: {
-    fontSize: "12px",
-    color: "#334155",
-    fontWeight: "600",
+    fontSize: "11px",
+    color: "inherit",
+    fontWeight: "700",
   },
   checkboxWrap: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: "46px",
+    minHeight: "48px",
   },
   checkbox: {
     width: "16px",
     height: "16px",
     cursor: "pointer",
+    accentColor: "#000000",
   },
   numberCell: {
     fontWeight: "700",
-    color: "#475569",
+    color: "#111111",
     fontSize: "12px",
+  },
+  paletteRoot: {
+    position: "relative",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  paletteTrigger: {
+    width: "26px",
+    height: "26px",
+    border: "1.5px solid #000000",
+    borderRadius: "6px",
+    background: "#ffffff",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    padding: 0,
+    flexShrink: 0,
+  },
+  palettePopover: {
+    position: "absolute",
+    top: "32px",
+    right: 0,
+    zIndex: 20,
+    background: "#ffffff",
+    border: "1.5px solid #000000",
+    borderRadius: "10px",
+    padding: "8px",
+    width: "180px",
+    boxShadow: "0 10px 24px rgba(0,0,0,0.16)",
+  },
+  paletteGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(5, 1fr)",
+    gap: "6px",
+  },
+  paletteButton: {
+    width: "28px",
+    height: "28px",
+    border: "1.5px solid #000000",
+    borderRadius: "6px",
+    cursor: "pointer",
+    padding: 0,
+  },
+  paletteCustomRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "8px",
+    marginTop: "8px",
+  },
+  paletteCustomLabel: {
+    fontSize: "11px",
+    fontWeight: "700",
+    color: "#111111",
+  },
+  paletteCustomInput: {
+    width: "40px",
+    height: "28px",
+    border: "1.5px solid #000000",
+    borderRadius: "6px",
+    cursor: "pointer",
+    padding: 0,
+    background: "#ffffff",
+  },
+  paletteInlineCell: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    width: "100%",
+  },
+  tuitionNameInner: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+    width: "100%",
+  },
+  tuitionNameText: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    flex: 1,
+    textAlign: "center",
+  },
+  feedbackReadCell: {
+    color: "#ffffff",
   },
 };
 
@@ -393,6 +523,28 @@ function StatusPill({ value }) {
       {value || "--"}
     </span>
   );
+}
+
+
+
+function getContrastTextColor(color) {
+  const hex = safeColor(color, DEFAULT_COLOR).replace("#", "");
+  const normalized =
+    hex.length === 3
+      ? hex.split("").map((char) => char + char).join("")
+      : hex;
+
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance < 0.55 ? "#ffffff" : "#111111";
+}
+
+function stopEvent(e) {
+  e.preventDefault();
+  e.stopPropagation();
 }
 
 const getCellKey = (rowIndex, colId) => `${rowIndex}__${colId}`;
@@ -514,6 +666,7 @@ export default function PaymentSheet({ me }) {
   const [selectedRowIds, setSelectedRowIds] = useState(new Set());
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState("");
+  const [openPalette, setOpenPalette] = useState(null);
 
   const mountedRef = useRef(true);
   const itemsRef = useRef([]);
@@ -529,6 +682,7 @@ export default function PaymentSheet({ me }) {
   const dragAnchorCellRef = useRef(null);
   const rowSelectionAnchorRef = useRef(null);
   const undoStackRef = useRef([]);
+  const paletteRootAttr = "data-color-palette-root";
 
   const canSeeTutorShare =
     me?.role === "admin" || me?.role === "hod" || !!me?.access_tutor_share;
@@ -539,203 +693,222 @@ export default function PaymentSheet({ me }) {
   const canSeeTotalFees =
     me?.role === "admin" || me?.role === "hod" || !!me?.access_total_fees;
 
-  const gridColumns = useMemo(() => {
-    const cols = [
-      {
-        id: "tuitionId",
-        label: "Tuition Id",
-        field: "tuitionId",
-        editable: true,
-        width: 140,
-        align: "left",
-      },
-      {
-        id: "paymentDate",
-        label: "Date",
-        field: "paymentDate",
-        editable: true,
-        width: 120,
-        type: "date",
-        align: "left",
-      },
-      {
-        id: "tuitionName",
-        label: "Tuition Name",
-        field: "tuitionName",
-        editable: true,
-        width: 180,
-        align: "left",
-      },
-      {
-        id: "country",
-        label: "Country",
-        field: "country",
-        editable: true,
-        width: 110,
-        align: "left",
-      },
-      {
-        id: "className",
-        label: "Class",
-        field: "className",
-        editable: true,
-        width: 100,
-        align: "left",
-      },
-      {
-        id: "tutorName",
-        label: "Tutor Name",
-        field: "tutorName",
-        editable: true,
-        width: 150,
-        align: "left",
-      },
-    ];
+const gridColumns = useMemo(() => {
+  const cols = [
+    {
+      id: "paymentDate",
+      label: "Date",
+      field: "paymentDate",
+      editable: true,
+      width: 120,
+      type: "date",
+      align: "left",
+    },
+    {
+      id: "tuitionName",
+      label: "Tuition Name",
+      field: "tuitionName",
+      editable: true,
+      width: 180,
+      align: "left",
+    },
+    {
+      id: "country",
+      label: "Country",
+      field: "country",
+      editable: true,
+      width: 110,
+      align: "left",
+    },
+    {
+      id: "className",
+      label: "Class Name",
+      field: "className",
+      editable: true,
+      width: 120,
+      align: "left",
+    },
+    {
+      id: "daysPerWeek",
+      label: "Days Per Week",
+      field: "daysPerWeek",
+      editable: true,
+      width: 130,
+      type: "number",
+      align: "left",
+    },
+    {
+      id: "tutorName",
+      label: "Tutor Name",
+      field: "tutorName",
+      editable: true,
+      width: 150,
+      align: "left",
+    },
+  ];
 
-    if (canSeeTutorShare) {
-      cols.push({
-        id: "tutorShare",
-        label: "Tutor Share",
-        field: "tutorShare",
-        editable: true,
-        width: 120,
-        type: "number",
-        align: "left",
-      });
+  if (canSeeTutorShare) {
+    cols.push({
+      id: "tutorShare",
+      label: "Tutor Fee",
+      field: "tutorShare",
+      editable: true,
+      width: 120,
+      type: "number",
+      align: "left",
+    });
+  }
+
+  if (canSeeLacasShare) {
+    cols.push({
+      id: "lacasShare",
+      label: "Lacas Share",
+      field: "lacasShare",
+      editable: true,
+      width: 120,
+      type: "number",
+      align: "left",
+    });
+  }
+
+  if (canSeeTotalFees) {
+    cols.push({
+      id: "totalFees",
+      label: "Total Fee",
+      field: "totalFees",
+      editable: true,
+      width: 120,
+      type: "number",
+      align: "left",
+    });
+  }
+
+  cols.push(
+    {
+      id: "status",
+      label: "Status",
+      field: "status",
+      editable: true,
+      width: 150,
+      kind: "select",
+      options: statusOptions,
+      align: "center",
+    },
+    {
+      id: "feedback",
+      label: "Feedback",
+      field: "feedback",
+      editable: true,
+      width: 220,
+      align: "left",
+    },
+    {
+      id: "otmName",
+      label: "OTM Name",
+      field: "otmName",
+      editable: true,
+      width: 150,
+      align: "left",
+    },
+    {
+      id: "notes",
+      label: "Notes",
+      field: "notes",
+      editable: true,
+      width: 240,
+      align: "left",
+    },
+
+    // extra fields agar rakhne hain to sequence ke baad
+    {
+      id: "tuitionId",
+      label: "Tuition Id",
+      field: "tuitionId",
+      editable: true,
+      width: 140,
+      align: "left",
+    },
+    {
+      id: "syncFlag",
+      label: "Sync Flag",
+      field: "syncFlag",
+      editable: true,
+      width: 110,
+      kind: "select",
+      options: booleanOptions,
+      align: "center",
+      valueType: "boolean",
+    },
+    {
+      id: "assignedStaffId",
+      label: "Assigned Staff Id",
+      field: "assignedStaffId",
+      editable: true,
+      width: 150,
+      type: "number",
+      align: "left",
+    },
+    {
+      id: "isDeleted",
+      label: "Is Deleted",
+      field: "isDeleted",
+      editable: true,
+      width: 110,
+      kind: "select",
+      options: booleanOptions,
+      align: "center",
+      valueType: "boolean",
+    },
+    {
+      id: "deletedFromTodayDemo",
+      label: "Deleted From TodayDemo",
+      field: "deletedFromTodayDemo",
+      editable: true,
+      width: 190,
+      kind: "select",
+      options: booleanOptions,
+      align: "center",
+      valueType: "boolean",
+    },
+    {
+      id: "assignedTo",
+      label: "Assigned To",
+      field: "assignedTo",
+      editable: true,
+      width: 150,
+      align: "left",
+    },
+    {
+      id: "orderIndex",
+      label: "Order Index",
+      field: "orderIndex",
+      editable: true,
+      width: 120,
+      type: "number",
+      align: "left",
+    },
+    {
+      id: "rowColor",
+      label: "Row Color",
+      field: "rowColor",
+      editable: true,
+      width: 130,
+      kind: "color",
+      align: "center",
+    },
+    {
+      id: "tuitionNameColor",
+      label: "Tuition Name Color",
+      field: "tuitionNameColor",
+      editable: true,
+      width: 160,
+      kind: "color",
+      align: "center",
     }
+  );
 
-    if (canSeeLacasShare) {
-      cols.push({
-        id: "lacasShare",
-        label: "Lacas Share",
-        field: "lacasShare",
-        editable: true,
-        width: 120,
-        type: "number",
-        align: "left",
-      });
-    }
-
-    if (canSeeTotalFees) {
-      cols.push({
-        id: "totalFees",
-        label: "Total Fees",
-        field: "totalFees",
-        editable: true,
-        width: 120,
-        type: "number",
-        align: "left",
-      });
-    }
-
-    cols.push(
-      {
-        id: "status",
-        label: "Status",
-        field: "status",
-        editable: true,
-        width: 150,
-        kind: "select",
-        options: statusOptions,
-        align: "center",
-      },
-      {
-        id: "feedback",
-        label: "Feedback",
-        field: "feedback",
-        editable: true,
-        width: 220,
-        align: "left",
-      },
-      {
-        id: "otmName",
-        label: "OTM Name",
-        field: "otmName",
-        editable: true,
-        width: 150,
-        align: "left",
-      },
-      {
-        id: "syncFlag",
-        label: "Sync Flag",
-        field: "syncFlag",
-        editable: true,
-        width: 110,
-        kind: "select",
-        options: booleanOptions,
-        align: "center",
-        valueType: "boolean",
-      },
-      {
-        id: "assignedStaffId",
-        label: "Assigned Staff Id",
-        field: "assignedStaffId",
-        editable: true,
-        width: 150,
-        type: "number",
-        align: "left",
-      },
-      {
-        id: "isDeleted",
-        label: "Is Deleted",
-        field: "isDeleted",
-        editable: true,
-        width: 110,
-        kind: "select",
-        options: booleanOptions,
-        align: "center",
-        valueType: "boolean",
-      },
-      {
-        id: "deletedFromTodayDemo",
-        label: "Deleted From TodayDemo",
-        field: "deletedFromTodayDemo",
-        editable: true,
-        width: 190,
-        kind: "select",
-        options: booleanOptions,
-        align: "center",
-        valueType: "boolean",
-      },
-      {
-        id: "assignedTo",
-        label: "Assigned To",
-        field: "assignedTo",
-        editable: true,
-        width: 150,
-        align: "left",
-      },
-      {
-        id: "orderIndex",
-        label: "Order Index",
-        field: "orderIndex",
-        editable: true,
-        width: 120,
-        type: "number",
-        align: "left",
-      },
-      {
-        id: "rowColor",
-        label: "Row Color",
-        field: "rowColor",
-        editable: true,
-        width: 130,
-        kind: "color",
-        align: "center",
-      },
-      {
-        id: "tuitionNameColor",
-        label: "Tuition Name Color",
-        field: "tuitionNameColor",
-        editable: true,
-        width: 160,
-        kind: "color",
-        align: "center",
-      }
-    );
-
-    return cols;
-  }, [canSeeTutorShare, canSeeLacasShare, canSeeTotalFees]);
+  return cols;
+}, [canSeeTutorShare, canSeeLacasShare, canSeeTotalFees]);
 
   const gridColumnIds = useMemo(() => gridColumns.map((c) => c.id), [gridColumns]);
 
@@ -745,7 +918,7 @@ export default function PaymentSheet({ me }) {
   );
 
   const firstEditableColumnId = gridColumns[0]?.id || "tuitionId";
-  const visibleColumnCount = gridColumns.length + 4;
+  const visibleColumnCount = gridColumns.length + 5;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -784,6 +957,55 @@ export default function PaymentSheet({ me }) {
     document.addEventListener("mouseup", stopMouseSelection);
     return () => document.removeEventListener("mouseup", stopMouseSelection);
   }, []);
+
+
+useEffect(() => {
+  const handleDocPointer = (e) => {
+    if (!e.target?.closest?.(`[${paletteRootAttr}="true"]`)) {
+      setOpenPalette(null);
+    }
+  };
+
+  document.addEventListener("mousedown", handleDocPointer);
+  return () => document.removeEventListener("mousedown", handleDocPointer);
+}, [paletteRootAttr]);
+
+useEffect(() => {
+  const html = document.documentElement;
+  const body = document.body;
+
+  const prevHtml = html.style.overscrollBehaviorX;
+  const prevBody = body.style.overscrollBehaviorX;
+
+  html.style.overscrollBehaviorX = "none";
+  body.style.overscrollBehaviorX = "none";
+
+  return () => {
+    html.style.overscrollBehaviorX = prevHtml;
+    body.style.overscrollBehaviorX = prevBody;
+  };
+}, []);
+
+useEffect(() => {
+  const wrapper = tableWrapperRef.current;
+  if (!wrapper) return;
+
+  const handleWheel = (e) => {
+    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+
+    const atLeft = wrapper.scrollLeft <= 0;
+    const atRight =
+      wrapper.scrollLeft + wrapper.clientWidth >= wrapper.scrollWidth - 1;
+
+    if ((e.deltaX < 0 && atLeft) || (e.deltaX > 0 && atRight)) {
+      e.preventDefault();
+    }
+  };
+
+  wrapper.addEventListener("wheel", handleWheel, { passive: false });
+  return () => wrapper.removeEventListener("wheel", handleWheel);
+}, []);
+
 
   useEffect(() => {
     if (editingCell && inputRef.current) {
@@ -903,27 +1125,29 @@ export default function PaymentSheet({ me }) {
       setAdding(true);
 
       const newRow = {
-        tuitionId: `manual-${Date.now()}`,
-        paymentDate: "",
-        tuitionName: "",
-        country: "",
-        className: "",
-        tutorName: "",
-        tutorShare: "",
-        lacasShare: "",
-        totalFees: "",
-        status: "Tuition Pending",
-        feedback: "",
-        otmName: "",
-        syncFlag: false,
-        assignedStaffId: "",
-        isDeleted: false,
-        deletedFromTodayDemo: false,
-        assignedTo: "",
-        orderIndex: itemsRef.current.length,
-        rowColor: "#ffffff",
-        tuitionNameColor: "#ffffff",
-      };
+  tuitionId: `manual-${Date.now()}`,
+  paymentDate: "",
+  tuitionName: "",
+  country: "",
+  className: "",
+  daysPerWeek: "",
+  tutorName: "",
+  tutorShare: "",
+  lacasShare: "",
+  totalFees: "",
+  status: "Tuition Pending",
+  feedback: "",
+  otmName: "",
+  notes: "",
+  syncFlag: false,
+  assignedStaffId: "",
+  isDeleted: false,
+  deletedFromTodayDemo: false,
+  assignedTo: "",
+  orderIndex: itemsRef.current.length,
+  rowColor: "#ffffff",
+  tuitionNameColor: "#ffffff",
+};
 
       const res = await api.post("/payments", newRow);
       const created = res.data?.item || res.data?.payment || res.data;
@@ -941,78 +1165,101 @@ export default function PaymentSheet({ me }) {
     }
   }
 
-  async function updateRowFields(row, patchFields, options = {}) {
-    const { reloadAfter = false } = options;
-    const rowId = getRowId(row);
 
-    if (rowId === undefined || rowId === null) {
-      alert("Row ID missing hai. Backend record identify nahi ho raha.");
-      return null;
-    }
+async function updateRowFields(row, patchFields, options = {}) {
+  const { reloadAfter = false, skipUndo = false } = options;
+  const rowId = getRowId(row);
 
-    const oldItems = itemsRef.current;
-    const updatedRow = { ...row, ...patchFields };
-
-    setItems((prev) =>
-      prev.map((item) => (getRowId(item) === rowId ? updatedRow : item))
-    );
-
-    try {
-      const res = await api.patch(`/payments/${encodeURIComponent(rowId)}`, patchFields);
-      const freshItem = res?.data?.item;
-
-      if (freshItem) {
-        setItems((prev) =>
-          prev.map((item) => (getRowId(item) === rowId ? freshItem : item))
-        );
-      }
-
-      if (reloadAfter) {
-        await loadPayments({ silent: true });
-      }
-
-      return freshItem || updatedRow;
-    } catch (err) {
-      console.error("Failed to update payment row:", err);
-      setItems(oldItems);
-      alert("Update failed.");
-      return null;
-    }
+  if (rowId === undefined || rowId === null) {
+    alert("Row ID missing hai. Backend record identify nahi ho raha.");
+    return null;
   }
 
-  const filteredItems = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return items;
+  const oldItems = itemsRef.current;
+  const updatedRow = { ...row, ...patchFields };
 
-    return items.filter((item) => {
-      const haystack = [
-        item.tuitionId,
-        item.paymentDate,
-        item.tuitionName,
-        item.country,
-        item.className,
-        item.tutorName,
-        item.tutorShare,
-        item.lacasShare,
-        item.totalFees,
-        item.status,
-        item.feedback,
-        item.otmName,
-        item.syncFlag,
-        item.assignedStaffId,
-        item.isDeleted,
-        item.deletedFromTodayDemo,
-        item.assignedTo,
-        item.orderIndex,
-        item.rowColor,
-        item.tuitionNameColor,
-      ]
-        .map((v) => String(v ?? "").toLowerCase())
-        .join(" ");
-
-      return haystack.includes(q);
+  if (!skipUndo) {
+    const before = {};
+    Object.keys(patchFields).forEach((field) => {
+      before[field] = row[field];
     });
-  }, [items, search]);
+
+    pushUndoTransaction([
+      {
+        rowId: String(rowId),
+        before,
+        after: patchFields,
+      },
+    ]);
+  }
+
+  setItems((prev) =>
+    prev.map((item) => (getRowId(item) === rowId ? updatedRow : item))
+  );
+
+  try {
+    const res = await api.patch(`/payments/${encodeURIComponent(rowId)}`, patchFields);
+    const freshItem = res?.data?.item;
+
+    if (freshItem) {
+      setItems((prev) =>
+        prev.map((item) => (getRowId(item) === rowId ? freshItem : item))
+      );
+    }
+
+    if (reloadAfter) {
+      await loadPayments({ silent: true });
+    }
+
+    return freshItem || updatedRow;
+  } catch (err) {
+    console.error("Failed to update payment row:", err);
+    setItems(oldItems);
+    if (!skipUndo) {
+      undoStackRef.current = undoStackRef.current.slice(0, -1);
+      setUndoCount(undoStackRef.current.length);
+    }
+    alert("Update failed.");
+    return null;
+  }
+}
+
+
+const filteredItems = useMemo(() => {
+  const q = search.trim().toLowerCase();
+  if (!q) return items;
+
+  return items.filter((item) => {
+    const haystack = [
+      item.tuitionId,
+      item.paymentDate,
+      item.tuitionName,
+      item.country,
+      item.className,
+      item.daysPerWeek,
+      item.tutorName,
+      item.tutorShare,
+      item.lacasShare,
+      item.totalFees,
+      item.status,
+      item.feedback,
+      item.otmName,
+      item.notes,
+      item.syncFlag,
+      item.assignedStaffId,
+      item.isDeleted,
+      item.deletedFromTodayDemo,
+      item.assignedTo,
+      item.orderIndex,
+      item.rowColor,
+      item.tuitionNameColor,
+    ]
+      .map((v) => String(v ?? "").toLowerCase())
+      .join(" ");
+
+    return haystack.includes(q);
+  });
+}, [items, search]);
 
   useEffect(() => {
     filteredItemsRef.current = filteredItems;
@@ -1060,20 +1307,30 @@ export default function PaymentSheet({ me }) {
 
   const getColumnIndex = (colId) => gridColumnIds.findIndex((id) => id === colId);
 
-  const focusCell = (rowIndex, colId) => {
-    requestAnimationFrame(() => {
-      const root = tableWrapperRef.current;
-      if (!root) return;
 
-      const target = root.querySelector(
-        `[data-grid-row="${rowIndex}"][data-grid-col="${colId}"]`
-      );
+const focusCell = (rowIndex, colId) => {
+  requestAnimationFrame(() => {
+    const root = tableWrapperRef.current;
+    if (!root) return;
 
-      if (target && typeof target.focus === "function") {
-        target.focus({ preventScroll: false });
+    const target = root.querySelector(
+      `[data-grid-row="${rowIndex}"][data-grid-col="${colId}"]`
+    );
+
+    if (target) {
+      try {
+        target.scrollIntoView({ block: "nearest", inline: "nearest" });
+      } catch (err) {
+        console.warn("scrollIntoView failed:", err);
       }
-    });
-  };
+    }
+
+    if (target && typeof target.focus === "function") {
+      target.focus({ preventScroll: true });
+    }
+  });
+};
+
 
   const selectSingleCell = (rowIndex, colId, shouldFocus = true) => {
     const cell = { rowIndex, colId };
@@ -1537,28 +1794,46 @@ export default function PaymentSheet({ me }) {
     return arr;
   };
 
-  async function persistReorder(nextItems) {
-    const withOrder = nextItems.map((item, idx) => ({
-      ...item,
+
+async function persistReorder(nextItems) {
+  const beforeRows = itemsRef.current;
+  const withOrder = nextItems.map((item, idx) => ({
+    ...item,
+    orderIndex: idx,
+  }));
+
+  const changes = withOrder.map((item, idx) => {
+    const existing = beforeRows.find(
+      (row) => String(getRowId(row)) === String(getRowId(item))
+    );
+
+    return {
+      rowId: String(getRowId(item)),
+      before: { orderIndex: existing?.orderIndex ?? null },
+      after: { orderIndex: idx },
+    };
+  });
+
+  pushUndoTransaction(changes);
+  setItems(withOrder);
+
+  try {
+    const reorderPayload = withOrder.map((item, idx) => ({
+      id: getRowId(item),
       orderIndex: idx,
     }));
 
-    setItems(withOrder);
-
-    try {
-      const reorderPayload = withOrder.map((item, idx) => ({
-        id: getRowId(item),
-        orderIndex: idx,
-      }));
-
-      await api.post("/payments/reorder", { items: reorderPayload });
-      await loadPayments({ silent: true });
-    } catch (err) {
-      console.error("Failed to reorder payment rows:", err);
-      alert("Row reorder save nahi hui.");
-      await loadPayments({ silent: true });
-    }
+    await api.post("/payments/reorder", { items: reorderPayload });
+    await loadPayments({ silent: true });
+  } catch (err) {
+    console.error("Failed to reorder payment rows:", err);
+    undoStackRef.current = undoStackRef.current.slice(0, -1);
+    setUndoCount(undoStackRef.current.length);
+    alert("Row reorder save nahi hui.");
+    await loadPayments({ silent: true });
   }
+}
+
 
   async function moveRows(direction, fallbackRowId = null) {
     const rowIds = getEffectiveSelectedRowIds(fallbackRowId);
@@ -1591,41 +1866,65 @@ export default function PaymentSheet({ me }) {
     await persistReorder(nextItems);
   }
 
-  async function applyColorToSelectedRows(field, colorValue) {
-    const rowIds = getEffectiveSelectedRowIds();
-    if (!rowIds.length) {
-      alert("Pehle row select karo.");
-      return;
+
+async function applyColorToRowIds(rowIds, field, colorValue, options = {}) {
+  const { showSelectionAlert = false } = options;
+  const normalizedColor = safeColor(colorValue, DEFAULT_COLOR);
+  const normalizedIds = rowIds
+    .filter((id) => id !== undefined && id !== null)
+    .map((id) => String(id));
+
+  if (!normalizedIds.length) {
+    if (showSelectionAlert) {
+      alert("select row");
     }
-
-    const normalizedColor = safeColor(colorValue, "#ffffff");
-    const idSet = new Set(rowIds);
-
-    const targetRows = itemsRef.current.filter((item) =>
-      idSet.has(String(getRowId(item)))
-    );
-
-    setItems((prev) =>
-      prev.map((row) =>
-        idSet.has(String(getRowId(row)))
-          ? { ...row, [field]: normalizedColor }
-          : row
-      )
-    );
-
-    try {
-      for (const row of targetRows) {
-        await api.patch(`/payments/${encodeURIComponent(String(getRowId(row)))}`, {
-          [field]: normalizedColor,
-        });
-      }
-      await loadPayments({ silent: true });
-    } catch (err) {
-      console.error("Failed to apply bulk color:", err);
-      alert("Color apply nahi hua.");
-      await loadPayments({ silent: true });
-    }
+    return;
   }
+
+  const idSet = new Set(normalizedIds);
+  const targetRows = itemsRef.current.filter((item) =>
+    idSet.has(String(getRowId(item)))
+  );
+
+  if (!targetRows.length) return;
+
+  pushUndoTransaction(
+    targetRows.map((row) => ({
+      rowId: String(getRowId(row)),
+      before: { [field]: row[field] },
+      after: { [field]: normalizedColor },
+    }))
+  );
+
+  setItems((prev) =>
+    prev.map((row) =>
+      idSet.has(String(getRowId(row)))
+        ? { ...row, [field]: normalizedColor }
+        : row
+    )
+  );
+
+  try {
+    for (const row of targetRows) {
+      await api.patch(`/payments/${encodeURIComponent(String(getRowId(row)))}`, {
+        [field]: normalizedColor,
+      });
+    }
+    await loadPayments({ silent: true });
+  } catch (err) {
+    console.error("Failed to apply color:", err);
+    undoStackRef.current = undoStackRef.current.slice(0, -1);
+    setUndoCount(undoStackRef.current.length);
+    alert("Color apply nahi hua.");
+    await loadPayments({ silent: true });
+  }
+}
+
+async function applyColorToSelectedRows(field, colorValue) {
+  const rowIds = getEffectiveSelectedRowIds();
+  await applyColorToRowIds(rowIds, field, colorValue, { showSelectionAlert: true });
+}
+
 
   async function deleteRow(row) {
     const rowId = getRowId(row);
@@ -1884,7 +2183,19 @@ export default function PaymentSheet({ me }) {
 
     if (e.key === "Enter" || e.key === "F2") {
       e.preventDefault();
-      if (col.editable) startEditingCell(rowIndex, colId);
+      if (col.kind === "color") {
+        const row = filteredItemsRef.current[rowIndex];
+        if (row) {
+          const rowId = String(getRowId(row));
+          setOpenPalette((prev) =>
+            prev?.key === `${rowId}__${col.id}`
+              ? null
+              : { key: `${rowId}__${col.id}`, rowId, field: col.field }
+          );
+        }
+      } else if (col.editable) {
+        startEditingCell(rowIndex, colId);
+      }
       return;
     }
 
@@ -2031,38 +2342,18 @@ export default function PaymentSheet({ me }) {
     }
 
     if (!pickerLike && e.key === "ArrowLeft") {
-      const el = e.target;
-      if (
-        isTextLikeSelectionInput(el) &&
-        typeof el.selectionStart === "number" &&
-        typeof el.selectionEnd === "number" &&
-        el.selectionStart === 0 &&
-        el.selectionEnd === 0
-      ) {
-        e.preventDefault();
-        const nextCell = getNextCell(rowIndex, colId, "left");
-        await commitEdit(nextCell);
-        selectSingleCell(nextCell.rowIndex, nextCell.colId, true);
-      }
+      e.preventDefault();
+      const nextCell = getNextCell(rowIndex, colId, "left");
+      await commitEdit(nextCell);
+      selectSingleCell(nextCell.rowIndex, nextCell.colId, true);
       return;
     }
 
     if (!pickerLike && e.key === "ArrowRight") {
-      const el = e.target;
-      const valueLength = String(el?.value || "").length;
-
-      if (
-        isTextLikeSelectionInput(el) &&
-        typeof el.selectionStart === "number" &&
-        typeof el.selectionEnd === "number" &&
-        el.selectionStart === valueLength &&
-        el.selectionEnd === valueLength
-      ) {
-        e.preventDefault();
-        const nextCell = getNextCell(rowIndex, colId, "right");
-        await commitEdit(nextCell);
-        selectSingleCell(nextCell.rowIndex, nextCell.colId, true);
-      }
+      e.preventDefault();
+      const nextCell = getNextCell(rowIndex, colId, "right");
+      await commitEdit(nextCell);
+      selectSingleCell(nextCell.rowIndex, nextCell.colId, true);
       return;
     }
 
@@ -2099,9 +2390,96 @@ export default function PaymentSheet({ me }) {
     }
   };
 
+
+  const togglePalette = (key, rowId, field) => {
+    setOpenPalette((prev) =>
+      prev?.key === key ? null : { key, rowId: String(rowId), field }
+    );
+  };
+
+  const renderColorPaletteControl = (row, field, paletteKey) => {
+    const rowId = getRowId(row);
+    const finalColor = safeColor(row?.[field], DEFAULT_COLOR);
+    const isOpen = openPalette?.key === paletteKey;
+
+    return (
+      <div
+        style={styles.paletteRoot}
+        {...{ [paletteRootAttr]: "true" }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          style={styles.paletteTrigger}
+          onClick={(e) => {
+            e.stopPropagation();
+            togglePalette(paletteKey, rowId, field);
+          }}
+          title="Pick color"
+        >
+          <span style={{ ...styles.colorSwatch, background: finalColor }} />
+        </button>
+
+        {isOpen ? (
+          <div
+            style={styles.palettePopover}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={styles.paletteGrid}>
+              {PRESET_COLORS.map((color) => (
+                <button
+                  key={`${paletteKey}-${color}`}
+                  type="button"
+                  style={{
+                    ...styles.paletteButton,
+                    background: color,
+                    boxShadow:
+                      safeColor(color) === finalColor
+                        ? "inset 0 0 0 2px #111111"
+                        : "none",
+                  }}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    setOpenPalette(null);
+                    await applyColorToRowIds([String(rowId)], field, color);
+                  }}
+                />
+              ))}
+            </div>
+
+            <div style={styles.paletteCustomRow}>
+              <span style={styles.paletteCustomLabel}>Custom</span>
+              <input
+                type="color"
+                value={finalColor}
+                style={styles.paletteCustomInput}
+                onChange={async (e) => {
+                  e.stopPropagation();
+                  setOpenPalette(null);
+                  await applyColorToRowIds([String(rowId)], field, e.target.value);
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
   const renderCellDisplay = (row, col, value) => {
     if (col.id === "status") {
       return <StatusPill value={value} />;
+    }
+
+    if (col.id === "tuitionName") {
+      const rowId = String(getRowId(row));
+      return (
+        <div style={styles.tuitionNameInner}>
+          <span style={styles.tuitionNameText}>{highlightText(value || "", search)}</span>
+          {renderColorPaletteControl(row, "tuitionNameColor", `${rowId}__tuitionNameQuick`)}
+        </div>
+      );
     }
 
     if (col.valueType === "boolean") {
@@ -2109,12 +2487,12 @@ export default function PaymentSheet({ me }) {
     }
 
     if (col.kind === "color") {
-      const finalColor = safeColor(value, "#ffffff");
+      const finalColor = safeColor(value, DEFAULT_COLOR);
       return (
-        <>
-          <span style={{ ...styles.colorSwatch, background: finalColor }} />
+        <div style={styles.paletteInlineCell}>
+          {renderColorPaletteControl(row, col.field, `${String(getRowId(row))}__${col.id}`)}
           <span style={styles.colorValue}>{finalColor}</span>
-        </>
+        </div>
       );
     }
 
@@ -2130,15 +2508,19 @@ export default function PaymentSheet({ me }) {
       editingCell?.rowIndex === rowIndex && editingCell?.colId === col.id;
 
     const value = getCellValue(row, col);
-
-    const rowBg = row?.rowColor ? safeColor(row.rowColor, "#ffffff") : "#ffffff";
-    const rowSelectedBg = rowChecked ? "#eef6ff" : rowBg;
+    const rowBg = row?.rowColor ? safeColor(row.rowColor, DEFAULT_COLOR) : DEFAULT_COLOR;
+    const rowSelectedBg = rowChecked ? "#dbeafe" : rowBg;
     const tuitionNameBg =
       col.id === "tuitionName" && row?.tuitionNameColor
         ? safeColor(row.tuitionNameColor, rowSelectedBg)
         : rowSelectedBg;
-
-    const cellBackground = col.id === "tuitionName" ? tuitionNameBg : rowSelectedBg;
+    const isFeedbackCol = col.id === "feedback";
+    const cellBackground = isFeedbackCol
+      ? FEEDBACK_BG
+      : col.id === "tuitionName"
+      ? tuitionNameBg
+      : rowSelectedBg;
+    const cellTextColor = isFeedbackCol ? "#ffffff" : getContrastTextColor(cellBackground);
 
     const commonTdStyle = {
       ...styles.td,
@@ -2149,9 +2531,20 @@ export default function PaymentSheet({ me }) {
         : rowChecked
         ? "inset 0 0 0 1.5px #2563eb"
         : "none",
-      backgroundColor: isEditing ? "#ffffff" : cellBackground,
+      backgroundColor:
+        col.kind === "color"
+          ? isEditing
+            ? cellBackground
+            : cellBackground
+          : isEditing
+          ? isFeedbackCol
+            ? FEEDBACK_BG
+            : "#ffffff"
+          : cellBackground,
+      color: cellTextColor,
       position: "relative",
       cursor: col.editable ? "cell" : "default",
+      zIndex: isSelected ? 1 : 0,
     };
 
     if (isEditing && col.kind === "select") {
@@ -2179,35 +2572,7 @@ export default function PaymentSheet({ me }) {
       );
     }
 
-    if (isEditing && col.kind === "color") {
-      return (
-        <td style={commonTdStyle}>
-          <input
-            ref={inputRef}
-            autoFocus
-            type="color"
-            value={safeColor(editValue, "#ffffff")}
-            onChange={(e) => {
-              editValueRef.current = e.target.value;
-              setEditValue(e.target.value);
-            }}
-            onBlur={() => commitEdit({ rowIndex, colId: col.id })}
-            onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
-            style={{
-              width: "100%",
-              height: "46px",
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              padding: "4px 10px",
-              boxSizing: "border-box",
-            }}
-          />
-        </td>
-      );
-    }
-
-    if (isEditing) {
+    if (isEditing && col.kind !== "color") {
       return (
         <td style={commonTdStyle}>
           <input
@@ -2236,6 +2601,12 @@ export default function PaymentSheet({ me }) {
         onMouseDown={(e) => handleCellMouseDown(rowIndex, col.id, e)}
         onMouseEnter={() => handleCellMouseEnter(rowIndex, col.id)}
         onDoubleClick={() => {
+          if (col.kind === "color") {
+            const rowIdStr = String(getRowId(row));
+            togglePalette(`${rowIdStr}__${col.id}`, rowIdStr, col.field);
+            return;
+          }
+
           if (col.editable) startEditingCell(rowIndex, col.id);
         }}
         onKeyDown={(e) => handleCellKeyDown(e, rowIndex, col.id)}
@@ -2244,7 +2615,7 @@ export default function PaymentSheet({ me }) {
         <div
           style={{
             ...styles.readCell,
-            ...(col.align === "left" ? styles.textLeft : {}),
+            ...(isFeedbackCol ? styles.feedbackReadCell : {}),
           }}
         >
           {renderCellDisplay(row, col, value)}
@@ -2267,7 +2638,7 @@ export default function PaymentSheet({ me }) {
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>Payment Sheet</h2>
             <p style={styles.subtitle}>
-              Excel-style keyboard flow, zoom controls, numbering, Enter save + next row, Ctrl + Z undo clear
+              Excel-style editing, black headers/borders, inline color palettes, Ctrl + Z undo, Backspace clear, and arrow move auto-save.
             </p>
           </div>
 
@@ -2294,7 +2665,7 @@ export default function PaymentSheet({ me }) {
 
             <input
               type="text"
-              placeholder="Search by tuition id, name, country, tutor..."
+              placeholder="Search by date, tuition name, country, class, tutor, notes..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={styles.searchInput}
@@ -2313,7 +2684,7 @@ export default function PaymentSheet({ me }) {
               style={undoCount ? styles.toolBtn : styles.disabledToolBtn}
               disabled={!undoCount}
             >
-              Undo Clear ({undoCount})
+              Undo ({undoCount})
             </button>
 
             <button onClick={() => moveRows("up")} style={styles.toolBtn}>
@@ -2333,10 +2704,8 @@ export default function PaymentSheet({ me }) {
               <input
                 type="color"
                 value={bulkRowColor}
-                onChange={(e) => {
-                  setBulkRowColor(e.target.value);
-                  applyColorToSelectedRows("rowColor", e.target.value);
-                }}
+                onChange={(e) => setBulkRowColor(e.target.value)}
+                onBlur={(e) => applyColorToSelectedRows("rowColor", e.target.value)}
                 style={styles.colorInputMini}
               />
             </label>
@@ -2346,10 +2715,8 @@ export default function PaymentSheet({ me }) {
               <input
                 type="color"
                 value={bulkNameColor}
-                onChange={(e) => {
-                  setBulkNameColor(e.target.value);
-                  applyColorToSelectedRows("tuitionNameColor", e.target.value);
-                }}
+                onChange={(e) => setBulkNameColor(e.target.value)}
+                onBlur={(e) => applyColorToSelectedRows("tuitionNameColor", e.target.value)}
                 style={styles.colorInputMini}
               />
             </label>
@@ -2394,8 +2761,8 @@ export default function PaymentSheet({ me }) {
                   </th>
 
                   <th style={{ ...styles.th, minWidth: "60px" }}>#</th>
-
-                  <th style={{ ...styles.th, minWidth: "70px" }}>Sort</th>
+                  <th style={{ ...styles.th, minWidth: "72px" }}>Sort</th>
+                  <th style={{ ...styles.th, minWidth: "88px" }}>Color</th>
 
                   {gridColumns.map((col) => (
                     <th
@@ -2432,21 +2799,23 @@ export default function PaymentSheet({ me }) {
                       (item) => getRowId(item) === rowId
                     );
                     const rowBg = row?.rowColor
-                      ? safeColor(row.rowColor, "#ffffff")
-                      : "#ffffff";
-                    const effectiveRowBg = rowChecked ? "#eef6ff" : rowBg;
+                      ? safeColor(row.rowColor, DEFAULT_COLOR)
+                      : DEFAULT_COLOR;
+                    const effectiveRowBg = rowChecked ? "#dbeafe" : rowBg;
+                    const rowTextColor = getContrastTextColor(effectiveRowBg);
+
+                    const utilityCellStyle = {
+                      ...styles.td,
+                      backgroundColor: effectiveRowBg,
+                      color: rowTextColor,
+                      boxShadow: rowChecked
+                        ? "inset 0 0 0 1.5px #2563eb"
+                        : "none",
+                    };
 
                     return (
                       <tr key={rowId ?? visibleIndex}>
-                        <td
-                          style={{
-                            ...styles.td,
-                            backgroundColor: effectiveRowBg,
-                            boxShadow: rowChecked
-                              ? "inset 0 0 0 1.5px #2563eb"
-                              : "none",
-                          }}
-                        >
+                        <td style={utilityCellStyle}>
                           <div style={styles.checkboxWrap}>
                             <input
                               type="checkbox"
@@ -2461,37 +2830,21 @@ export default function PaymentSheet({ me }) {
                           </div>
                         </td>
 
-                        <td
-                          style={{
-                            ...styles.td,
-                            backgroundColor: effectiveRowBg,
-                            boxShadow: rowChecked
-                              ? "inset 0 0 0 1.5px #2563eb"
-                              : "none",
-                          }}
-                        >
+                        <td style={utilityCellStyle}>
                           <div style={{ ...styles.readCell, ...styles.numberCell }}>
                             {visibleIndex + 1}
                           </div>
                         </td>
 
-                        <td
-                          style={{
-                            ...styles.td,
-                            textAlign: "center",
-                            backgroundColor: effectiveRowBg,
-                            boxShadow: rowChecked
-                              ? "inset 0 0 0 1.5px #2563eb"
-                              : "none",
-                          }}
-                        >
+                        <td style={utilityCellStyle}>
                           <div
                             style={{
                               display: "flex",
                               flexDirection: "column",
                               alignItems: "center",
                               justifyContent: "center",
-                              minHeight: "46px",
+                              minHeight: "48px",
+                              gap: "4px",
                             }}
                           >
                             <button
@@ -2499,7 +2852,7 @@ export default function PaymentSheet({ me }) {
                               disabled={originalIndex === 0}
                               style={{
                                 ...styles.moveBtn,
-                                opacity: originalIndex === 0 ? 0.3 : 1,
+                                opacity: originalIndex === 0 ? 0.35 : 1,
                               }}
                             >
                               ▲
@@ -2509,7 +2862,7 @@ export default function PaymentSheet({ me }) {
                               disabled={originalIndex === items.length - 1}
                               style={{
                                 ...styles.moveBtn,
-                                opacity: originalIndex === items.length - 1 ? 0.3 : 1,
+                                opacity: originalIndex === items.length - 1 ? 0.35 : 1,
                               }}
                             >
                               ▼
@@ -2517,17 +2870,15 @@ export default function PaymentSheet({ me }) {
                           </div>
                         </td>
 
+                        <td style={utilityCellStyle}>
+                          <div style={styles.readCell}>
+                            {renderColorPaletteControl(row, "rowColor", `${rowIdStr}__rowColorQuick`)}
+                          </div>
+                        </td>
+
                         {gridColumns.map((col) => renderGridCell(row, visibleIndex, col))}
 
-                        <td
-                          style={{
-                            ...styles.td,
-                            backgroundColor: effectiveRowBg,
-                            boxShadow: rowChecked
-                              ? "inset 0 0 0 1.5px #2563eb"
-                              : "none",
-                          }}
-                        >
+                        <td style={utilityCellStyle}>
                           <div style={styles.readCell}>
                             <button
                               style={styles.deleteBtn}

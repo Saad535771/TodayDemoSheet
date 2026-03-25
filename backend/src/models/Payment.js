@@ -10,6 +10,7 @@ export function definePayment(sequelize) {
         primaryKey: true,
       },
 
+      // internal sync key
       tuitionId: {
         type: DataTypes.STRING(100),
         allowNull: false,
@@ -17,7 +18,8 @@ export function definePayment(sequelize) {
         field: "tuition_id",
       },
 
-      paymentDate: {
+      // required sheet fields
+      date: {
         type: DataTypes.DATEONLY,
         allowNull: true,
         field: "payment_date",
@@ -40,13 +42,15 @@ export function definePayment(sequelize) {
         field: "class_name",
       },
 
+     
+
       tutorName: {
         type: DataTypes.STRING(191),
         allowNull: true,
         field: "tutor_name",
       },
 
-      tutorShare: {
+      tutorFee: {
         type: DataTypes.DECIMAL(12, 2),
         allowNull: true,
         field: "tutor_share",
@@ -58,7 +62,7 @@ export function definePayment(sequelize) {
         field: "lacas_share",
       },
 
-      totalFees: {
+      totalFee: {
         type: DataTypes.DECIMAL(12, 2),
         allowNull: true,
         field: "total_fees",
@@ -79,13 +83,25 @@ export function definePayment(sequelize) {
         type: DataTypes.TEXT,
         allowNull: true,
       },
-
+ daysPerWeek: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: "days_per_week",
+      },
       otmName: {
         type: DataTypes.STRING(100),
         allowNull: true,
         field: "otm_name",
       },
 
+      // manual field only - sync se overwrite nahi hogi
+      notes: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: "notes",
+      },
+
+      // existing system fields
       syncFlag: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
