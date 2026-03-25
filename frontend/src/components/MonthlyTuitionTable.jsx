@@ -470,7 +470,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       if (!horizontalIntent) return;
 
       e.preventDefault();
-      wrapper.scrollLeft += e.deltaX * HORIZONTAL_TRACKPAD_MULTIPLIER;
+      wrapper.scrollRight += e.deltaX * HORIZONTAL_TRACKPAD_MULTIPLIER;
     };
 
     wrapper.addEventListener("wheel", handleTrackpadHorizontalScroll, { passive: false });
