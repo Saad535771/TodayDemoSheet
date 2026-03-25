@@ -46,12 +46,13 @@ const styles = {
     fontSize: "14px",
   },
   th: {
-    background: "#f3f2f1",
-    color: "#323130",
+    background: "#e1bb00",
+    color: "#000000",
     fontWeight: "600",
     padding: "8px 10px",
-    textAlign: "left",
-    border: "1px solid #c8c6c4",
+    textAlign: "center",
+    maxWidth:'42px',
+    border: "1px solid #000000",
     position: "sticky",
     top: 0,
     zIndex: 10,
@@ -59,9 +60,9 @@ const styles = {
   td: {
     padding: "0",
     textAlign: "center",
-    border: "1px solid #c8c6c4",
+    border: "1px solid #000000",
     verticalAlign: "middle",
-    height: "35px",
+    maxWidth:'32px',
   },
   inlineInput: {
     width: "100%",
@@ -397,7 +398,7 @@ function GlobalSearchHost() {
       >
         <div
           style={{
-            width: "min(1100px,95vw)",
+            width: "min(1100px,55vw)",
             padding: "12px 18px",
             borderRadius: "10px",
             display: "flex",
@@ -413,11 +414,12 @@ function GlobalSearchHost() {
             placeholder="Search in all tables on this page..."
             style={{
               flex: 1,
-              border: "1px solid #d1d5db",
+              border: "1px solid #000000",
               borderRadius: "8px",
               padding: "10px 12px",
-              fontSize: "14px",
+              fontSize: "12px",
               outline: "none",
+            
             }}
             onKeyDown={(e) => {
               if (e.key === "Escape") {
@@ -465,7 +467,10 @@ const STATUS_LIST = [
 ];
 const columnColors = { "Rejected Tutor": "#ffebee" };
 const PASSWORD_SECRET = "admin123";
-
+const AUTO_REFRESH_INTERVAL = 4000;
+function areItemListsEqual(left = [], right = []) {
+  return JSON.stringify(left || []) === JSON.stringify(right || []);
+}
 const gridColumns = [
   { id: "demoTime", label: "Demo Time", width: 100, editable: true, field: "demoTime", type: "time" },
   { id: "tuitionName", label: "Tuition Name", width: 150, editable: true, field: "tuitionName", kind: "tuitionName" },
@@ -687,15 +692,12 @@ const ColorSwatch = ({
         <div
           style={{
             ...styles.pickerPopup,
-            top: popupPos.top,
             left: popupPos.left,
           }}
-          onClick={(e) => e.stopPropagation()}
-        >
+          onClick={(e) => e.stopPropagation()} >
           <div style={{ marginBottom: "8px", fontSize: "13px", fontWeight: "600", color: "#444" }}>
             Default Colors
           </div>
-
           <div
             style={{
               display: "grid",
@@ -742,7 +744,7 @@ const ColorSwatch = ({
    SlotTable component
    ========================= */
 export default function SlotTable({ slot, onChanged, isProtected, isLoadingData }) {
-  const [open, setOpen] = useState(slot.items?.length > 0);
+ const [open, setOpen] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [localItems, setLocalItems] = useState([]);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -757,7 +759,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   const [activeColorPicker, setActiveColorPicker] = useState(null);
 
   const role = "admin";
-  const themeColor = role === "admin" ? "#1e3c72" : "#7b4397";
+  const themeColor = role === "admin" ? "#000000" : "#7b4397";
 
   const [isUnlocked, setIsUnlocked] = useState(!isProtected);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -781,6 +783,10 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   const dragAnchorCellRef = useRef(null);
   const undoStackRef = useRef([]);
   const isUndoRunningRef = useRef(false);
+  const openRef = useRef(open);
+  const isUnlockedRef = useRef(isUnlocked);
+  const isUpdatingRef = useRef(isUpdating);
+  const refreshInFlightRef = useRef(false);
 
   useEffect(() => {
     localItemsRef.current = localItems;
@@ -795,6 +801,18 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   }, [editValue]);
 
   useEffect(() => {
+    openRef.current = open;
+  }, [open]);
+
+  useEffect(() => {
+    isUnlockedRef.current = isUnlocked;
+  }, [isUnlocked]);
+
+  useEffect(() => {
+    isUpdatingRef.current = isUpdating;
+  }, [isUpdating]);
+
+  useEffect(() => {
     const stopMouseSelection = () => {
       isMouseSelectingRef.current = false;
       dragAnchorCellRef.current = null;
@@ -805,8 +823,22 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   }, []);
 
   useEffect(() => {
-    setLocalItems(slot.items || []);
-    setSelectedRows(new Set());
+    const nextItems = slot.items || [];
+
+    if (areItemListsEqual(localItemsRef.current, nextItems)) {
+      return;
+    }
+
+    setLocalItems(nextItems);
+
+    setSelectedRows((prev) => {
+      if (!prev.size) return prev;
+
+      const nextIds = new Set(nextItems.map((item) => item.tuitionId));
+      const filtered = new Set([...prev].filter((id) => nextIds.has(id)));
+
+      return filtered.size === prev.size ? prev : filtered;
+    });
   }, [slot.items]);
 
   useEffect(() => {
@@ -832,6 +864,52 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
       mgr.setActive(instanceKey, false);
     };
   }, [open, isUnlocked, instanceKey]);
+
+  useEffect(() => {
+    if (typeof onChanged !== "function") return;
+
+    const maybeRefresh = async () => {
+      if (refreshInFlightRef.current) return;
+      if (!openRef.current) return;
+      if (!isUnlockedRef.current) return;
+      if (isUpdatingRef.current) return;
+      if (editingCellRef.current) return;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+
+      refreshInFlightRef.current = true;
+
+      try {
+        await onChanged();
+      } catch (error) {
+        console.error("Auto refresh failed", error);
+      } finally {
+        refreshInFlightRef.current = false;
+      }
+    };
+
+    const intervalId = window.setInterval(maybeRefresh, AUTO_REFRESH_INTERVAL);
+
+    const handleWindowFocus = () => {
+      maybeRefresh();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        maybeRefresh();
+      }
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    maybeRefresh();
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleWindowFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [onChanged]);
 
   const filteredItems = useMemo(() => {
     return localItems.filter((item) => itemMatchesSearch(item, searchTerm));
@@ -1793,7 +1871,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     if (isProtected && !isUnlocked) {
       setShowPasswordModal(true);
     } else {
-      setOpen((v) => !v);
+      setOpen(true);
     }
   };
 
@@ -1853,15 +1931,13 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
 
     const commonTdStyle = {
       ...styles.td,
-      minWidth: col.width,
-      width: col.width,
       padding: col.kind === "tuitionName" ? "0 10px" : col.pill ? "0 5px" : "0 10px",
       height: "35px",
       cursor: col.editable ? "cell" : "default",
       backgroundColor: isEditing ? "#ffffff" : baseBackground,
       boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
       position: "relative",
-      textAlign: col.pill ? "center" : "left",
+      textAlign: col.pill ? "center" : "center",
     };
 
     if (isEditing && col.kind === "select") {
@@ -2191,7 +2267,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
                         style={{
                           minWidth: col.width,
                           width: col.width,
-                          color: col.id === "rejectedTutor" ? "#d32f2f" : undefined,
+                          color: col.id === "rejectedTutor" ? "#c10000" : undefined,
                         }}
                       >
                         {col.label}

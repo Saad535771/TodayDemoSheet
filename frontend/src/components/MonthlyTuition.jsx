@@ -178,7 +178,6 @@ const getSourceStyle = (source) => {
 function generateTuitionId() {
   return `T-${Math.floor(1000 + Math.random() * 9000)}`;
 }
-
 function emptyForm() {
   return {
     tuitionId: generateTuitionId(),
@@ -213,36 +212,27 @@ function formatTo12Hour(value) {
     .toUpperCase()
     .replace(/\./g, "")
     .replace(/\s+/g, " ");
-
   let match = raw.match(/^(\d{1,2}):(\d{2})$/);
   if (match) {
     let hours = Number(match[1]);
     const minutes = Number(match[2]);
     if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return value;
-
     const ampm = hours >= 12 ? "PM" : "AM";
     hours = hours % 12 || 12;
-
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${ampm}`;
   }
-
   match = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/);
   if (match) {
     const hours = Number(match[1]);
     const minutes = Number(match[2] || "00");
     const ampm = match[3];
-
     if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) return value;
-
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${ampm}`;
   }
-
   return value;
 }
-
 function to24Hour(value) {
   if (!value) return "";
-
   const raw = String(value)
     .trim()
     .toUpperCase()
@@ -253,20 +243,15 @@ function to24Hour(value) {
   if (match) {
     const hours = Number(match[1]);
     const minutes = Number(match[2]);
-
     if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return "";
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
   }
-
   match = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/);
   if (!match) return "";
-
   let hours = Number(match[1]);
   const minutes = Number(match[2] || "00");
   const ampm = match[3];
-
   if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) return "";
-
   if (ampm === "AM") {
     if (hours === 12) hours = 0;
   } else {

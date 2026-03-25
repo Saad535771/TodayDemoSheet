@@ -10,7 +10,7 @@ const styles = {
     marginBottom: "24px",
     border: "1px solid #eef0f3",
   },
-  title: { fontSize: "22px", fontWeight: "700", color: "#1e3c72", margin: 0 },
+  title: { fontSize: "22px", fontWeight: "700", color: "#000000", marginBottom: 10 },
   tableWrapper: {
     overflowX: "auto",
     height: "100%",
@@ -18,12 +18,12 @@ const styles = {
   },
   table: { width: "100%", height: "100%", fontSize: "12px" },
   th: {
-    background: "#f3f2f1",
-    color: "#323130",
+    background: "#000000",
+    color: "#fdfdfd",
     fontWeight: "600",
     padding: "8px 10px",
     textAlign: "center",
-    border: "1px solid #c8c6c4",
+    border: "1px solid #000000",
     top: 0,
     height: "100%",
     zIndex: 10,
@@ -31,7 +31,7 @@ const styles = {
   },
   td: {
     padding: "0",
-    border: "1px solid #c8c6c4",
+    border: "1px solid #000000",
     textAlign: "center",
     verticalAlign: "middle",
     height: "15px",
@@ -84,7 +84,7 @@ const styles = {
   colorSwatch: {
     width: "18px",
     height: "18px",
-    border: "2px solid #666",
+    border: "2px solid #000000",
     cursor: "pointer",
     borderRadius: "4px",
     overflow: "hidden",
@@ -115,6 +115,7 @@ const styles = {
 
 const searchColumns = [
   { key: "tuitionId", label: "Tuition Id" },
+  { key: "date", label: "Date" },
   { key: "tuitionName", label: "Tuition Name" },
   { key: "tutorName", label: "Tutor Name" },
   { key: "rejectedTutor", label: "Rejected Tutor" },
@@ -148,6 +149,7 @@ const statusList = [
 ];
 
 const gridColumns = [
+  { id: "date", label: "Date", width: 130, editable: true, field: "date", type: "date" },
   { id: "demoTime", label: "Demo Time", width: 110, editable: true, field: "demoTime", type: "time" },
   { id: "tuitionName", label: "Tuition Name", width: 180, editable: true, field: "tuitionName", kind: "tuitionName" },
   { id: "status", label: "Status", width: 140, editable: true, field: "status", kind: "select", options: statusList, pill: "status" },
@@ -172,7 +174,7 @@ const gridColumns = [
 const gridColumnIds = gridColumns.map((c) => c.id);
 const gridColumnMap = Object.fromEntries(gridColumns.map((c) => [c.id, c]));
 const firstEditableColumnId = gridColumns[0]?.id || "demoTime";
-const columnColors = { "Rejected Tutor": "#ffebee" };
+const columnColors = { "Rejected Tutor": "#c00000" };
 
 const getCellKey = (rowIndex, colId) => `${rowIndex}__${colId}`;
 
@@ -296,7 +298,7 @@ const ColorSwatch = ({
     "#209024",
     "#2196f3",
     "#9c27b0",
-    "#f44336",
+    "#cf0e00",
     "#ff5722",
     "#ffc107",
     "#8bc34a",
@@ -435,6 +437,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
 
   const undoStackRef = useRef([]);
   const isUndoRunningRef = useRef(false);
+  const HORIZONTAL_TRACKPAD_MULTIPLIER = -1;
 
   useEffect(() => {
     localItemsRef.current = localItems;
@@ -457,6 +460,24 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     document.addEventListener("mouseup", stopMouseSelection);
     return () => document.removeEventListener("mouseup", stopMouseSelection);
   }, []);
+
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current;
+    if (!wrapper) return;
+
+    const handleTrackpadHorizontalScroll = (e) => {
+      const horizontalIntent = Math.abs(e.deltaX) > 0 && Math.abs(e.deltaX) >= Math.abs(e.deltaY);
+      if (!horizontalIntent) return;
+
+      e.preventDefault();
+      wrapper.scrollLeft += e.deltaX * HORIZONTAL_TRACKPAD_MULTIPLIER;
+    };
+
+    wrapper.addEventListener("wheel", handleTrackpadHorizontalScroll, { passive: false });
+    return () => {
+      wrapper.removeEventListener("wheel", handleTrackpadHorizontalScroll);
+    };
+  }, [HORIZONTAL_TRACKPAD_MULTIPLIER]);
 
   useEffect(() => {
     setLocalItems(items);
@@ -684,6 +705,25 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
 
   const getColumnIndex = (colId) => gridColumnIds.findIndex((id) => id === colId);
 
+  const scrollCellIntoView = (rowIndex, colId, behavior = "smooth") => {
+    requestAnimationFrame(() => {
+      const root = tableWrapperRef.current;
+      if (!root) return;
+
+      const target = root.querySelector(
+        `[data-grid-row="${rowIndex}"][data-grid-col="${colId}"]`
+      );
+
+      if (target && typeof target.scrollIntoView === "function") {
+        target.scrollIntoView({
+          behavior,
+          block: "nearest",
+          inline: "nearest",
+        });
+      }
+    });
+  };
+
   const focusCell = (rowIndex, colId) => {
     requestAnimationFrame(() => {
       const root = tableWrapperRef.current;
@@ -693,8 +733,16 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
         `[data-grid-row="${rowIndex}"][data-grid-col="${colId}"]`
       );
 
+      if (target && typeof target.scrollIntoView === "function") {
+        target.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "nearest",
+        });
+      }
+
       if (target && typeof target.focus === "function") {
-        target.focus({ preventScroll: false });
+        target.focus({ preventScroll: true });
       }
     });
   };
@@ -746,6 +794,8 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
 
   const buildPatchForColumn = (colId, value) => {
     switch (colId) {
+      case "date":
+        return { date: value };
       case "demoTime":
         return { demoTime: value };
       case "tuitionName":
@@ -1305,6 +1355,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     const targetIndex = direction === "up" ? index - 1 : index + 1;
     [newItems[index], newItems[targetIndex]] = [newItems[targetIndex], newItems[index]];
     setLocalItems(newItems);
+    scrollCellIntoView(targetIndex, firstEditableColumnId);
 
     try {
       const reorderPayload = newItems.map((item, idx) => ({
@@ -1346,6 +1397,16 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
 
     setLocalItems(newItems);
 
+    const movedIndexes = newItems
+      .map((item, idx) => (selectedSet.has(item.tuitionId) ? idx : -1))
+      .filter((idx) => idx >= 0);
+
+    if (movedIndexes.length) {
+      const focusRowIndex =
+        direction === "down" ? Math.max(...movedIndexes) : Math.min(...movedIndexes);
+      scrollCellIntoView(focusRowIndex, firstEditableColumnId);
+    }
+
     try {
       const reorderPayload = newItems.map((item, idx) => ({
         tuitionId: item.tuitionId,
@@ -1370,7 +1431,15 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     if (col.id === "tuitionName") return item.tuitionNameColor || "inherit";
     if (col.id === "rejectedTutor") return columnColors["Rejected Tutor"];
     if (col.id === "feedback" && item.feedback?.toString().trim().toLowerCase() === "satisfied") {
-      return "#22c55e";
+      return "#16a34a";
+    }
+    return "inherit";
+  };
+
+  const getCellTextColor = (item, col) => {
+    if (col.id === "rejectedTutor") return "#ffffff";
+    if (col.id === "feedback" && item.feedback?.toString().trim().toLowerCase() === "satisfied") {
+      return "#ffffff";
     }
     return "inherit";
   };
@@ -1383,6 +1452,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
 
     const value = getCellValue(item, col);
     const baseBackground = getCellBaseBackground(item, col);
+    const cellTextColor = getCellTextColor(item, col);
 
     const commonTdStyle = {
       ...styles.td,
@@ -1391,7 +1461,9 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       padding: col.kind === "tuitionName" ? "0 10px" : col.pill ? "0 5px" : "0 10px",
       height: "35px",
       cursor: col.editable ? "cell" : "default",
-      backgroundColor: isEditing ? "#ffffff" : baseBackground,
+      backgroundColor: isEditing ? (col.id === "rejectedTutor" ? columnColors["Rejected Tutor"] : "#ffffff") : baseBackground,
+      color: isEditing ? (col.id === "rejectedTutor" ? "#ffffff" : cellTextColor) : cellTextColor,
+      border: "1px solid #000000",
       boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
       position: "relative",
     };
@@ -1402,7 +1474,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
           <select
             ref={inputRef}
             autoFocus
-            style={styles.inlineSelect}
+            style={{ ...styles.inlineSelect, color: "inherit" }}
             value={editValue}
             onFocus={(e) => {
               try {
@@ -1447,7 +1519,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
               }}
               onBlur={() => commitEdit({ rowIndex, colId: col.id })}
               onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
-              style={{ ...styles.inlineInput, flex: 1 }}
+              style={{ ...styles.inlineInput, flex: 1, color: "inherit" }}
             />
 
             <div
@@ -1478,7 +1550,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
             ref={inputRef}
             autoFocus
             type={col.type || "text"}
-            style={{ ...styles.inlineInput, flex: 1 }}
+            style={{ ...styles.inlineInput, flex: 1, color: "inherit" }}
             value={editValue}
             onFocus={(e) => {
               if (col.type === "date") {
