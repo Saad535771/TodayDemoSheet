@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { api } from "../api/api.js";
 
 const styles = {
@@ -87,15 +88,12 @@ const styles = {
     userSelect: "none",
   },
   dropdownMenu: {
-    position: "absolute",
-    top: "calc(100% + 4px)",
-    left: 0,
-    right: 0,
+    position: "fixed",
     background: "#fff",
     border: "1px solid #c8c6c4",
     borderRadius: "8px",
     boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
-    zIndex: 50,
+    zIndex: 9999,
     maxHeight: "220px",
     overflowY: "auto",
   },
@@ -295,6 +293,7 @@ export default function MonthlyTuition({ onLoad }) {
   const [highlightedIndex, setHighlightedIndex] = useState(0);
 
   const rootRef = useRef(null);
+  const dropdownPortalRef = useRef(null);
   const fieldRefs = useRef({});
 
   const fieldOrder = [
@@ -323,7 +322,10 @@ export default function MonthlyTuition({ onLoad }) {
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (!rootRef.current?.contains(e.target)) {
+      const clickedInsideForm = rootRef.current?.contains(e.target);
+      const clickedInsideDropdown = dropdownPortalRef.current?.contains(e.target);
+
+      if (!clickedInsideForm && !clickedInsideDropdown) {
         setOpenDropdown(null);
       }
     };
@@ -616,6 +618,7 @@ export default function MonthlyTuition({ onLoad }) {
           onFocus={() => handleDropdownFocus("source")}
           onKeyDown={(e) => handleDropdownKeyDown("source", e)}
           onSelect={(value) => selectDropdownValue("source", value)}
+          menuRef={dropdownPortalRef}
         />
 
         <CreateField
@@ -788,6 +791,7 @@ export default function MonthlyTuition({ onLoad }) {
           onFocus={() => handleDropdownFocus("status")}
           onKeyDown={(e) => handleDropdownKeyDown("status", e)}
           onSelect={(value) => selectDropdownValue("status", value)}
+          menuRef={dropdownPortalRef}
         />
 
         <CreateField
@@ -822,6 +826,7 @@ export default function MonthlyTuition({ onLoad }) {
           onFocus={() => handleDropdownFocus("demoRating")}
           onKeyDown={(e) => handleDropdownKeyDown("demoRating", e)}
           onSelect={(value) => selectDropdownValue("demoRating", value)}
+          menuRef={dropdownPortalRef}
         />
 
         <CreateField
@@ -910,38 +915,88 @@ function DropdownField({
   onFocus,
   onKeyDown,
   onSelect,
+  menuRef,
 }) {
+  const triggerRef = useRef(null);
+  const [menuPosition, setMenuPosition] = useState(null);
+  const isOpen = openDropdown === fieldName;
+
+  useEffect(() => {
+    if (!isOpen || !triggerRef.current) return;
+
+    const updatePosition = () => {
+      if (!triggerRef.current) return;
+      const rect = triggerRef.current.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [isOpen]);
+
+  const handleTriggerRef = (node) => {
+    triggerRef.current = node;
+    if (typeof setFieldRef === "function") {
+      setFieldRef(node);
+    }
+  };
+
+  const dropdownMenu =
+    isOpen && menuPosition
+      ? createPortal(
+          <div
+            ref={menuRef}
+            style={{
+              ...styles.dropdownMenu,
+              top: menuPosition.top,
+              left: menuPosition.left,
+              width: menuPosition.width,
+            }}
+          >
+            {options.map((option, index) => (
+              <div
+                key={`${fieldName}-${option || "empty"}-${index}`}
+                style={{
+                  ...styles.dropdownItem,
+                  ...(highlightedIndex === index ? styles.dropdownItemActive : {}),
+                }}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onSelect(option)}
+              >
+                {option || "-- Select --"}
+              </div>
+            ))}
+          </div>,
+          document.body
+        )
+      : null;
+
   return (
-    <div style={{ ...styles.fieldWrap, minWidth: width }}>
-      <label style={styles.label}>{label}</label>
+    <>
+      <div style={{ ...styles.fieldWrap, minWidth: width }}>
+        <label style={styles.label}>{label}</label>
 
-      <div
-        ref={setFieldRef}
-        tabIndex={0}
-        style={triggerStyle}
-        onFocus={onFocus}
-        onKeyDown={onKeyDown}
-      >
-        {value || "-- Select --"}
-      </div>
-
-      {openDropdown === fieldName && (
-        <div style={styles.dropdownMenu}>
-          {options.map((option, index) => (
-            <div
-              key={`${fieldName}-${option || "empty"}-${index}`}
-              style={{
-                ...styles.dropdownItem,
-                ...(highlightedIndex === index ? styles.dropdownItemActive : {}),
-              }}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => onSelect(option)}
-            >
-              {option || "-- Select --"}
-            </div>
-          ))}
+        <div
+          ref={handleTriggerRef}
+          tabIndex={0}
+          style={triggerStyle}
+          onFocus={onFocus}
+          onKeyDown={onKeyDown}
+        >
+          {value || "-- Select --"}
         </div>
-      )}
-    </div>
+      </div>
+      {dropdownMenu}
+    </>
   );
 }
