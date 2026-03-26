@@ -592,6 +592,54 @@ function getOptionLabel(option) {
   return typeof option === "object" ? option.label : option || "--";
 }
 
+function toNullableNumberInput(value) {
+  if (value === "" || value === null || value === undefined) return null;
+
+  const normalized = String(value).replace(/,/g, "").trim();
+  if (!normalized) return null;
+
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : null;
+}
+
+function buildHalfSplitValues(value) {
+  const total = toNullableNumberInput(value);
+  if (total === null) {
+    return {
+      totalFee: null,
+      totalFees: null,
+      tutorFee: null,
+      tutorShare: null,
+      lacasShare: null,
+    };
+  }
+
+  const half = Math.round(((total / 2) + Number.EPSILON) * 100) / 100;
+
+  return {
+    totalFee: total,
+    totalFees: total,
+    tutorFee: half,
+    tutorShare: half,
+    lacasShare: half,
+  };
+}
+
+function getPaymentFieldValue(row, field) {
+  if (!row) return "";
+
+  switch (field) {
+    case "paymentDate":
+      return row.paymentDate ?? row.date ?? "";
+    case "tutorShare":
+      return row.tutorShare ?? row.tutorFee ?? "";
+    case "totalFees":
+      return row.totalFees ?? row.totalFee ?? "";
+    default:
+      return row[field] ?? "";
+  }
+}
+
 function isTextLikeSelectionInput(el) {
   if (!el) return false;
 
@@ -1154,15 +1202,15 @@ const filteredItems = useMemo(() => {
   return items.filter((item) => {
     const haystack = [
       item.tuitionId,
-      item.paymentDate,
+      item.paymentDate ?? item.date,
       item.tuitionName,
       item.country,
       item.className,
       item.daysPerWeek,
       item.tutorName,
-      item.tutorShare,
+      item.tutorShare ?? item.tutorFee,
       item.lacasShare,
-      item.totalFees,
+      item.totalFees ?? item.totalFee,
       item.status,
       item.feedback,
       item.otmName,
@@ -1288,7 +1336,7 @@ const focusCell = (rowIndex, colId) => {
 
   const getCellValue = (row, col) => {
     if (!row || !col) return "";
-    return row[col.field] ?? "";
+    return getPaymentFieldValue(row, col.field);
   };
 
   const getEditReadyValue = (row, col) => {
@@ -1309,6 +1357,28 @@ const focusCell = (rowIndex, colId) => {
     const col = gridColumnMap[colId];
     if (!col?.field) return {};
 
+    if (colId === "paymentDate") {
+      return { paymentDate: value, date: value };
+    }
+
+    if (colId === "totalFees") {
+      return buildHalfSplitValues(value);
+    }
+
+    if (colId === "tutorShare") {
+      const amount = toNullableNumberInput(value);
+      return {
+        tutorShare: amount,
+        tutorFee: amount,
+      };
+    }
+
+    if (colId === "lacasShare") {
+      return {
+        lacasShare: toNullableNumberInput(value),
+      };
+    }
+
     if (col.valueType === "boolean") {
       return { [col.field]: value === "1" };
     }
@@ -1318,11 +1388,7 @@ const focusCell = (rowIndex, colId) => {
     }
 
     if (col.type === "number") {
-      if (value === "" || value === null || value === undefined) {
-        return { [col.field]: null };
-      }
-      const n = Number(value);
-      return { [col.field]: Number.isFinite(n) ? n : null };
+      return { [col.field]: toNullableNumberInput(value) };
     }
 
     return { [col.field]: value };

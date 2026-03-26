@@ -5,21 +5,21 @@ const LIVE_REFRESH_MS = 3000;
 
 const styles = {
   page: {
-    padding: "24px",
+    minHeight: "100vh",
+    padding: "10px",
+    overflowX: "hidden",
+    overscrollBehaviorX: "none",
+    background: "#ffffff",
   },
   card: {
-    background: "#ffffff",
-    borderRadius: "16px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
-    padding: "24px",
-    border: "1px solid #eef0f3",
+    padding: "10px",
   },
   headerRow: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: "16px",
-    marginBottom: "18px",
+    gap: "10px",
+    marginBottom: "14px",
     flexWrap: "wrap",
   },
   titleWrap: {
@@ -30,7 +30,12 @@ const styles = {
   title: {
     fontSize: "22px",
     fontWeight: "700",
-    color: "#1e3c72",
+    color: "#111111",
+    margin: 0,
+  },
+  subtitle: {
+    fontSize: "13px",
+    color: "#444444",
     margin: 0,
   },
   actions: {
@@ -40,37 +45,41 @@ const styles = {
     flexWrap: "wrap",
   },
   searchInput: {
-    minWidth: "260px",
+    minWidth: "300px",
+    height: "42px",
     padding: "10px 14px",
     borderRadius: "10px",
-    border: "1px solid #d6dbe1",
+    border: "1.5px solid #000000",
     outline: "none",
     fontSize: "14px",
+    textAlign: "center",
+    color: "#111111",
+    background: "#ffffff",
   },
   addBtn: {
-    background: "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)",
+    background: "#000000",
     color: "white",
-    border: "none",
+    border: "1.5px solid #000000",
     borderRadius: "10px",
     padding: "10px 16px",
     cursor: "pointer",
-    fontWeight: "600",
+    fontWeight: "700",
     fontSize: "14px",
   },
   refreshBtn: {
-    background: "#f3f4f6",
-    color: "#333",
-    border: "1px solid #ddd",
+    background: "#ffffff",
+    color: "#111111",
+    border: "1.5px solid #000000",
     borderRadius: "10px",
     padding: "10px 16px",
     cursor: "pointer",
-    fontWeight: "600",
-    fontSize: "14px",
+    fontWeight: "700",
+    fontSize: "13px",
   },
   liveBadge: {
-    background: "#ecfdf5",
+    background: "#dcfce7",
     color: "#065f46",
-    border: "1px solid #a7f3d0",
+    border: "1.5px solid #000000",
     borderRadius: "999px",
     padding: "6px 10px",
     fontSize: "12px",
@@ -78,89 +87,105 @@ const styles = {
     whiteSpace: "nowrap",
   },
   tableWrapper: {
-    overflowX: "auto",
+    overflow: "auto",
     borderRadius: "12px",
-    border: "1px solid #e5e7eb",
+    border: "2px solid #000000",
+    maxWidth: "100%",
+    maxHeight: "78vh",
+    position: "relative",
+    overscrollBehaviorX: "contain",
+    overscrollBehaviorY: "contain",
+    background: "#ffffff",
   },
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "2100px",
-    fontSize: "13px",
+    minWidth: "1900px",
+    fontSize: "12px",
+    tableLayout: "fixed",
+    background: "#ffffff",
   },
   th: {
-    background: "#f8fafc",
-    color: "#334155",
+    background: "#000000",
+    color: "#ffffff",
     fontWeight: "700",
     textAlign: "center",
     padding: "12px 10px",
-    borderBottom: "1px solid #e5e7eb",
-    borderRight: "1px solid #e5e7eb",
+    borderBottom: "1.5px solid #000000",
+    borderRight: "1.5px solid #000000",
     position: "sticky",
     top: 0,
-    zIndex: 2,
+    zIndex: 4,
     whiteSpace: "nowrap",
   },
   td: {
-    borderBottom: "1px solid #eef2f7",
-    borderRight: "1px solid #eef2f7",
+    borderBottom: "1.5px solid #000000",
+    borderRight: "1.5px solid #000000",
     padding: "0",
     textAlign: "center",
-    height: "46px",
+    height: "42px",
     verticalAlign: "middle",
     background: "#fff",
   },
   input: {
     width: "100%",
-    height: "46px",
+    height: "42px",
     border: "none",
     outline: "none",
     padding: "10px 12px",
-    fontSize: "13px",
+    fontSize: "12px",
     background: "transparent",
     boxSizing: "border-box",
+    textAlign: "left",
+    color: "inherit",
+    fontWeight: "600",
   },
   select: {
     width: "100%",
-    height: "46px",
+    height: "42px",
     border: "none",
     outline: "none",
     padding: "10px 12px",
-    fontSize: "13px",
+    fontSize: "12px",
     background: "transparent",
     boxSizing: "border-box",
     cursor: "pointer",
+    textAlign: "left",
+    color: "inherit",
+    fontWeight: "600",
   },
   readCell: {
-    padding: "10px 12px",
-    minHeight: "46px",
+    padding: "8px 10px",
+    minHeight: "42px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     cursor: "cell",
+    fontWeight: "600",
+    color: "#111111",
   },
   textLeft: {
     justifyContent: "flex-start",
     textAlign: "left",
   },
   deleteBtn: {
-    background: "#fee2e2",
-    color: "#b91c1c",
-    border: "none",
+    background: "#b00101",
+    color: "#ffffff",
+    border: "1.5px solid #000000",
     borderRadius: "8px",
     padding: "6px 10px",
     cursor: "pointer",
-    fontWeight: "600",
+    fontWeight: "700",
     fontSize: "12px",
   },
   copyBtn: {
-    background: "#e0f2fe",
-    color: "#075985",
-    border: "none",
+    background: "#ffffff",
+    color: "#111111",
+    border: "1.5px solid #000000",
     borderRadius: "8px",
     padding: "6px 10px",
     cursor: "pointer",
-    fontWeight: "600",
+    fontWeight: "700",
     fontSize: "12px",
   },
   actionGroup: {
@@ -169,7 +194,7 @@ const styles = {
     justifyContent: "center",
     gap: "6px",
     flexWrap: "wrap",
-    minHeight: "46px",
+    minHeight: "42px",
     padding: "6px",
   },
   moveBtn: {
@@ -178,36 +203,49 @@ const styles = {
     background: "transparent",
     fontSize: "14px",
     padding: "2px 6px",
-    color: "#555",
+    color: "#111111",
+    fontWeight: "700",
+  },
+  checkbox: {
+    width: "16px",
+    height: "16px",
+    cursor: "pointer",
+    accentColor: "#107c41",
   },
   colorSwatch: {
-    width: "20px",
-    height: "20px",
-    border: "2px solid #666",
+    width: "22px",
+    height: "22px",
+    border: "2px solid #111111",
     cursor: "pointer",
     borderRadius: "4px",
     overflow: "hidden",
-    display: "inline-block",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxSizing: "border-box",
+    backgroundClip: "padding-box",
   },
   pickerPopup: {
     position: "fixed",
     background: "white",
-    border: "1px solid #ccc",
+    border: "1.5px solid #000000",
     padding: "10px",
-    borderRadius: "6px",
-    boxShadow: "0 6px 16px rgba(0,0,0,0.15)",
+    borderRadius: "8px",
+    boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
     zIndex: 3000,
     width: "220px",
   },
   emptyState: {
     padding: "28px",
     textAlign: "center",
-    color: "#6b7280",
+    color: "#444444",
+    fontWeight: "700",
   },
   loading: {
     padding: "20px",
     textAlign: "center",
-    color: "#666",
+    color: "#444444",
+    fontWeight: "700",
   },
 };
 
@@ -225,6 +263,58 @@ function getRowId(row) {
 
 function rowsAreSame(a = [], b = []) {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function isTextLikeSelectionInput(el) {
+  if (!el) return false;
+
+  const tag = String(el.tagName || "").toLowerCase();
+  if (tag === "textarea") return true;
+  if (tag !== "input") return false;
+
+  const type = String(el.type || "text").toLowerCase();
+  return ["text", "search", "url", "tel", "password"].includes(type);
+}
+
+function isPickerLikeColumn(col) {
+  return col?.kind === "select" || col?.type === "date";
+}
+
+function tryOpenPicker(el, col) {
+  if (!el || !col) return;
+
+  requestAnimationFrame(() => {
+    try {
+      if (typeof el.focus === "function") el.focus();
+    } catch (err) {
+      console.error("Focus failed:", err);
+    }
+
+    if (!isPickerLikeColumn(col)) return;
+
+    try {
+      if (typeof el.showPicker === "function") {
+        el.showPicker();
+        return;
+      }
+    } catch (err) {
+      console.warn("showPicker not available:", err);
+    }
+
+    if (col.kind === "select") {
+      try {
+        el.click();
+      } catch (err) {
+        console.warn("Select click failed:", err);
+      }
+
+      try {
+        el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      } catch (err) {
+        console.warn("Select mousedown failed:", err);
+      }
+    }
+  });
 }
 
 function getStatusStyle(status) {
@@ -371,8 +461,8 @@ const ColorSwatch = ({
 
     onOpen({
       id: pickerId,
-      top: rect.top,
-      left: rect.left,
+      top: Math.min(window.innerHeight - 260, rect.bottom + 8),
+      left: Math.min(window.innerWidth - 240, rect.left),
     });
   };
 
@@ -392,7 +482,20 @@ const ColorSwatch = ({
   return (
     <div ref={swatchRef} style={{ position: "relative", display: "inline-block" }}>
       <div
+        role="button"
+        tabIndex={0}
+        aria-label="Change color"
         onClick={openPopup}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openPopup();
+          }
+          if (e.key === "Escape") {
+            e.preventDefault();
+            onClose();
+          }
+        }}
         style={{ ...styles.colorSwatch, backgroundColor: color }}
         title="Change color"
       />
@@ -410,8 +513,8 @@ const ColorSwatch = ({
             style={{
               marginBottom: "8px",
               fontSize: "13px",
-              fontWeight: "600",
-              color: "#444",
+              fontWeight: "700",
+              color: "#111111",
             }}
           >
             Default Colors
@@ -428,15 +531,24 @@ const ColorSwatch = ({
             {presets.map((c, i) => (
               <div
                 key={i}
+                role="button"
+                tabIndex={0}
                 onClick={() => {
                   onChange(c);
                   onClose();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onChange(c);
+                    onClose();
+                  }
                 }}
                 style={{
                   width: "28px",
                   height: "28px",
                   backgroundColor: c,
-                  border: "1px solid #ddd",
+                  border: "1px solid #111111",
                   borderRadius: "4px",
                   cursor: "pointer",
                 }}
@@ -444,8 +556,10 @@ const ColorSwatch = ({
             ))}
           </div>
 
-          <div style={{ borderTop: "1px solid #eee", paddingTop: "8px" }}>
-            <div style={{ fontSize: "13px", marginBottom: "4px" }}>Custom Color</div>
+          <div style={{ borderTop: "1px solid #d1d5db", paddingTop: "8px" }}>
+            <div style={{ fontSize: "13px", marginBottom: "4px", fontWeight: "700" }}>
+              Custom Color
+            </div>
             <input
               type="color"
               value={color}
@@ -459,11 +573,13 @@ const ColorSwatch = ({
   );
 };
 
+
 export default function PaymentSheetWithDate({ me }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState("");
+  const [selectedRowIds, setSelectedRowIds] = useState(new Set());
 
   const [selectedCell, setSelectedCell] = useState(null);
   const [anchorCell, setAnchorCell] = useState(null);
@@ -498,28 +614,12 @@ export default function PaymentSheetWithDate({ me }) {
   const gridColumns = useMemo(() => {
     const cols = [
       {
-        id: "tuitionId",
-        label: "Tuition Id",
-        field: "tuitionId",
-        editable: true,
-        width: 140,
-        align: "left",
-      },
-      {
         id: "paymentDate",
         label: "Date",
         field: "paymentDate",
         editable: true,
         width: 120,
         type: "date",
-        align: "left",
-      },
-      {
-        id: "dateWithMonth",
-        label: "Date With Month",
-        field: "dateWithMonth",
-        editable: true,
-        width: 160,
         align: "left",
       },
       {
@@ -536,15 +636,15 @@ export default function PaymentSheetWithDate({ me }) {
         label: "Country",
         field: "country",
         editable: true,
-        width: 110,
+        width: 120,
         align: "left",
       },
       {
         id: "className",
-        label: "Class",
+        label: "Class Name",
         field: "className",
         editable: true,
-        width: 100,
+        width: 120,
         align: "left",
       },
       {
@@ -560,7 +660,7 @@ export default function PaymentSheetWithDate({ me }) {
     if (canSeeTutorShare) {
       cols.push({
         id: "tutorShare",
-        label: "Tutor Share",
+        label: "Tutor Fee",
         field: "tutorShare",
         editable: true,
         width: 120,
@@ -584,7 +684,7 @@ export default function PaymentSheetWithDate({ me }) {
     if (canSeeTotalFees) {
       cols.push({
         id: "totalFees",
-        label: "Total Fees",
+        label: "Total Fee",
         field: "totalFees",
         editable: true,
         width: 120,
@@ -619,6 +719,22 @@ export default function PaymentSheetWithDate({ me }) {
         editable: true,
         width: 150,
         align: "left",
+      },
+      {
+        id: "dateWithMonth",
+        label: "Date With Month",
+        field: "dateWithMonth",
+        editable: true,
+        width: 160,
+        align: "left",
+      },
+      {
+        id: "tuitionId",
+        label: "Tuition Id",
+        field: "tuitionId",
+        editable: true,
+        width: 140,
+        align: "left",
       }
     );
 
@@ -633,7 +749,7 @@ export default function PaymentSheetWithDate({ me }) {
   );
 
   const firstEditableColumnId = gridColumns[0]?.id || "tuitionId";
-  const visibleColumnCount = gridColumns.length + 3;
+  const visibleColumnCount = gridColumns.length + 4;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -674,23 +790,73 @@ export default function PaymentSheetWithDate({ me }) {
   }, []);
 
   useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+
+    const prevHtml = html.style.overscrollBehaviorX;
+    const prevBody = body.style.overscrollBehaviorX;
+
+    html.style.overscrollBehaviorX = "none";
+    body.style.overscrollBehaviorX = "none";
+
+    return () => {
+      html.style.overscrollBehaviorX = prevHtml;
+      body.style.overscrollBehaviorX = prevBody;
+    };
+  }, []);
+
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current;
+    if (!wrapper) return;
+
+    const handleWheel = (e) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+
+      const atLeft = wrapper.scrollLeft <= 0;
+      const atRight =
+        wrapper.scrollLeft + wrapper.clientWidth >= wrapper.scrollWidth - 1;
+
+      if ((e.deltaX < 0 && atLeft) || (e.deltaX > 0 && atRight)) {
+        e.preventDefault();
+      }
+    };
+
+    wrapper.addEventListener("wheel", handleWheel, { passive: false });
+    return () => wrapper.removeEventListener("wheel", handleWheel);
+  }, []);
+
+  useEffect(() => {
     if (editingCell && inputRef.current) {
-      inputRef.current.focus();
+      const col = gridColumnMap[editingCell.colId];
+      const el = inputRef.current;
+
+      if (isPickerLikeColumn(col)) {
+        tryOpenPicker(el, col);
+        return;
+      }
+
+      try {
+        if (typeof el.focus === "function") el.focus();
+      } catch (err) {
+        console.error("Focus failed:", err);
+      }
 
       if (
         moveCaretToEndOnFocusRef.current &&
-        typeof inputRef.current.setSelectionRange === "function"
+        isTextLikeSelectionInput(el) &&
+        typeof el.setSelectionRange === "function"
       ) {
-        const len = String(inputRef.current.value || "").length;
-        inputRef.current.setSelectionRange(len, len);
+        const len = String(el.value || "").length;
+        el.setSelectionRange(len, len);
       } else if (
         shouldSelectAllOnFocusRef.current &&
-        typeof inputRef.current.select === "function"
+        isTextLikeSelectionInput(el) &&
+        typeof el.select === "function"
       ) {
-        inputRef.current.select();
+        el.select();
       }
     }
-  }, [editingCell]);
+  }, [editingCell, gridColumnMap]);
 
   async function loadRows({ initial = false, silent = false } = {}) {
     try {
@@ -825,6 +991,58 @@ export default function PaymentSheetWithDate({ me }) {
     }
   }
 
+  async function moveSelectedRows(direction) {
+    if (!selectedRowIds.size) return;
+
+    const selectedSet = new Set(
+      [...selectedRowIds].filter((id) => id !== undefined && id !== null)
+    );
+    if (!selectedSet.size) return;
+
+    const newItems = [...items];
+
+    if (direction === "up") {
+      for (let i = 1; i < newItems.length; i += 1) {
+        const currentId = getRowId(newItems[i]);
+        const prevId = getRowId(newItems[i - 1]);
+
+        if (selectedSet.has(currentId) && !selectedSet.has(prevId)) {
+          [newItems[i - 1], newItems[i]] = [newItems[i], newItems[i - 1]];
+        }
+      }
+    } else {
+      for (let i = newItems.length - 2; i >= 0; i -= 1) {
+        const currentId = getRowId(newItems[i]);
+        const nextId = getRowId(newItems[i + 1]);
+
+        if (selectedSet.has(currentId) && !selectedSet.has(nextId)) {
+          [newItems[i], newItems[i + 1]] = [newItems[i + 1], newItems[i]];
+        }
+      }
+    }
+
+    const normalized = newItems.map((item, idx) => ({
+      ...item,
+      orderIndex: idx,
+    }));
+
+    setItems(normalized);
+
+    try {
+      const reorderPayload = normalized.map((item, idx) => ({
+        id: getRowId(item),
+        orderIndex: idx,
+      }));
+
+      await api.post("/payments-clone/reorder", { items: reorderPayload });
+      await loadRows({ silent: true });
+    } catch (err) {
+      console.error("Failed to move selected rows:", err);
+      alert(err?.response?.data?.message || "Failed to save selected row order.");
+      await loadRows({ silent: true });
+    }
+  }
+
   async function deleteRow(row) {
     const rowId = getRowId(row);
     if (rowId === undefined || rowId === null) {
@@ -874,9 +1092,32 @@ export default function PaymentSheetWithDate({ me }) {
     });
   }, [items, search]);
 
+  const visibleRowIds = useMemo(
+    () =>
+      filteredItems
+        .map((row) => getRowId(row))
+        .filter((id) => id !== undefined && id !== null),
+    [filteredItems]
+  );
+
+  const allVisibleRowsSelected =
+    visibleRowIds.length > 0 &&
+    visibleRowIds.every((id) => selectedRowIds.has(id));
+
+  const someVisibleRowsSelected =
+    visibleRowIds.some((id) => selectedRowIds.has(id)) && !allVisibleRowsSelected;
+
   useEffect(() => {
     filteredItemsRef.current = filteredItems;
   }, [filteredItems]);
+
+  useEffect(() => {
+    const currentIds = new Set(items.map((item) => getRowId(item)).filter((id) => id !== undefined && id !== null));
+    setSelectedRowIds((prev) => {
+      const next = new Set([...prev].filter((id) => currentIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [items]);
 
   useEffect(() => {
     if (!filteredItems.length) {
@@ -913,8 +1154,16 @@ export default function PaymentSheetWithDate({ me }) {
         `[data-grid-row="${rowIndex}"][data-grid-col="${colId}"]`
       );
 
+      if (target) {
+        try {
+          target.scrollIntoView({ block: "nearest", inline: "nearest" });
+        } catch (err) {
+          console.warn("scrollIntoView failed:", err);
+        }
+      }
+
       if (target && typeof target.focus === "function") {
-        target.focus({ preventScroll: false });
+        target.focus({ preventScroll: true });
       }
     });
   };
@@ -1402,6 +1651,19 @@ export default function PaymentSheetWithDate({ me }) {
     const hoverCell = { rowIndex, colId };
     setSelectedCell(hoverCell);
     setSelectedCells(getRangeCells(dragAnchorCellRef.current, hoverCell));
+
+    const root = tableWrapperRef.current;
+    const target = root?.querySelector(
+      `[data-grid-row="${rowIndex}"][data-grid-col="${colId}"]`
+    );
+
+    if (target) {
+      try {
+        target.scrollIntoView({ block: "nearest", inline: "nearest" });
+      } catch (err) {
+        console.warn("scrollIntoView failed:", err);
+      }
+    }
   };
 
   const handleCellKeyDown = (e, rowIndex, colId) => {
@@ -1515,6 +1777,27 @@ export default function PaymentSheetWithDate({ me }) {
     }
   };
 
+  const toggleRowSelection = (rowId, checked) => {
+    if (rowId === undefined || rowId === null) return;
+    setSelectedRowIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(rowId);
+      else next.delete(rowId);
+      return next;
+    });
+  };
+
+  const toggleAllVisibleRows = (checked) => {
+    setSelectedRowIds((prev) => {
+      const next = new Set(prev);
+      visibleRowIds.forEach((id) => {
+        if (checked) next.add(id);
+        else next.delete(id);
+      });
+      return next;
+    });
+  };
+
   const handleEditInputKeyDown = (e, rowIndex, colId, col) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -1603,7 +1886,7 @@ export default function PaymentSheetWithDate({ me }) {
 
     if (isEditing && col.kind === "select") {
       return (
-        <td style={{ ...commonTdStyle, backgroundColor: "#fff" }}>
+        <td key={cellKey} style={{ ...commonTdStyle, backgroundColor: "#fff" }}>
           <select
             ref={inputRef}
             autoFocus
@@ -1628,7 +1911,7 @@ export default function PaymentSheetWithDate({ me }) {
 
     if (isEditing && col.kind === "tuitionName") {
       return (
-        <td style={{ ...commonTdStyle, backgroundColor: row.tuitionNameColor || "#fff" }}>
+        <td key={cellKey} style={{ ...commonTdStyle, backgroundColor: row.tuitionNameColor || "#fff" }}>
           <div style={{ display: "flex", alignItems: "center", height: "100%", gap: "8px" }}>
             <input
               ref={inputRef}
@@ -1667,7 +1950,7 @@ export default function PaymentSheetWithDate({ me }) {
 
     if (isEditing) {
       return (
-        <td style={{ ...commonTdStyle, backgroundColor: "#fff" }}>
+        <td key={cellKey} style={{ ...commonTdStyle, backgroundColor: "#fff" }}>
           <input
             ref={inputRef}
             autoFocus
@@ -1688,6 +1971,7 @@ export default function PaymentSheetWithDate({ me }) {
     if (col.kind === "tuitionName") {
       return (
         <td
+          key={cellKey}
           data-grid-row={rowIndex}
           data-grid-col={col.id}
           tabIndex={0}
@@ -1729,6 +2013,7 @@ export default function PaymentSheetWithDate({ me }) {
 
     return (
       <td
+        key={cellKey}
         data-grid-row={rowIndex}
         data-grid-col={col.id}
         tabIndex={0}
@@ -1770,14 +2055,15 @@ export default function PaymentSheetWithDate({ me }) {
         <div style={styles.headerRow}>
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>Payment Sheet With Date</h2>
+            <p style={styles.subtitle}>Independent CRUD sheet with Excel-style keyboard navigation</p>
           </div>
 
           <div style={styles.actions}>
-            <div style={styles.liveBadge}>● Live Sync</div>
+            <div style={styles.liveBadge}>● Independent CRUD</div>
 
             <input
               type="text"
-              placeholder="Search by tuition id, name, country, tutor..."
+              placeholder="Search by date, tuition name, country, tutor, status..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={styles.searchInput}
@@ -1785,6 +2071,22 @@ export default function PaymentSheetWithDate({ me }) {
 
             <button onClick={() => void loadRows({ initial: true })} style={styles.refreshBtn}>
               Refresh
+            </button>
+
+            <button
+              onClick={() => void moveSelectedRows("up")}
+              style={styles.refreshBtn}
+              disabled={!selectedRowIds.size}
+            >
+              Move Selected ↑
+            </button>
+
+            <button
+              onClick={() => void moveSelectedRows("down")}
+              style={styles.refreshBtn}
+              disabled={!selectedRowIds.size}
+            >
+              Move Selected ↓
             </button>
 
             <button onClick={() => void addRow()} style={styles.addBtn} disabled={adding}>
@@ -1797,6 +2099,18 @@ export default function PaymentSheetWithDate({ me }) {
           <table style={styles.table}>
             <thead>
               <tr>
+                <th style={{ ...styles.th, minWidth: "58px" }}>
+                  <input
+                    type="checkbox"
+                    checked={allVisibleRowsSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someVisibleRowsSelected;
+                    }}
+                    onChange={(e) => toggleAllVisibleRows(e.target.checked)}
+                    style={styles.checkbox}
+                    aria-label="Select all visible rows"
+                  />
+                </th>
                 <th style={{ ...styles.th, minWidth: "70px" }}>Sort</th>
                 <th style={{ ...styles.th, minWidth: "60px" }}>🎨</th>
 
@@ -1814,7 +2128,7 @@ export default function PaymentSheetWithDate({ me }) {
               {loading ? (
                 <tr>
                   <td colSpan={visibleColumnCount} style={styles.loading}>
-                    Loading payment sheet with date...
+                    Loading independent payment sheet...
                   </td>
                 </tr>
               ) : filteredItems.length === 0 ? (
@@ -1839,6 +2153,18 @@ export default function PaymentSheetWithDate({ me }) {
                       key={rowId ?? visibleIndex}
                       style={{ backgroundColor: row.rowColor || "#fff" }}
                     >
+                      <td style={{ ...styles.td, textAlign: "center" }}>
+                        <div style={styles.readCell}>
+                          <input
+                            type="checkbox"
+                            checked={selectedRowIds.has(rowId)}
+                            onChange={(e) => toggleRowSelection(rowId, e.target.checked)}
+                            style={styles.checkbox}
+                            aria-label={`Select row ${visibleIndex + 1}`}
+                          />
+                        </div>
+                      </td>
+
                       <td style={{ ...styles.td, textAlign: "center" }}>
                         <div
                           style={{

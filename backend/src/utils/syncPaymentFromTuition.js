@@ -7,29 +7,61 @@ function toNumberOrNull(value) {
   return Number.isFinite(num) ? num : null;
 }
 
+function toIntegerOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+
+  const match = String(value).match(/\d+/);
+  if (!match) return null;
+
+  const num = Number(match[0]);
+  return Number.isInteger(num) ? num : null;
+}
+
+function normalizeStatus(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function splitHalf(value) {
+  if (value === null || value === undefined) return null;
+
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+
+  return num / 2;
+}
+
 export async function syncPaymentFromTuition({ Payment, item }) {
-  const status = String(item.status || "").trim();
+  const normalizedStatus = normalizeStatus(item.status);
 
-  if (status !== "Tuition Done") return;
+  // sirf Tuition Done par payment sheet me create/update karo
+  if (normalizedStatus !== "tuition done") return;
 
-  const totalFees = toNumberOrNull(item.estimatedFee || item.totalFees);
-  const tutorShare = toNumberOrNull(item.tutorFee || item.tutorFees);
-  const lacasShare =
-    totalFees !== null && tutorShare !== null ? totalFees - tutorShare : null;
+  // Estimated Fee ko Total Fee maan lo
+  const totalFee = toNumberOrNull(
+    item.estimatedFee || item.totalFee || item.totalFees
+  );
+
+  // 50 / 50 split
+  const tutorFee = splitHalf(totalFee);
+  const lacasShare = splitHalf(totalFee);
 
   const payload = {
-    tuitionId: item.tuitionId,
-    paymentDate: item.date || item.demoDate || null,
+    tuitionId: item.tuitionId || "",
+    date: item.date || item.demoDate || null,
     tuitionName: item.tuitionName || "",
     country: item.country || "",
     className: item.className || item.class || "",
-    daysPerWeek: item.daysPerWeek || item.days_per_week || null,
+    daysPerWeek: toIntegerOrNull(item.daysPerWeek || item.days_per_week),
     tutorName: item.tutorName || "",
-    tutorShare,
+    tutorFee,
     lacasShare,
-    totalFees,
+    totalFee,
     feedback: item.feedback || "",
     otmName: item.otmName || item.source || "",
+    notes: item.notes || item.secondTutors || "",
   };
 
   const existing = await Payment.findOne({
