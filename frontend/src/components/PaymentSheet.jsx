@@ -2,31 +2,31 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/api.js";
 
 const LIVE_REFRESH_MS = 3000;
-const MIN_ZOOM = 70;
-const MAX_ZOOM = 150;
-const ZOOM_STEP = 10;
+const MIN_ZOOM = 30;
+const MAX_ZOOM = 200;
+const ZOOM_STEP = 20;
 const MAX_UNDO_STACK = 20;
 const DEFAULT_COLOR = "#ffffff";
 const FEEDBACK_BG = "#166534";
 const PRESET_COLORS = [
   "#ffffff",
-  "#fef3c7",
-  "#fee2e2",
-  "#dbeafe",
-  "#dcfce7",
-  "#ede9fe",
-  "#fce7f3",
-  "#e0f2fe",
-  "#fde68a",
-  "#fecaca",
+  "#a58b20",
+  "#9c0c0c",
+  "#0063e4",
+  "#08cf4e",
+  "#300eca",
+  "#b50c6c",
+  "#0a86d8",
+  "#d8b010",
+  "#d10d0d",
 ];
 
 
 const styles = {
   page: {
    
-    minHeight: "100vh",
-    overflowX: "hidden",
+    
+    overflowY: "hidden",
     overscrollBehaviorX: "none",
   },
   card: {
@@ -202,10 +202,9 @@ const styles = {
     borderRadius: "12px",
     border: "2px solid #000000",
     maxWidth: "100%",
-    maxHeight: "78vh",
     position: "relative",
     overscrollBehaviorX: "contain",
-    overscrollBehaviorY: "contain",
+  
     background: "#ffffff",
   },
   zoomedArea: {
@@ -215,7 +214,7 @@ const styles = {
     width: "100%",
     borderCollapse: "collapse",
     fontSize: "10px",
-    tableLayout: "fixed",
+    
   },
   th: {
     background: "#000000",

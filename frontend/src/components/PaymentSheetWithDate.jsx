@@ -91,10 +91,6 @@ const styles = {
     borderRadius: "12px",
     border: "2px solid #000000",
     maxWidth: "100%",
-    maxHeight: "78vh",
-    position: "relative",
-    overscrollBehaviorX: "contain",
-    overscrollBehaviorY: "contain",
     background: "#ffffff",
   },
   table: {
@@ -102,7 +98,6 @@ const styles = {
     borderCollapse: "collapse",
     minWidth: "1900px",
     fontSize: "12px",
-    tableLayout: "fixed",
     background: "#ffffff",
   },
   th: {
