@@ -24,24 +24,22 @@ const PRESET_COLORS = [
 
 const styles = {
   page: {
-    padding: "18px",
-    background: "#f5f6f8",
+   
     minHeight: "100vh",
     overflowX: "hidden",
     overscrollBehaviorX: "none",
   },
   card: {
-    background: "#ffffff",
-    borderRadius: "16px",
-    boxShadow: "0 8px 24px rgba(0,0,0,0.06)",
-    padding: "18px",
-    border: "2px solid #000000",
+  
+  
+    padding: "10px",
+   
   },
   headerRow: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: "14px",
+    gap: "10px",
     marginBottom: "14px",
     flexWrap: "wrap",
   },
@@ -130,7 +128,7 @@ const styles = {
     fontSize: "13px",
   },
   dangerToolBtn: {
-    background: "#7f1d1d",
+    background: "#b00101",
     color: "#ffffff",
     border: "1.5px solid #000000",
     borderRadius: "10px",
@@ -216,8 +214,7 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "3200px",
-    fontSize: "13px",
+    fontSize: "10px",
     tableLayout: "fixed",
   },
   th: {
@@ -238,9 +235,11 @@ const styles = {
     borderRight: "1.5px solid #000000",
     padding: "0",
     textAlign: "center",
-    height: "48px",
+    height: "38px",
+    width:"42px",
     verticalAlign: "middle",
     background: "#fff",
+  
   },
   input: {
     width: "100%",
@@ -248,7 +247,7 @@ const styles = {
     border: "none",
     outline: "none",
     padding: "10px 12px",
-    fontSize: "13px",
+    fontSize: "12px",
     background: "transparent",
     boxSizing: "border-box",
     textAlign: "center",
@@ -282,7 +281,7 @@ const styles = {
     fontWeight: "600",
   },
   deleteBtn: {
-    background: "#7f1d1d",
+    background: "#b10000",
     color: "#ffffff",
     border: "1.5px solid #000000",
     borderRadius: "8px",
@@ -515,7 +514,7 @@ function StatusPill({ value }) {
         padding: "6px 10px",
         borderRadius: "999px",
         fontSize: "12px",
-        fontWeight: "700",
+        fontWeight: "500",
         display: "inline-block",
         whiteSpace: "nowrap",
       }}
@@ -700,7 +699,7 @@ const gridColumns = useMemo(() => {
       label: "Date",
       field: "paymentDate",
       editable: true,
-      width: 120,
+      width: '12px',
       type: "date",
       align: "left",
     },
@@ -709,7 +708,7 @@ const gridColumns = useMemo(() => {
       label: "Tuition Name",
       field: "tuitionName",
       editable: true,
-      width: 180,
+      width: 10,
       align: "left",
     },
     {
@@ -828,83 +827,6 @@ const gridColumns = useMemo(() => {
       width: 140,
       align: "left",
     },
-    {
-      id: "syncFlag",
-      label: "Sync Flag",
-      field: "syncFlag",
-      editable: true,
-      width: 110,
-      kind: "select",
-      options: booleanOptions,
-      align: "center",
-      valueType: "boolean",
-    },
-    {
-      id: "assignedStaffId",
-      label: "Assigned Staff Id",
-      field: "assignedStaffId",
-      editable: true,
-      width: 150,
-      type: "number",
-      align: "left",
-    },
-    {
-      id: "isDeleted",
-      label: "Is Deleted",
-      field: "isDeleted",
-      editable: true,
-      width: 110,
-      kind: "select",
-      options: booleanOptions,
-      align: "center",
-      valueType: "boolean",
-    },
-    {
-      id: "deletedFromTodayDemo",
-      label: "Deleted From TodayDemo",
-      field: "deletedFromTodayDemo",
-      editable: true,
-      width: 190,
-      kind: "select",
-      options: booleanOptions,
-      align: "center",
-      valueType: "boolean",
-    },
-    {
-      id: "assignedTo",
-      label: "Assigned To",
-      field: "assignedTo",
-      editable: true,
-      width: 150,
-      align: "left",
-    },
-    {
-      id: "orderIndex",
-      label: "Order Index",
-      field: "orderIndex",
-      editable: true,
-      width: 120,
-      type: "number",
-      align: "left",
-    },
-    {
-      id: "rowColor",
-      label: "Row Color",
-      field: "rowColor",
-      editable: true,
-      width: 130,
-      kind: "color",
-      align: "center",
-    },
-    {
-      id: "tuitionNameColor",
-      label: "Tuition Name Color",
-      field: "tuitionNameColor",
-      editable: true,
-      width: 160,
-      kind: "color",
-      align: "center",
-    }
   );
 
   return cols;

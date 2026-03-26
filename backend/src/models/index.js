@@ -10,7 +10,7 @@ export function initModels(sequelize) {
   const Tuition = defineTuition(sequelize);
   const Payment = definePayment(sequelize);
   const PaymentClone = definePaymentClone(sequelize);
-  const Target = defineTodayDemo(sequelize);
+  const TodayDemo = defineTodayDemo(sequelize);
   const UserPresence = defineUserPresence(sequelize);
 
   return {
@@ -18,7 +18,8 @@ export function initModels(sequelize) {
     Tuition,
     Payment,
     PaymentClone,
-    Target,
+    TodayDemo,
+    Target: TodayDemo, // backward compatibility
     UserPresence,
   };
 }

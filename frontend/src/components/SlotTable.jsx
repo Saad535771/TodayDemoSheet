@@ -6,7 +6,7 @@ const styles = {
     background: "#ffffff",
     borderRadius: "16px",
     boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
-    overflow: "hidden",
+
     marginBottom: "24px",
     border: "1px solid #eef0f3",
     fontFamily: "'Calibri', sans-serif",
@@ -2043,7 +2043,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
             <span
               style={{
                 flex: 1,
-                overflow: "hidden",
+              
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
               }}

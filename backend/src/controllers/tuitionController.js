@@ -2,7 +2,10 @@ import { validationResult } from "express-validator";
 import { parseHourFromValue } from "../utils/time.js";
 import { Op } from "sequelize";
 import { syncPaymentFromTuition } from "../utils/syncPaymentFromTuition.js";
-
+import {
+  upsertTodayDemoFromTuition,
+  removeTodayDemoByTuitionId,
+} from "../utils/syncTodayDemoFromTuition.js";
 const PRESERVE_IF_EMPTY = new Set(["status", "satisfactionRating", "demoRating"]);
 
 function normalizeTuitionId(v) {
@@ -20,7 +23,7 @@ function normalizeDate(v) {
   return s;
 }
 
-export function makeTuitionController({ Tuition, Payment }) {
+export function makeTuitionController({ Tuition,TodayDemo, Payment }) {
   return {
     async list(req, res) {
       const q = (req.query.q || "").toString().trim();
@@ -143,7 +146,10 @@ export function makeTuitionController({ Tuition, Payment }) {
           isDeleted: 0,
           orderIndex: 0
         });
-
+await upsertTodayDemoFromTuition({
+  TodayDemo,
+  item: item.toJSON(),
+});
         if (item.status === "Tuition Done") {
           await syncPaymentFromTuition({
             Payment,
@@ -198,40 +204,42 @@ export function makeTuitionController({ Tuition, Payment }) {
 
         for (const [incoming, field] of Object.entries(map)) {
           if (body[incoming] === undefined) continue;
-
           let v = body[incoming];
           if (field === "date" || field === "demoDate") v = normalizeDate(v);
-
           const isEmpty = v === "" || v === null;
           if (preserveEmpty && isEmpty && PRESERVE_IF_EMPTY.has(field)) continue;
-
           item[field] = isEmpty ? null : v;
         }
-
         await item.save();
-
+await upsertTodayDemoFromTuition({
+  TodayDemo,
+  item: item.toJSON(),
+});
         await syncPaymentFromTuition({
           Payment,
           item: item.toJSON()
         });
-
         res.json({ item });
       } catch (error) {
         console.error("TUITION UPDATE ERROR:", error);
         res.status(500).json({ message: "Update failed", error: error.message });
       }
     },
-
-    async remove(req, res) {
-      const tuitionId = normalizeTuitionId(req.params.tuitionId);
-      const result = await Tuition.update(
-        { isDeleted: 1 },
-        { where: { tuitionId } }
-      );
-      if (result[0] === 0) return res.status(404).json({ message: "Not found" });
-      res.json({ ok: true, message: "Moved to Recycle Bin" });
-    },
-
+   async remove(req, res) {
+  const tuitionId = normalizeTuitionId(req.params.tuitionId);
+  const result = await Tuition.update(
+    { isDeleted: 1 },
+    { where: { tuitionId } }
+  );
+  if (result[0] === 0) {
+    return res.status(404).json({ message: "Not found" });
+  }
+  await removeTodayDemoByTuitionId({
+    TodayDemo,
+    tuitionId,
+  });
+  res.json({ ok: true, message: "Moved to Recycle Bin" });
+},
     async getTrash(req, res) {
       const items = await Tuition.findAll({
         where: { isDeleted: 1 },
@@ -239,13 +247,18 @@ export function makeTuitionController({ Tuition, Payment }) {
       });
       res.json(items);
     },
-
     async restore(req, res) {
-      const { id } = req.params;
-      await Tuition.update({ isDeleted: 0 }, { where: { id } });
-      res.json({ success: true, message: "Restored successfully" });
-    },
-
+  const { id } = req.params;
+  await Tuition.update({ isDeleted: 0 }, { where: { id } });
+  const item = await Tuition.findByPk(id);
+  if (item) {
+    await upsertTodayDemoFromTuition({
+      TodayDemo,
+      item: item.toJSON(),
+    });
+  }
+  res.json({ success: true, message: "Restored successfully" });
+},
     async forceDelete(req, res) {
       if (req.user.role !== "admin") {
         return res.status(403).json({ message: "Only Admin can delete permanently" });
@@ -254,7 +267,6 @@ export function makeTuitionController({ Tuition, Payment }) {
       await Tuition.destroy({ where: { id } });
       res.json({ success: true, message: "Permanently deleted" });
     },
-
     async assignStaff(req, res) {
       if (req.user.role !== "admin") return res.status(403).json({ message: "Access denied" });
       const { tuitionIds, staffId } = req.body;
@@ -268,13 +280,11 @@ export function makeTuitionController({ Tuition, Payment }) {
         res.status(500).json({ message: "Error assigning staff" });
       }
     },
-
     async reorder(req, res) {
       const { items } = req.body;
       if (!items || !Array.isArray(items)) {
         return res.status(400).json({ message: "Invalid payload format" });
       }
-
       try {
         await Promise.all(
           items.map(async (item) => {

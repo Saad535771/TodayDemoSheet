@@ -7,7 +7,7 @@
 
 
 
-monthly sheet mae previous tab disable ho jy 
+all sheets mae previous tab disable ho jy 
 
 ***************************************************
 payment mae 2no portion
