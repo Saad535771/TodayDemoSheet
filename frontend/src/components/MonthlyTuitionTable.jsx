@@ -268,7 +268,19 @@ const getSourceStyle = (source) => {
       return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
   }
 };
+const getFeedbackStyle = (feedback) => {
+  const value = String(feedback || "").trim();
 
+  if (!value) {
+    return { backgroundColor: "white", color: "inherit", border: "1px solid #c8c6c4" };
+  }
+
+  if (/\bsatisfied\b/i.test(value)) {
+    return { backgroundColor: "#22c55e", color: "white", border: "1px solid #22c55e" };
+  }
+
+  return { backgroundColor: "white", color: "inherit", border: "1px solid #c8c6c4" };
+};
 const ColorSwatch = ({
   color = "#ffffff",
   onChange,
@@ -431,10 +443,8 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const inputRef = useRef(null);
   const shouldSelectAllOnFocusRef = useRef(true);
   const moveCaretToEndOnFocusRef = useRef(false);
-
   const isMouseSelectingRef = useRef(false);
   const dragAnchorCellRef = useRef(null);
-
   const undoStackRef = useRef([]);
   const isUndoRunningRef = useRef(false);
   const HORIZONTAL_TRACKPAD_MULTIPLIER = -1;
@@ -460,25 +470,20 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     document.addEventListener("mouseup", stopMouseSelection);
     return () => document.removeEventListener("mouseup", stopMouseSelection);
   }, []);
-
   useEffect(() => {
     const wrapper = tableWrapperRef.current;
     if (!wrapper) return;
-
     const handleTrackpadHorizontalScroll = (e) => {
       const horizontalIntent = Math.abs(e.deltaX) > 0 && Math.abs(e.deltaX) >= Math.abs(e.deltaY);
       if (!horizontalIntent) return;
-
       e.preventDefault();
       wrapper.scrollRight += e.deltaX * HORIZONTAL_TRACKPAD_MULTIPLIER;
     };
-
     wrapper.addEventListener("wheel", handleTrackpadHorizontalScroll, { passive: false });
     return () => {
       wrapper.removeEventListener("wheel", handleTrackpadHorizontalScroll);
     };
   }, [HORIZONTAL_TRACKPAD_MULTIPLIER]);
-
   useEffect(() => {
     setLocalItems(items);
     setSelectedRows(new Set());
@@ -507,7 +512,6 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       setSelectedCells(new Set());
       return;
     }
-
     if (!selectedCell || selectedCell.rowIndex >= localItems.length) {
       const first = { rowIndex: 0, colId: firstEditableColumnId };
       setSelectedCell(first);
@@ -515,17 +519,13 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       setSelectedCells(new Set([getCellKey(0, firstEditableColumnId)]));
     }
   }, [localItems.length, selectedCell]);
-
   useEffect(() => {
     if (!editingCell || !inputRef.current) return;
-
     const node = inputRef.current;
     const col = gridColumnMap[editingCell.colId];
     const tagName = String(node.tagName || "").toLowerCase();
     const inputType = String(node.type || "").toLowerCase();
-
     node.focus();
-
     const supportsSelectionRange =
       tagName === "textarea" ||
       (tagName === "input" &&

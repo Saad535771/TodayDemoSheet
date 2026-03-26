@@ -601,26 +601,32 @@ function toNullableNumberInput(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-function buildHalfSplitValues(value) {
-  const total = toNullableNumberInput(value);
+function roundMoney(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) return null;
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function buildFeeValues(totalValue, tutorValue) {
+  const total = toNullableNumberInput(totalValue);
+  const tutor = toNullableNumberInput(tutorValue);
+
   if (total === null) {
     return {
       totalFee: null,
       totalFees: null,
-      tutorFee: null,
-      tutorShare: null,
       lacasShare: null,
     };
   }
 
-  const half = Math.round(((total / 2) + Number.EPSILON) * 100) / 100;
+  const safeTutor = tutor ?? 0;
+  const lacas = roundMoney(total - safeTutor);
 
   return {
     totalFee: total,
     totalFees: total,
-    tutorFee: half,
-    tutorShare: half,
-    lacasShare: half,
+    tutorFee: tutor,
+    tutorShare: tutor,
+    lacasShare: lacas,
   };
 }
 
@@ -1352,46 +1358,53 @@ const focusCell = (rowIndex, colId) => {
     return raw ?? "";
   };
 
-  const buildPatchForColumn = (colId, value) => {
-    const col = gridColumnMap[colId];
-    if (!col?.field) return {};
+ const buildPatchForColumn = (row, colId, value) => {
+  const col = gridColumnMap[colId];
+  if (!col?.field) return {};
 
-    if (colId === "paymentDate") {
-      return { paymentDate: value, date: value };
-    }
+  if (colId === "paymentDate") {
+    return { paymentDate: value, date: value };
+  }
 
-    if (colId === "totalFees") {
-      return buildHalfSplitValues(value);
-    }
+  if (colId === "totalFees") {
+    const currentTutor = toNullableNumberInput(row?.tutorShare ?? row?.tutorFee);
+    return buildFeeValues(value, currentTutor);
+  }
 
-    if (colId === "tutorShare") {
-      const amount = toNullableNumberInput(value);
-      return {
-        tutorShare: amount,
-        tutorFee: amount,
-      };
-    }
+  if (colId === "tutorShare") {
+    const tutorAmount = toNullableNumberInput(value);
+    const currentTotal = toNullableNumberInput(row?.totalFees ?? row?.totalFee);
 
-    if (colId === "lacasShare") {
-      return {
-        lacasShare: toNullableNumberInput(value),
-      };
-    }
+    return {
+      tutorShare: tutorAmount,
+      tutorFee: tutorAmount,
+      lacasShare:
+        currentTotal === null || tutorAmount === null
+          ? null
+          : roundMoney(currentTotal - tutorAmount),
+    };
+  }
 
-    if (col.valueType === "boolean") {
-      return { [col.field]: value === "1" };
-    }
+  if (colId === "lacasShare") {
+    return {
+      lacasShare: toNullableNumberInput(value),
+    };
+  }
 
-    if (col.kind === "color") {
-      return { [col.field]: safeColor(value, "#ffffff") };
-    }
+  if (col.valueType === "boolean") {
+    return { [col.field]: value === "1" };
+  }
 
-    if (col.type === "number") {
-      return { [col.field]: toNullableNumberInput(value) };
-    }
+  if (col.kind === "color") {
+    return { [col.field]: safeColor(value, "#ffffff") };
+  }
 
-    return { [col.field]: value };
-  };
+  if (col.type === "number") {
+    return { [col.field]: toNullableNumberInput(value) };
+  }
+
+  return { [col.field]: value };
+};
 
   const setEditingState = (cell, value, options = {}) => {
     const { selectAll = true, moveCaretToEnd = false } = options;
@@ -1493,7 +1506,7 @@ const focusCell = (rowIndex, colId) => {
     const oldValue = String(currentRawValue ?? "");
 
     if (newValue !== oldValue) {
-      const patch = buildPatchForColumn(colId, newValue);
+     const patch = buildPatchForColumn(row, colId, newValue);
       if (Object.keys(patch).length > 0) {
         await updateRowFields(row, patch);
       }

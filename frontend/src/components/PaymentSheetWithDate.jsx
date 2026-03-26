@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/api.js";
 
 const LIVE_REFRESH_MS = 3000;
+const MIN_ZOOM = 0.7;
+const MAX_ZOOM = 1.5;
+const ZOOM_STEP = 0.1;
 
 const styles = {
   page: {
@@ -43,6 +46,39 @@ const styles = {
     alignItems: "center",
     gap: "10px",
     flexWrap: "wrap",
+  },
+  zoomControls: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+  zoomBtn: {
+    width: "42px",
+    height: "42px",
+    borderRadius: "10px",
+    border: "1.5px solid #000000",
+    background: "#ffffff",
+    color: "#111111",
+    cursor: "pointer",
+    fontWeight: "700",
+    fontSize: "18px",
+    lineHeight: 1,
+  },
+  zoomValue: {
+    minWidth: "72px",
+    height: "42px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "1.5px solid #000000",
+    borderRadius: "10px",
+    padding: "0 12px",
+    fontSize: "13px",
+    fontWeight: "700",
+    color: "#111111",
+    background: "#ffffff",
+    boxSizing: "border-box",
   },
   searchInput: {
     minWidth: "300px",
@@ -92,6 +128,9 @@ const styles = {
     border: "2px solid #000000",
     maxWidth: "100%",
     background: "#ffffff",
+  },
+  tableZoomWrap: {
+    transformOrigin: "top left",
   },
   table: {
     width: "100%",
@@ -316,33 +355,33 @@ function getStatusStyle(status) {
   switch ((status || "").trim()) {
     case "Fees Receive":
       return {
-        background: "#dcfce7",
-        color: "#166534",
-        border: "1px solid #86efac",
+        background: "#166534",
+        color: "#ffffff",
+        border: "1px solid #14532d",
       };
     case "Fee Pending":
       return {
-        background: "#fef3c7",
-        color: "#92400e",
-        border: "1px solid #fcd34d",
+        background: "#92400e",
+        color: "#ffffff",
+        border: "1px solid #78350f",
       };
     case "Tuition Close":
       return {
-        background: "#dbeafe",
-        color: "#1d4ed8",
-        border: "1px solid #93c5fd",
+        background: "#1d4ed8",
+        color: "#ffffff",
+        border: "1px solid #1e40af",
       };
     case "Tuition Pending":
       return {
-        background: "#fee2e2",
-        color: "#b91c1c",
-        border: "1px solid #fca5a5",
+        background: "#b91c1c",
+        color: "#ffffff",
+        border: "1px solid #991b1b",
       };
     default:
       return {
-        background: "#f8fafc",
-        color: "#475569",
-        border: "1px solid #e2e8f0",
+        background: "#475569",
+        color: "#ffffff",
+        border: "1px solid #334155",
       };
   }
 }
@@ -574,6 +613,7 @@ export default function PaymentSheetWithDate({ me }) {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState("");
+  const [zoomLevel, setZoomLevel] = useState(1);
   const [selectedRowIds, setSelectedRowIds] = useState(new Set());
 
   const [selectedCell, setSelectedCell] = useState(null);
@@ -606,15 +646,24 @@ export default function PaymentSheetWithDate({ me }) {
   const canSeeTotalFees =
     me?.role === "admin" || me?.role === "hod" || !!me?.access_total_fees;
 
+  const zoomPercent = `${Math.round(zoomLevel * 100)}%`;
+
+  const changeZoom = (direction) => {
+    setZoomLevel((prev) => {
+      const next =
+        direction === "in" ? prev + ZOOM_STEP : direction === "out" ? prev - ZOOM_STEP : prev;
+      return Number(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next)).toFixed(2));
+    });
+  };
+
   const gridColumns = useMemo(() => {
     const cols = [
       {
-        id: "paymentDate",
-        label: "Date",
-        field: "paymentDate",
+        id: "dateWithMonth",
+        label: "Date With Month",
+        field: "dateWithMonth",
         editable: true,
-        width: 120,
-        type: "date",
+        width: 160,
         align: "left",
       },
       {
@@ -715,22 +764,8 @@ export default function PaymentSheetWithDate({ me }) {
         width: 150,
         align: "left",
       },
-      {
-        id: "dateWithMonth",
-        label: "Date With Month",
-        field: "dateWithMonth",
-        editable: true,
-        width: 160,
-        align: "left",
-      },
-      {
-        id: "tuitionId",
-        label: "Tuition Id",
-        field: "tuitionId",
-        editable: true,
-        width: 140,
-        align: "left",
-      }
+      
+     
     );
 
     return cols;
@@ -883,6 +918,13 @@ export default function PaymentSheetWithDate({ me }) {
     try {
       setAdding(true);
 
+      const nextOrderIndex =
+        itemsRef.current.reduce((max, item, index) => {
+          const currentOrder =
+            typeof item?.orderIndex === "number" ? item.orderIndex : index;
+          return Math.max(max, currentOrder);
+        }, -1) + 1;
+
       const newRow = {
         tuitionId: `manual-${Date.now()}`,
         paymentDate: "",
@@ -902,7 +944,7 @@ export default function PaymentSheetWithDate({ me }) {
         isDeleted: false,
         deletedFromTodayDemo: false,
         assignedTo: "",
-        orderIndex: 0,
+        orderIndex: nextOrderIndex,
         rowColor: "",
         tuitionNameColor: "",
       };
@@ -911,7 +953,16 @@ export default function PaymentSheetWithDate({ me }) {
       const created = res.data?.item || res.data;
 
       if (created && getRowId(created) !== undefined) {
-        setItems((prev) => [...prev, created]);
+        setItems((prev) => [
+          ...prev,
+          {
+            ...created,
+            orderIndex:
+              typeof created?.orderIndex === "number"
+                ? created.orderIndex
+                : nextOrderIndex,
+          },
+        ]);
       } else {
         await loadRows({ silent: true });
       }
@@ -2056,6 +2107,32 @@ export default function PaymentSheetWithDate({ me }) {
           <div style={styles.actions}>
             <div style={styles.liveBadge}>● Independent CRUD</div>
 
+            <div style={styles.zoomControls}>
+              <button
+                type="button"
+                onClick={() => changeZoom("out")}
+                style={styles.zoomBtn}
+                disabled={zoomLevel <= MIN_ZOOM}
+                title="Zoom out"
+                aria-label="Zoom out"
+              >
+                -
+              </button>
+
+              <div style={styles.zoomValue}>{zoomPercent}</div>
+
+              <button
+                type="button"
+                onClick={() => changeZoom("in")}
+                style={styles.zoomBtn}
+                disabled={zoomLevel >= MAX_ZOOM}
+                title="Zoom in"
+                aria-label="Zoom in"
+              >
+                +
+              </button>
+            </div>
+
             <input
               type="text"
               placeholder="Search by date, tuition name, country, tutor, status..."
@@ -2091,8 +2168,9 @@ export default function PaymentSheetWithDate({ me }) {
         </div>
 
         <div style={styles.tableWrapper} ref={tableWrapperRef}>
-          <table style={styles.table}>
-            <thead>
+          <div style={{ ...styles.tableZoomWrap, zoom: zoomLevel }}>
+            <table style={styles.table}>
+              <thead>
               <tr>
                 <th style={{ ...styles.th, minWidth: "58px" }}>
                   <input
@@ -2231,7 +2309,8 @@ export default function PaymentSheetWithDate({ me }) {
                 })
               )}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
       </div>
     </div>

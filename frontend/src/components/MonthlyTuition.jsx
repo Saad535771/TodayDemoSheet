@@ -3,14 +3,6 @@ import { createPortal } from "react-dom";
 import { api } from "../api/api.js";
 
 const styles = {
-  card: {
-    background: "#ffffff",
-    borderRadius: "16px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
-    padding: "24px",
-    marginBottom: "24px",
-    border: "1px solid #eef0f3",
-  },
   summaryBtn: {
     cursor: "pointer",
     fontWeight: "700",
@@ -21,9 +13,27 @@ const styles = {
     listStyle: "none",
     fontSize: "16px",
   },
+  card: {
+    background: "#ffffff",
+    borderRadius: "16px",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
+    padding: "24px",
+    marginBottom: "24px",
+    border: "1px solid #eef0f3",
+    width: "100%",
+    minWidth: 0,
+  },
   singleLineForm: {
     display: "flex",
     overflowX: "auto",
+    overflowY: "hidden",
+    flexWrap: "nowrap",
+    width: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
+    WebkitOverflowScrolling: "touch",
+    overscrollBehaviorX: "contain",
+    scrollBehavior: "smooth",
     gap: "0px",
     marginTop: "16px",
     padding: "10px",
@@ -31,6 +41,10 @@ const styles = {
     border: "1px solid #c8c6c4",
     borderRadius: "4px",
     alignItems: "flex-end",
+  },
+  fieldWrap: {
+    position: "relative",
+    flex: "0 0 auto",
   },
   createInput: {
     width: "100%",
@@ -61,9 +75,6 @@ const styles = {
     minWidth: "100px",
     height: "34px",
     whiteSpace: "nowrap",
-  },
-  fieldWrap: {
-    position: "relative",
   },
   label: {
     fontSize: 11,
@@ -125,7 +136,6 @@ const statusList = [
   "Pending",
 ];
 
-// --- COLOR LOGIC FUNCTIONS ---
 const getStatusStyle = (status) => {
   switch (status) {
     case "1st Demo Done":
@@ -178,6 +188,7 @@ const getSourceStyle = (source) => {
 function generateTuitionId() {
   return `T-${Math.floor(1000 + Math.random() * 9000)}`;
 }
+
 function emptyForm() {
   return {
     tuitionId: generateTuitionId(),
@@ -186,9 +197,9 @@ function emptyForm() {
     demoTime: "",
     tuitionName: "",
     source: "",
-    otmName: "",
-    country: "",
     parentsContact: "",
+    country: "",
+    otmName: "",
     className: "",
     subjects: "",
     daysPerWeek: "",
@@ -212,6 +223,7 @@ function formatTo12Hour(value) {
     .toUpperCase()
     .replace(/\./g, "")
     .replace(/\s+/g, " ");
+
   let match = raw.match(/^(\d{1,2}):(\d{2})$/);
   if (match) {
     let hours = Number(match[1]);
@@ -221,6 +233,7 @@ function formatTo12Hour(value) {
     hours = hours % 12 || 12;
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${ampm}`;
   }
+
   match = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/);
   if (match) {
     const hours = Number(match[1]);
@@ -229,10 +242,13 @@ function formatTo12Hour(value) {
     if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) return value;
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${ampm}`;
   }
+
   return value;
 }
+
 function to24Hour(value) {
   if (!value) return "";
+
   const raw = String(value)
     .trim()
     .toUpperCase()
@@ -246,16 +262,20 @@ function to24Hour(value) {
     if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return "";
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
   }
+
   match = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/);
   if (!match) return "";
+
   let hours = Number(match[1]);
   const minutes = Number(match[2] || "00");
   const ampm = match[3];
+
   if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) return "";
+
   if (ampm === "AM") {
     if (hours === 12) hours = 0;
-  } else {
-    if (hours !== 12) hours += 12;
+  } else if (hours !== 12) {
+    hours += 12;
   }
 
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
@@ -266,7 +286,7 @@ function openNativePicker(el) {
   try {
     el.showPicker();
   } catch {
-    // silently ignore unsupported browsers
+    // ignore unsupported browsers
   }
 }
 
@@ -287,9 +307,9 @@ export default function MonthlyTuition({ onLoad }) {
     "demoTime",
     "tuitionName",
     "source",
-    "otmName",
-    "country",
     "parentsContact",
+    "country",
+    "otmName",
     "className",
     "subjects",
     "daysPerWeek",
@@ -316,9 +336,7 @@ export default function MonthlyTuition({ onLoad }) {
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    requestAnimationFrame(() => {
-      focusField("tuitionId");
-    });
+    requestAnimationFrame(() => focusField("tuitionId"));
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -366,8 +384,7 @@ export default function MonthlyTuition({ onLoad }) {
     const nextIndex = currentIndex + direction;
     if (nextIndex < 0 || nextIndex >= fieldOrder.length) return;
 
-    const nextField = fieldOrder[nextIndex];
-    focusField(nextField);
+    focusField(fieldOrder[nextIndex]);
   }
 
   function handleTextLikeKeyDown(fieldName, e) {
@@ -607,17 +624,17 @@ export default function MonthlyTuition({ onLoad }) {
         />
 
         <CreateField
-          label="OTM Name"
-          val={form.otmName}
-          onChange={(v) => setCreateField("otmName", v)}
+          label="Parent Contact"
+          val={form.parentsContact}
+          onChange={(v) => setCreateField("parentsContact", v)}
           width="120px"
-          inputRef={(el) => (fieldRefs.current.otmName = el)}
+          inputRef={(el) => (fieldRefs.current.parentsContact = el)}
           onFocus={() => {
-            setFocusedField("otmName");
+            setFocusedField("parentsContact");
             setOpenDropdown(null);
           }}
-          onKeyDown={(e) => handleTextLikeKeyDown("otmName", e)}
-          inputStyle={getInputStyle("otmName")}
+          onKeyDown={(e) => handleTextLikeKeyDown("parentsContact", e)}
+          inputStyle={getInputStyle("parentsContact")}
         />
 
         <CreateField
@@ -635,17 +652,17 @@ export default function MonthlyTuition({ onLoad }) {
         />
 
         <CreateField
-          label="Parent Contact"
-          val={form.parentsContact}
-          onChange={(v) => setCreateField("parentsContact", v)}
+          label="OTM Name"
+          val={form.otmName}
+          onChange={(v) => setCreateField("otmName", v)}
           width="120px"
-          inputRef={(el) => (fieldRefs.current.parentsContact = el)}
+          inputRef={(el) => (fieldRefs.current.otmName = el)}
           onFocus={() => {
-            setFocusedField("parentsContact");
+            setFocusedField("otmName");
             setOpenDropdown(null);
           }}
-          onKeyDown={(e) => handleTextLikeKeyDown("parentsContact", e)}
-          inputStyle={getInputStyle("parentsContact")}
+          onKeyDown={(e) => handleTextLikeKeyDown("otmName", e)}
+          inputStyle={getInputStyle("otmName")}
         />
 
         <CreateField
@@ -970,7 +987,6 @@ function DropdownField({
     <>
       <div style={{ ...styles.fieldWrap, minWidth: width }}>
         <label style={styles.label}>{label}</label>
-
         <div
           ref={handleTriggerRef}
           tabIndex={0}
