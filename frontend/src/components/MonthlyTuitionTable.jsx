@@ -15,6 +15,8 @@ const styles = {
     overflowX: "auto",
     height: "100%",
     marginTop: "0px",
+    overscrollBehaviorX: "contain",
+    WebkitOverflowScrolling: "touch",
   },
   table: { width: "100%", height: "100%", fontSize: "12px" },
   th: {
@@ -152,22 +154,22 @@ const gridColumns = [
   { id: "date", label: "Date", width: 130, editable: true, field: "date", type: "date" },
   { id: "demoTime", label: "Demo Time", width: 110, editable: true, field: "demoTime", type: "time" },
   { id: "tuitionName", label: "Tuition Name", width: 180, editable: true, field: "tuitionName", kind: "tuitionName" },
-  { id: "status", label: "Status", width: 140, editable: true, field: "status", kind: "select", options: statusList, pill: "status" },
+  { id: "status", label: "Status", width: 220, editable: true, field: "status", kind: "select", options: statusList, pill: "status" },
   { id: "estimatedFee", label: "Estimated Fee", width: 120, editable: true, field: "estimatedFee" },
   { id: "tutorName", label: "Tutor Name", width: 160, editable: true, field: "tutorName" },
   { id: "tutorFees", label: "Tutor Fees", width: 120, editable: true, field: "tutorFees" },
   { id: "rejectedTutor", label: "Rejected Tutor", width: 140, editable: true, field: "rejectedTutor" },
   { id: "feedback", label: "Feedback", width: 200, editable: true, field: "feedback" },
   { id: "country", label: "Country", width: 100, editable: true, field: "country" },
-  { id: "parentsContact", label: "Parent Contact", width: 140, editable: true, field: "parentsContact" },
+  { id: "otmName", label: "OTM Name", width: 120, editable: true, field: "otmName" },
   { id: "className", label: "Class", width: 100, editable: true, field: "className" },
   { id: "subjects", label: "Subject", width: 140, editable: true, field: "subjects" },
   { id: "daysPerWeek", label: "Days per week", width: 100, editable: true, field: "daysPerWeek" },
   { id: "source", label: "Source", width: 120, editable: true, field: "source", kind: "select", options: sourcesList, pill: "source" },
   { id: "demoDate", label: "Demo Date", width: 120, editable: true, field: "demoDate", type: "date" },
-  { id: "tuitionId", label: "Tuition Id", width: 100, editable: false, field: "tuitionId", kind: "readonly" },
-  { id: "otmName", label: "OTM Name", width: 120, editable: true, field: "otmName" },
+  { id: "parentsContact", label: "Parent Contact", width: 140, editable: true, field: "parentsContact" },
   { id: "demoRating", label: "Demo Rating", width: 140, editable: true, field: "demoRating", kind: "select", options: demoRatings, pill: "demoRating" },
+  { id: "tuitionId", label: "Tuition Id", width: 100, editable: false, field: "tuitionId", kind: "readonly" },
   { id: "sync", label: "Sync", width: 80, editable: true, field: "sync" },
 ];
 
@@ -201,22 +203,112 @@ function format12Hour(time24) {
   return `${hours}:${minutes} ${ampm}`;
 }
 
-const renderPill = (val, styleFn) => {
+const normalizeMultiValue = (value) => {
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((entry) => String(entry || "").trim()).filter(Boolean))];
+  }
+
+  if (value == null) return [];
+
+  const raw = String(value).trim();
+  if (!raw) return [];
+
+  if (raw.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return [
+          ...new Set(parsed.map((entry) => String(entry || "").trim()).filter(Boolean)),
+        ];
+      }
+    } catch (err) {}
+  }
+
+  return [...new Set(raw.split(",").map((entry) => entry.trim()).filter(Boolean))];
+};
+
+const serializeMultiValue = (value) => normalizeMultiValue(value).join(", ");
+
+const renderPill = (val, styleFn, options = {}) => {
   if (!val) return "";
+  const {
+    compact = false,
+    closable = false,
+    onRemove = null,
+  } = options;
   const style = styleFn(val);
+
   return (
     <span
       style={{
-        padding: "4px 10px",
-        borderRadius: "12px",
-        fontSize: "12px",
+        padding: compact ? "2px 8px" : "4px 10px",
+        borderRadius: "999px",
+        fontSize: compact ? "11px" : "12px",
         fontWeight: "bold",
-        display: "inline-block",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "6px",
+        lineHeight: 1.2,
+        whiteSpace: "nowrap",
         ...style,
       }}
     >
-      {val}
+      <span>{val}</span>
+
+      {closable && (
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onRemove?.(val);
+          }}
+          style={{
+            border: "none",
+            background: "transparent",
+            padding: 0,
+            margin: 0,
+            cursor: "pointer",
+            color: "inherit",
+            fontSize: compact ? "11px" : "12px",
+            lineHeight: 1,
+          }}
+          aria-label={`Remove ${val}`}
+          title={`Remove ${val}`}
+        >
+          ×
+        </button>
+      )}
     </span>
+  );
+};
+
+const renderPillGroup = (value, styleFn, options = {}) => {
+  const items = normalizeMultiValue(value);
+
+  if (!items.length) return "";
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "4px",
+        flexWrap: "wrap",
+        width: "100%",
+      }}
+    >
+      {items.map((entry) => (
+        <React.Fragment key={entry}>
+          {renderPill(entry, styleFn, options)}
+        </React.Fragment>
+      ))}
+    </div>
   );
 };
 
@@ -433,6 +525,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const [selectedCells, setSelectedCells] = useState(new Set());
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState("");
+  const [statusEditorSearch, setStatusEditorSearch] = useState("");
 
   const [activeColorPicker, setActiveColorPicker] = useState(null);
 
@@ -447,7 +540,8 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const dragAnchorCellRef = useRef(null);
   const undoStackRef = useRef([]);
   const isUndoRunningRef = useRef(false);
-  const HORIZONTAL_TRACKPAD_MULTIPLIER = -1;
+  const recordSaveQueueRef = useRef(new Map());
+  const HORIZONTAL_TRACKPAD_MULTIPLIER = 1;
 
   useEffect(() => {
     localItemsRef.current = localItems;
@@ -462,6 +556,12 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   }, [editValue]);
 
   useEffect(() => {
+    if (editingCell?.colId !== "status") {
+      setStatusEditorSearch("");
+    }
+  }, [editingCell]);
+
+  useEffect(() => {
     const stopMouseSelection = () => {
       isMouseSelectingRef.current = false;
       dragAnchorCellRef.current = null;
@@ -474,10 +574,13 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     const wrapper = tableWrapperRef.current;
     if (!wrapper) return;
     const handleTrackpadHorizontalScroll = (e) => {
-      const horizontalIntent = Math.abs(e.deltaX) > 0 && Math.abs(e.deltaX) >= Math.abs(e.deltaY);
-      if (!horizontalIntent) return;
+      const horizontalDelta =
+        Math.abs(e.deltaX) > 0 ? e.deltaX : e.shiftKey ? e.deltaY : 0;
+
+      if (!horizontalDelta) return;
+
       e.preventDefault();
-      wrapper.scrollRight += e.deltaX * HORIZONTAL_TRACKPAD_MULTIPLIER;
+      wrapper.scrollLeft += horizontalDelta * HORIZONTAL_TRACKPAD_MULTIPLIER;
     };
     wrapper.addEventListener("wheel", handleTrackpadHorizontalScroll, { passive: false });
     return () => {
@@ -521,6 +624,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   }, [localItems.length, selectedCell]);
   useEffect(() => {
     if (!editingCell || !inputRef.current) return;
+    
     const node = inputRef.current;
     const col = gridColumnMap[editingCell.colId];
     const tagName = String(node.tagName || "").toLowerCase();
@@ -536,20 +640,29 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       (tagName === "input" &&
         ["text", "search", "url", "tel", "password"].includes(inputType || "text"));
 
-    if (
-      moveCaretToEndOnFocusRef.current &&
-      supportsSelectionRange &&
-      typeof node.setSelectionRange === "function"
-    ) {
-      const len = String(node.value || "").length;
-      node.setSelectionRange(len, len);
-    } else if (
-      shouldSelectAllOnFocusRef.current &&
-      supportsSelectAll &&
-      typeof node.select === "function"
-    ) {
-      node.select();
-    }
+   if (
+  editingCell.colId === "feedback" &&
+  supportsSelectionRange &&
+  typeof node.setSelectionRange === "function"
+) {
+  requestAnimationFrame(() => {
+    const len = String(node.value || "").length;
+    node.setSelectionRange(len, len);
+  });
+} else if (
+  moveCaretToEndOnFocusRef.current &&
+  supportsSelectionRange &&
+  typeof node.setSelectionRange === "function"
+) {
+  const len = String(node.value || "").length;
+  node.setSelectionRange(len, len);
+} else if (
+  shouldSelectAllOnFocusRef.current &&
+  supportsSelectAll &&
+  typeof node.select === "function"
+) {
+  node.select();
+}
 
     if (col?.kind === "select" || col?.type === "date") {
       requestAnimationFrame(() => {
@@ -899,6 +1012,30 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     setEditValue(value);
   };
 
+  const queueRecordUpdate = (item, patchFields, options = {}) => {
+    const tuitionId = item?.tuitionId;
+    if (!tuitionId) return Promise.resolve();
+
+    const previousTask = recordSaveQueueRef.current.get(tuitionId) || Promise.resolve();
+
+    const currentTask = previousTask
+      .catch(() => {})
+      .then(async () => {
+        const latestItem =
+          localItemsRef.current.find((x) => x.tuitionId === tuitionId) || item;
+
+        await updateRecordFields(latestItem, patchFields, options);
+      })
+      .finally(() => {
+        if (recordSaveQueueRef.current.get(tuitionId) === currentTask) {
+          recordSaveQueueRef.current.delete(tuitionId);
+        }
+      });
+
+    recordSaveQueueRef.current.set(tuitionId, currentTask);
+    return currentTask;
+  };
+
   const clearEditingState = () => {
     editingCellRef.current = null;
     setEditingCell(null);
@@ -933,20 +1070,26 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     }
   };
 
-  const startEditingCell = (rowIndex, colId, forcedValue = null, options = {}) => {
-    const col = gridColumnMap[colId];
-    const item = localItemsRef.current[rowIndex];
+ const startEditingCell = (rowIndex, colId, forcedValue = null, options = {}) => {
+  const col = gridColumnMap[colId];
+  const item = localItemsRef.current[rowIndex];
 
-    if (!col?.editable || !item) return;
+  if (!col?.editable || !item) return;
 
-    const currentVal = getCellValue(item, col);
-    const nextValue = forcedValue !== null ? forcedValue : String(currentVal ?? "");
+  const currentVal = getCellValue(item, col);
+  const nextValue = forcedValue !== null ? forcedValue : String(currentVal ?? "");
 
-    setSelectedCell({ rowIndex, colId });
-    setAnchorCell({ rowIndex, colId });
-    setSelectedCells(new Set([getCellKey(rowIndex, colId)]));
-    setEditingState({ rowIndex, colId }, nextValue, options);
-  };
+  setSelectedCell({ rowIndex, colId });
+  setAnchorCell({ rowIndex, colId });
+  setSelectedCells(new Set([getCellKey(rowIndex, colId)]));
+
+  const finalOptions =
+    colId === "feedback"
+      ? { selectAll: false, moveCaretToEnd: true, ...options }
+      : options;
+
+  setEditingState({ rowIndex, colId }, nextValue, finalOptions);
+};
 
   const cancelEdit = (focusTarget = null) => {
     clearEditingState();
@@ -1244,6 +1387,16 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       return;
     }
 
+    const isFeedbackEditor = colId === "feedback";
+
+    if (
+      isFeedbackEditor &&
+      ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)
+    ) {
+      e.stopPropagation();
+      return;
+    }
+
     if (e.key === "Enter") {
       e.preventDefault();
 
@@ -1371,15 +1524,12 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
 
   const moveSelected = async (direction) => {
     if (selectedRows.size === 0) return;
-
     const selectedSet = new Set(selectedRows);
     const newItems = [...localItems];
-
     if (direction === "up") {
       for (let i = 1; i < newItems.length; i++) {
         const currentSelected = selectedSet.has(newItems[i].tuitionId);
         const prevSelected = selectedSet.has(newItems[i - 1].tuitionId);
-
         if (currentSelected && !prevSelected) {
           [newItems[i - 1], newItems[i]] = [newItems[i], newItems[i - 1]];
         }
@@ -1388,25 +1538,20 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       for (let i = newItems.length - 2; i >= 0; i--) {
         const currentSelected = selectedSet.has(newItems[i].tuitionId);
         const nextSelected = selectedSet.has(newItems[i + 1].tuitionId);
-
         if (currentSelected && !nextSelected) {
           [newItems[i], newItems[i + 1]] = [newItems[i + 1], newItems[i]];
         }
       }
     }
-
     setLocalItems(newItems);
-
     const movedIndexes = newItems
       .map((item, idx) => (selectedSet.has(item.tuitionId) ? idx : -1))
       .filter((idx) => idx >= 0);
-
     if (movedIndexes.length) {
       const focusRowIndex =
         direction === "down" ? Math.max(...movedIndexes) : Math.min(...movedIndexes);
       scrollCellIntoView(focusRowIndex, firstEditableColumnId);
     }
-
     try {
       const reorderPayload = newItems.map((item, idx) => ({
         tuitionId: item.tuitionId,
@@ -1419,54 +1564,262 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     }
   };
 
+  const applyStatusValues = async (item, nextValues) => {
+    const serialized = serializeMultiValue(nextValues);
+    editValueRef.current = serialized;
+    setEditValue(serialized);
+
+    const latestItem =
+      localItemsRef.current.find((x) => x.tuitionId === item.tuitionId) || item;
+
+    await queueRecordUpdate(latestItem, buildPatchForColumn("status", serialized));
+  };
+
+  const removeStatusValue = async (item, valueToRemove) => {
+    const nextValues = normalizeMultiValue(editValueRef.current).filter(
+      (entry) => entry !== valueToRemove
+    );
+    await applyStatusValues(item, nextValues);
+  };
+
+  const toggleStatusValue = async (item, option) => {
+    const currentValues = normalizeMultiValue(editValueRef.current);
+    const nextValues = currentValues.includes(option)
+      ? currentValues.filter((entry) => entry !== option)
+      : [...currentValues, option];
+
+    await applyStatusValues(item, nextValues);
+  };
+
   const renderDisplayValue = (col, val) => {
-    if (col.pill === "status") return renderPill(val, getStatusStyle);
+    if (col.pill === "status") {
+      return renderPillGroup(val, getStatusStyle, { compact: true });
+    }
+
     if (col.pill === "source") return renderPill(val, getSourceStyle);
     if (col.pill === "demoRating") return renderPill(val, getDemoRatingStyle);
     if (col.type === "time" && val) return format12Hour(val);
     return val || "";
   };
 
-  const getCellBaseBackground = (item, col) => {
-    if (col.id === "tuitionName") return item.tuitionNameColor || "inherit";
-    if (col.id === "rejectedTutor") return columnColors["Rejected Tutor"];
-    if (col.id === "feedback" && item.feedback?.toString().trim().toLowerCase() === "satisfied") {
-      return "#16a34a";
-    }
-    return "inherit";
-  };
 
-  const getCellTextColor = (item, col) => {
-    if (col.id === "rejectedTutor") return "#ffffff";
-    if (col.id === "feedback" && item.feedback?.toString().trim().toLowerCase() === "satisfied") {
-      return "#ffffff";
-    }
-    return "inherit";
-  };
+const hasSatisfiedFeedback = (feedback) => {
+  return /\bsatisfied\b/i.test(String(feedback || "").trim());
+};
+const getCellBaseBackground = (item, col) => {
+  if (col.id === "tuitionName") return item.tuitionNameColor || "inherit";
+  if (col.id === "rejectedTutor") return columnColors["Rejected Tutor"];
+  if (col.id === "feedback" && hasSatisfiedFeedback(item.feedback)) {
+    return "#16a34a";
+  }
+  return "inherit";
+};
 
+const getCellTextColor = (item, col) => {
+  if (col.id === "rejectedTutor") return "#ffffff";
+  if (col.id === "feedback" && hasSatisfiedFeedback(item.feedback)) {
+    return "#ffffff";
+  }
+  return "inherit";
+};
   const renderGridCell = (item, rowIndex, col) => {
     const cellKey = getCellKey(rowIndex, col.id);
     const isSelected = selectedCells.has(cellKey);
-    const isEditing =
-      editingCell?.rowIndex === rowIndex && editingCell?.colId === col.id;
+    const isEditing = editingCell?.rowIndex === rowIndex && editingCell?.colId === col.id;
 
     const value = getCellValue(item, col);
     const baseBackground = getCellBaseBackground(item, col);
     const cellTextColor = getCellTextColor(item, col);
+    const isSatisfiedFeedback = col.id === "feedback" && hasSatisfiedFeedback(item.feedback);
+   const commonTdStyle = {
+  ...styles.td,
+  minWidth: col.width,
+  width: col.width,
+  padding: col.kind === "tuitionName" ? "0 10px" : col.pill ? "0 5px" : "0 10px",
+  height: "35px",
+  cursor: col.editable ? "cell" : "default",
+  backgroundColor: isEditing
+    ? col.id === "rejectedTutor"
+      ? columnColors["Rejected Tutor"]
+      : isSatisfiedFeedback
+        ? "#16a34a"
+        : "#ffffff"
+    : baseBackground,
+  color: isEditing
+    ? col.id === "rejectedTutor"
+      ? "#ffffff"
+      : isSatisfiedFeedback
+        ? "#ffffff"
+        : cellTextColor
+    : cellTextColor,
+  border: "1px solid #000000",
+  boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
+  position: "relative",
+};
+    if (isEditing && col.id === "status") {
+      const selectedStatuses = normalizeMultiValue(editValue);
+      const filteredOptions = statusList
+        .filter(Boolean)
+        .filter((option) =>
+          option.toLowerCase().includes(statusEditorSearch.trim().toLowerCase())
+        );
 
-    const commonTdStyle = {
-      ...styles.td,
-      minWidth: col.width,
-      width: col.width,
-      padding: col.kind === "tuitionName" ? "0 10px" : col.pill ? "0 5px" : "0 10px",
-      height: "35px",
-      cursor: col.editable ? "cell" : "default",
-      backgroundColor: isEditing ? (col.id === "rejectedTutor" ? columnColors["Rejected Tutor"] : "#ffffff") : baseBackground,
-      color: isEditing ? (col.id === "rejectedTutor" ? "#ffffff" : cellTextColor) : cellTextColor,
-      border: "1px solid #000000",
-      boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
-      position: "relative",
-    };
+      return (
+        <td style={{ ...commonTdStyle, overflow: "visible" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              minHeight: "100%",
+              padding: "4px 8px",
+              flexWrap: "wrap",
+              position: "relative",
+              background: "#ffffff",
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {selectedStatuses.map((status) => (
+              <React.Fragment key={status}>
+                {renderPill(status, getStatusStyle, {
+                  compact: true,
+                  closable: true,
+                  onRemove: () => removeStatusValue(item, status),
+                })}
+              </React.Fragment>
+            ))}
+
+            <input
+              ref={inputRef}
+              autoFocus
+              type="text"
+              value={statusEditorSearch}
+              placeholder={selectedStatuses.length ? "Add status" : "Select status"}
+              onChange={(e) => setStatusEditorSearch(e.target.value)}
+              onBlur={() => {
+                window.setTimeout(() => commitEdit({ rowIndex, colId: col.id }), 120);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Backspace" && !statusEditorSearch) {
+                  const currentStatuses = normalizeMultiValue(editValueRef.current);
+                  if (currentStatuses.length) {
+                    e.preventDefault();
+                    applyStatusValues(item, currentStatuses.slice(0, -1));
+                    return;
+                  }
+                }
+
+                if (e.key === "Enter") {
+                  e.preventDefault();
+
+                  const matchedOption = statusList.find(
+                    (option) =>
+                      option &&
+                      option.toLowerCase() === statusEditorSearch.trim().toLowerCase()
+                  );
+
+                  if (matchedOption) {
+                    toggleStatusValue(item, matchedOption);
+                    setStatusEditorSearch("");
+                    return;
+                  }
+
+                  const nextCell = getNextEditableCell(rowIndex, col.id, 1);
+                  commitEdit(nextCell);
+                  selectSingleCell(nextCell.rowIndex, nextCell.colId, true);
+                  return;
+                }
+
+                if (e.key === "Tab") {
+                  e.preventDefault();
+                  const nextCell = getNextEditableCell(rowIndex, col.id, e.shiftKey ? -1 : 1);
+                  commitEdit(nextCell);
+                  selectSingleCell(nextCell.rowIndex, nextCell.colId, true);
+                  return;
+                }
+
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  cancelEdit({ rowIndex, colId: col.id });
+                }
+              }}
+              style={{
+                ...styles.inlineInput,
+                minWidth: "90px",
+                width: "auto",
+                flex: 1,
+                padding: "0",
+                height: "24px",
+                fontSize: "12px",
+              }}
+            />
+
+            <div
+              style={{
+                position: "absolute",
+                top: "calc(100% + 4px)",
+                left: 0,
+                minWidth: "220px",
+                maxHeight: "220px",
+                overflowY: "auto",
+                background: "#ffffff",
+                border: "1px solid #d1d5db",
+                borderRadius: "10px",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+                zIndex: 50,
+                padding: "6px",
+              }}
+            >
+              {filteredOptions.length ? (
+                filteredOptions.map((option) => {
+                  const isActive = selectedStatuses.includes(option);
+
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        toggleStatusValue(item, option);
+                        setStatusEditorSearch("");
+                        requestAnimationFrame(() => inputRef.current?.focus());
+                      }}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "8px",
+                        border: "none",
+                        borderRadius: "8px",
+                        background: isActive ? "#f0fdf4" : "transparent",
+                        padding: "8px 10px",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        fontSize: "12px",
+                      }}
+                    >
+                      <span>{option}</span>
+                      {isActive ? <span style={{ fontWeight: 700 }}>✓</span> : null}
+                    </button>
+                  );
+                })
+              ) : (
+                <div
+                  style={{
+                    padding: "8px 10px",
+                    fontSize: "12px",
+                    color: "#6b7280",
+                  }}
+                >
+                  No matching status
+                </div>
+              )}
+            </div>
+          </div>
+        </td>
+      );
+    }
 
     if (isEditing && col.kind === "select") {
       return (
@@ -1542,7 +1895,40 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
         </td>
       );
     }
-
+if (isEditing && col.id === "feedback") {
+  return (
+    <td
+      style={{
+        ...commonTdStyle,
+        height: "auto",
+        verticalAlign: "top",
+      }}
+    >
+      <textarea
+        ref={inputRef}
+        autoFocus
+        value={editValue}
+        onChange={(e) => {
+          editValueRef.current = e.target.value;
+          setEditValue(e.target.value);
+        }}
+        onBlur={() => commitEdit({ rowIndex, colId: col.id })}
+        onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
+        style={{
+          ...styles.inlineInput,
+          minHeight: "72px",
+          height: "72px",
+          resize: "vertical",
+          overflow: "auto",
+          whiteSpace: "pre-wrap",
+          overflowWrap: "anywhere",
+          lineHeight: "1.4",
+          textAlign: "left",
+        }}
+      />
+    </td>
+  );
+}
     if (isEditing) {
       return (
         <td style={commonTdStyle}>
@@ -1773,40 +2159,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
           </div>
         </div>
       </div>
-
       <h2 style={styles.title}>Monthly Tuitions (Excel View)</h2>
-
-      <div style={{ display: "none" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: 24,
-            alignItems: "center",
-          }}
-        >
-          <input
-            placeholder="Search..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-
-          <select
-            multiple
-            value={selectedFields}
-            onChange={(e) =>
-              setSelectedFields(Array.from(e.target.selectedOptions).map((o) => o.value))
-            }
-          >
-            {searchColumns.map((c) => (
-              <option key={c.key} value={c.key}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
       <div style={styles.tableWrapper} ref={tableWrapperRef}>
         <div
           style={{

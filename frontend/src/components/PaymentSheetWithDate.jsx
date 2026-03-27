@@ -11,7 +11,7 @@ const styles = {
     minHeight: "100vh",
     padding: "10px",
     overflowX: "hidden",
-    overscrollBehaviorX: "none",
+  
     background: "#ffffff",
   },
   card: {

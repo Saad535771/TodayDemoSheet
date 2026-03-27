@@ -1254,7 +1254,6 @@ const filteredItems = useMemo(() => {
       return next;
     });
   }, [items]);
-
   useEffect(() => {
     if (!filteredItems.length) {
       setSelectedCell(null);

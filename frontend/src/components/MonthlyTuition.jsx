@@ -26,8 +26,7 @@ const styles = {
   singleLineForm: {
     display: "flex",
     overflowX: "auto",
-    overflowY: "hidden",
-    flexWrap: "nowrap",
+  
     width: "100%",
     minWidth: 0,
     boxSizing: "border-box",

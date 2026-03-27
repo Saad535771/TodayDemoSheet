@@ -38,9 +38,13 @@ const styles = {
     overflowY: "auto",
     background: "#ffffff",
     maxHeight: "500px",
+    overscrollBehaviorX: "contain",
+    touchAction: "pan-x pan-y",
+    WebkitOverflowScrolling: "touch",
   },
   table: {
     width: "100%",
+    minWidth: "max-content",
     height: "100%",
     borderCollapse: "collapse",
     fontSize: "14px",
@@ -468,6 +472,7 @@ const STATUS_LIST = [
 const columnColors = { "Rejected Tutor": "#ffebee" };
 const PASSWORD_SECRET = "admin123";
 const AUTO_REFRESH_INTERVAL = 4000;
+const HORIZONTAL_TRACKPAD_MULTIPLIER = 1.35;
 function areItemListsEqual(left = [], right = []) {
   return JSON.stringify(left || []) === JSON.stringify(right || []);
 }
@@ -821,6 +826,38 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     document.addEventListener("mouseup", stopMouseSelection);
     return () => document.removeEventListener("mouseup", stopMouseSelection);
   }, []);
+
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current;
+    if (!wrapper) return;
+
+    const handleTrackpadHorizontalScroll = (e) => {
+      const targetTag = String(e.target?.tagName || "").toLowerCase();
+      if (["input", "textarea", "select", "option"].includes(targetTag)) return;
+
+      const canScrollHorizontally = wrapper.scrollWidth > wrapper.clientWidth + 1;
+      if (!canScrollHorizontally) return;
+
+      const mostlyHorizontal = Math.abs(e.deltaX) > 0 && Math.abs(e.deltaX) >= Math.abs(e.deltaY);
+      const shiftWheelHorizontal = e.shiftKey && Math.abs(e.deltaY) > 0;
+      const delta = mostlyHorizontal ? e.deltaX : shiftWheelHorizontal ? e.deltaY : 0;
+
+      if (!delta) return;
+
+      const previousLeft = wrapper.scrollLeft;
+      wrapper.scrollLeft += delta * HORIZONTAL_TRACKPAD_MULTIPLIER;
+
+      if (wrapper.scrollLeft !== previousLeft) {
+        e.preventDefault();
+      }
+    };
+
+    wrapper.addEventListener("wheel", handleTrackpadHorizontalScroll, { passive: false });
+
+    return () => {
+      wrapper.removeEventListener("wheel", handleTrackpadHorizontalScroll);
+    };
+  }, [open, isUnlocked]);
 
   useEffect(() => {
     const nextItems = slot.items || [];
