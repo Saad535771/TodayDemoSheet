@@ -71,8 +71,8 @@ const styles = {
     fontSize: "12px",
     fontWeight: "600",
     cursor: "pointer",
-    background: "#fee2e2",
-    color: "#b91c1c",
+    background: "#e30000",
+    color: "#f9f9f9f8",
     fontFamily: "'Calibri', sans-serif",
   },
   moveBtn: {
@@ -541,7 +541,10 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const undoStackRef = useRef([]);
   const isUndoRunningRef = useRef(false);
   const recordSaveQueueRef = useRef(new Map());
+  const isSearchingRef = useRef(isSearching);
+  const refreshInFlightRef = useRef(false);
   const HORIZONTAL_TRACKPAD_MULTIPLIER = 1;
+  const AUTO_REFRESH_INTERVAL = 4000;
 
   useEffect(() => {
     localItemsRef.current = localItems;
@@ -554,6 +557,10 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   useEffect(() => {
     editValueRef.current = editValue;
   }, [editValue]);
+
+  useEffect(() => {
+    isSearchingRef.current = isSearching;
+  }, [isSearching]);
 
   useEffect(() => {
     if (editingCell?.colId !== "status") {
@@ -815,6 +822,51 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     const timer = setTimeout(() => performSearch(searchTerm), 400);
     return () => clearTimeout(timer);
   }, [searchTerm, sortField, sortDir, assignedFilter, items]);
+
+  useEffect(() => {
+    if (typeof load !== "function") return;
+
+    const maybeRefresh = async () => {
+      if (refreshInFlightRef.current) return;
+      if (editingCellRef.current) return;
+      if (isUndoRunningRef.current) return;
+      if (recordSaveQueueRef.current.size > 0) return;
+      if (isSearchingRef.current) return;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+
+      refreshInFlightRef.current = true;
+
+      try {
+        await load();
+      } catch (error) {
+        console.error("Monthly auto refresh failed", error);
+      } finally {
+        refreshInFlightRef.current = false;
+      }
+    };
+
+    const intervalId = window.setInterval(maybeRefresh, AUTO_REFRESH_INTERVAL);
+
+    const handleWindowFocus = () => {
+      maybeRefresh();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        maybeRefresh();
+      }
+    };
+
+    maybeRefresh();
+    window.addEventListener("focus", handleWindowFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleWindowFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [load]);
 
   const getColumnIndex = (colId) => gridColumnIds.findIndex((id) => id === colId);
 
@@ -1990,7 +2042,6 @@ if (isEditing && col.id === "feedback") {
             >
               {value || ""}
             </span>
-
             <div
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => {

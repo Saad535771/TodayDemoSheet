@@ -167,33 +167,6 @@ function EnhancedSlotShell({ children }) {
     };
   }, []);
 
-  useEffect(() => {
-    const root = shellRef.current;
-    if (!root) return;
-
-    const handleWheel = (e) => {
-      const scrollHost = findHorizontalScrollHost(root);
-      if (!scrollHost) return;
-
-      const mostlyHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 8;
-      if (!mostlyHorizontal) return;
-
-      const canScrollHorizontally = scrollHost.scrollWidth > scrollHost.clientWidth + 1;
-      const atLeftEdge = scrollHost.scrollLeft <= 0;
-      const atRightEdge = Math.ceil(scrollHost.scrollLeft + scrollHost.clientWidth) >= scrollHost.scrollWidth;
-      const goingLeft = e.deltaX < 0;
-      const goingRight = e.deltaX > 0;
-
-      if (!canScrollHorizontally || (goingLeft && atLeftEdge) || (goingRight && atRightEdge)) {
-        e.preventDefault();
-      }
-    };
-
-    root.addEventListener("wheel", handleWheel, { passive: false, capture: true });
-    return () => {
-      root.removeEventListener("wheel", handleWheel, { capture: true });
-    };
-  }, []);
 
   useEffect(() => {
     const root = shellRef.current;
@@ -271,12 +244,11 @@ function EnhancedSlotShell({ children }) {
       {moveHint ? (
         <div
           style={{
-            position: "sticky",
-            bottom: 10,
+          
+   
             zIndex: 30,
             marginTop: 8,
             marginLeft: "auto",
-            width: "fit-content",
             padding: "8px 12px",
             borderRadius: 8,
             background: "rgba(17, 24, 39, 0.9)",
@@ -379,13 +351,11 @@ export default function TargetBoard() {
   );
 
   return (
-    <div className="card" style={{ overscrollBehaviorX: "contain", position: "relative" }}>
+    <div className="">
       <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
         <div className="mx-1">
           <h5 style={{ margin: 0 }}>Today Demo + Feedback (Target)</h5>
-          <div className="muted">
-            Auto grouped by time slots (8AM–11PM) • live refresh • {slotCountLabel}
-          </div>
+    
         </div>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>

@@ -482,7 +482,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="overflow-hidden">
+      <div className="overflow-auto">
         {mountedTabs.target && (
           <div
             ref={(el) => { contentRefs.current.target = el; }}

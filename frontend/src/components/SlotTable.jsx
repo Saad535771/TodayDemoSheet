@@ -6,11 +6,9 @@ const styles = {
     background: "#ffffff",
     borderRadius: "16px",
     boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
-
     marginBottom: "24px",
     border: "1px solid #eef0f3",
     fontFamily: "'Calibri', sans-serif",
-    position: "relative",
     zIndex: 1,
   },
   header: (isOpen, roleColor) => ({
@@ -34,20 +32,24 @@ const styles = {
     display: "block",
   },
   tableWrapper: {
+    width: "100%",
+    maxWidth: "100%",
     overflowX: "auto",
     overflowY: "auto",
+    WebkitOverflowScrolling: "touch",
+    overscrollBehaviorX: "auto",
+    overscrollBehaviorY: "auto",
     background: "#ffffff",
     maxHeight: "500px",
-    overscrollBehaviorX: "contain",
-    touchAction: "pan-x pan-y",
-    WebkitOverflowScrolling: "touch",
+ 
   },
   table: {
-    width: "100%",
-    minWidth: "max-content",
+    width: "max-content",
+    minWidth: "100%",
     height: "100%",
     borderCollapse: "collapse",
     fontSize: "14px",
+    tableLayout: "auto",
   },
   th: {
     background: "#e1bb00",
@@ -55,18 +57,18 @@ const styles = {
     fontWeight: "600",
     padding: "8px 10px",
     textAlign: "center",
-    maxWidth:'42px',
     border: "1px solid #000000",
-    position: "sticky",
+   
     top: 0,
     zIndex: 10,
+    whiteSpace: "nowrap",
   },
   td: {
     padding: "0",
     textAlign: "center",
     border: "1px solid #000000",
     verticalAlign: "middle",
-    maxWidth:'32px',
+    whiteSpace: "nowrap",
   },
   inlineInput: {
     width: "100%",
@@ -93,6 +95,73 @@ const styles = {
     fontFamily: "'Calibri', sans-serif",
     cursor: "pointer",
   },
+  inlineTextarea: {
+    width: "100%",
+    minHeight: "70px",
+    padding: "8px 10px",
+    border: "none",
+    borderRadius: "0",
+    fontSize: "14px",
+    background: "transparent",
+    outline: "none",
+    boxSizing: "border-box",
+    fontFamily: "'Calibri', sans-serif",
+    resize: "vertical",
+    lineHeight: 1.4,
+  },
+  statusEditorSurface: {
+    width: "100%",
+    minHeight: "76px",
+    padding: "8px",
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    background: "#ffffff",
+  },
+  statusEditorValueBox: {
+    minHeight: "40px",
+    border: "1px solid #d1d5db",
+    borderRadius: "10px",
+    padding: "6px",
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: "6px",
+    background: "#ffffff",
+  },
+  statusEditorSearchInput: {
+    flex: 1,
+    minWidth: "90px",
+    border: "none",
+    outline: "none",
+    fontSize: "13px",
+    padding: "4px 2px",
+    background: "transparent",
+    fontFamily: "'Calibri', sans-serif",
+  },
+  statusEditorList: {
+    maxHeight: "180px",
+    overflowY: "auto",
+    border: "1px solid #d1d5db",
+    borderRadius: "10px",
+    background: "#ffffff",
+    boxShadow: "0 10px 24px rgba(15, 23, 42, 0.08)",
+  },
+  statusEditorOption: {
+    width: "100%",
+    padding: "10px 12px",
+    border: "none",
+    borderBottom: "1px solid #eef2f7",
+    background: "#ffffff",
+    textAlign: "left",
+    cursor: "pointer",
+    fontSize: "14px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    fontFamily: "'Calibri', sans-serif",
+  },
   actionBtn: {
     padding: "6px 10px",
     borderRadius: "4px",
@@ -118,7 +187,7 @@ const styles = {
     border: "2px solid #666",
     cursor: "pointer",
     borderRadius: "4px",
-    overflow: "hidden",
+    // overflow: "hidden",
     display: "inline-block",
   },
   pickerPopup: {
@@ -128,7 +197,7 @@ const styles = {
     padding: "10px",
     borderRadius: "6px",
     boxShadow: "0 6px 16px rgba(0,0,0,0.15)",
-    zIndex: 3000,
+    zIndex: 999,
     width: "220px",
   },
   modalOverlay: {
@@ -276,7 +345,7 @@ const SEARCH_KEYS = [
   "sync",
 ];
 
-function useDebouncedValue(value, delay = 350) {
+function useDebouncedValue(value, delay = 850) {
   const [debounced, setDebounced] = useState(value);
 
   useEffect(() => {
@@ -389,7 +458,7 @@ function GlobalSearchHost() {
   if (!state.visible || !manager.isHost(hostIdRef.current)) return null;
 
   return (
-    <div style={{ position: "relative", zIndex: 99999 }}>
+    <div style={{ zIndex: 99999 }}>
       <div
         style={{
           position: "fixed",
@@ -402,7 +471,6 @@ function GlobalSearchHost() {
       >
         <div
           style={{
-            width: "min(1100px,55vw)",
             padding: "12px 18px",
             borderRadius: "10px",
             display: "flex",
@@ -472,13 +540,12 @@ const STATUS_LIST = [
 const columnColors = { "Rejected Tutor": "#ffebee" };
 const PASSWORD_SECRET = "admin123";
 const AUTO_REFRESH_INTERVAL = 4000;
-const HORIZONTAL_TRACKPAD_MULTIPLIER = 1.35;
 function areItemListsEqual(left = [], right = []) {
   return JSON.stringify(left || []) === JSON.stringify(right || []);
 }
 const gridColumns = [
   { id: "demoTime", label: "Demo Time", width: 100, editable: true, field: "demoTime", type: "time" },
-  { id: "tuitionName", label: "Tuition Name", width: 150, editable: true, field: "tuitionName", kind: "tuitionName" },
+  { id: "tuitionName", label: "Tuition Name", width: 100, editable: true, field: "tuitionName", kind: "tuitionName" },
   { id: "source", label: "Source", width: 110, editable: true, field: "source", kind: "select", options: SOURCES_LIST, pill: "source" },
   { id: "country", label: "Country", width: 100, editable: true, field: "country" },
   { id: "parentsContact", label: "Parent Contact", width: 130, editable: true, field: "parentsContact" },
@@ -487,8 +554,8 @@ const gridColumns = [
   { id: "tutorName", label: "Tutor Name", width: 140, editable: true, field: "tutorName" },
   { id: "tutorFees", label: "Tutor Fees", width: 100, editable: true, field: "tutorFees" },
   { id: "rejectedTutor", label: "Rejected Tutor", width: 120, editable: true, field: "rejectedTutor" },
-  { id: "status", label: "Status", width: 140, editable: true, field: "status", kind: "select", options: STATUS_LIST, pill: "status" },
-  { id: "feedback", label: "Feedback", width: 180, editable: true, field: "feedback" },
+  { id: "status", label: "Status", width: 280, editable: true, field: "status", kind: "multiselect", options: STATUS_LIST, pill: "status" },
+  { id: "feedback", label: "Feedback", width: 240, editable: true, field: "feedback", kind: "textarea" },
   { id: "demoDate", label: "Demo Date", width: 120, editable: true, field: "demoDate", type: "date" },
   { id: "tuitionId", label: "Tuition Id", width: 120, editable: false, field: "tuitionId", kind: "readonly" },
   { id: "demoRating", label: "Demo Rating", width: 130, editable: true, field: "demoRating", kind: "select", options: DEMO_RATING_VALUES, pill: "demoRating" },
@@ -562,10 +629,14 @@ const renderPill = (val, styleFn, searchTerm = "") => {
     <span
       style={{
         padding: "4px 10px",
-        borderRadius: "12px",
+        borderRadius: "999px",
         fontSize: "12px",
         fontWeight: "bold",
-        display: "inline-block",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        lineHeight: 1.2,
+        whiteSpace: "nowrap",
         ...style,
       }}
     >
@@ -573,6 +644,238 @@ const renderPill = (val, styleFn, searchTerm = "") => {
     </span>
   );
 };
+
+const normalizeMultiStatus = (value) => {
+  if (Array.isArray(value)) {
+    return Array.from(
+      new Set(
+        value
+          .map((item) => String(item || "").trim())
+          .filter(Boolean)
+      )
+    );
+  }
+
+  return Array.from(
+    new Set(
+      String(value || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  );
+};
+
+const stringifyMultiStatus = (value) => normalizeMultiStatus(value).join(", ");
+
+const renderPillList = (val, styleFn, searchTerm = "") => {
+  const statuses = normalizeMultiStatus(val);
+  if (!statuses.length) return "";
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "6px",
+        justifyContent: "center",
+        alignItems: "center",
+        width: "100%",
+      }}
+    >
+      {statuses.map((status) => (
+        <React.Fragment key={status}>{renderPill(status, styleFn, searchTerm)}</React.Fragment>
+      ))}
+    </div>
+  );
+};
+
+const feedbackContainsSatisfied = (value) => /\bsatisfied\b/i.test(String(value || ""));
+
+function StatusMultiEditor({
+  value,
+  options,
+  onChange,
+  onCommit,
+  onCancel,
+  onImmediatePersist,
+  inputRef,
+}) {
+  const rootRef = useRef(null);
+  const [filter, setFilter] = useState("");
+
+  const selected = useMemo(() => normalizeMultiStatus(value), [value]);
+  const filteredOptions = useMemo(() => {
+    const q = String(filter || "").trim().toLowerCase();
+    return options.filter((option) => {
+      if (!option) return false;
+      if (!q) return true;
+      return option.toLowerCase().includes(q);
+    });
+  }, [filter, options]);
+
+  useEffect(() => {
+    const node = rootRef.current;
+    if (!node) return;
+    requestAnimationFrame(() => {
+      const input = node.querySelector("input");
+      if (input && typeof input.focus === "function") input.focus();
+    });
+  }, []);
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (!rootRef.current) return;
+      if (rootRef.current.contains(event.target)) return;
+      onCommit?.();
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [onCommit]);
+
+  const applyNext = (nextStatuses) => {
+    const nextValue = stringifyMultiStatus(nextStatuses);
+    onChange(nextValue);
+    onImmediatePersist?.(nextValue);
+  };
+
+  const toggleOption = (option) => {
+    if (!option) return;
+    const nextStatuses = selected.includes(option)
+      ? selected.filter((item) => item !== option)
+      : [...selected, option];
+
+    applyNext(nextStatuses);
+    setFilter("");
+  };
+
+  const removeStatus = (status) => {
+    applyNext(selected.filter((item) => item !== status));
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Backspace" && !filter) {
+      if (!selected.length) return;
+      e.preventDefault();
+      removeStatus(selected[selected.length - 1]);
+      return;
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+
+      const exactMatch = options.find(
+        (option) => option && option.toLowerCase() === String(filter || "").trim().toLowerCase()
+      );
+
+      if (exactMatch) {
+        toggleOption(exactMatch);
+        return;
+      }
+
+      onCommit?.();
+      return;
+    }
+
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onCancel?.();
+      return;
+    }
+
+    if (e.key === "Tab") {
+      onCommit?.();
+    }
+  };
+
+  return (
+    <div
+      ref={rootRef}
+      tabIndex={-1}
+      style={styles.statusEditorSurface}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div style={styles.statusEditorValueBox}>
+        {selected.map((status) => (
+          <span
+            key={status}
+            style={{
+              ...getStatusStyle(status),
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              borderRadius: "999px",
+              padding: "4px 10px",
+              fontSize: "12px",
+              fontWeight: 700,
+              lineHeight: 1.2,
+            }}
+          >
+            <span>{status}</span>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => removeStatus(status)}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: "inherit",
+                cursor: "pointer",
+                padding: 0,
+                fontSize: "14px",
+                lineHeight: 1,
+                fontWeight: 700,
+              }}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+
+        <input
+          ref={inputRef}
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={selected.length ? "Add more..." : "Select status"}
+          style={styles.statusEditorSearchInput}
+        />
+      </div>
+
+      <div style={styles.statusEditorList}>
+        {filteredOptions.length ? (
+          filteredOptions.map((option, index) => {
+            const active = selected.includes(option);
+            return (
+              <button
+                key={option}
+                type="button"
+                style={{
+                  ...styles.statusEditorOption,
+                  borderBottom:
+                    index === filteredOptions.length - 1 ? "none" : styles.statusEditorOption.borderBottom,
+                  background: active ? "#f0fdf4" : "#ffffff",
+                  fontWeight: active ? 700 : 500,
+                }}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => toggleOption(option)}
+              >
+                <span>{option}</span>
+                <span style={{ color: active ? "#16a34a" : "#9ca3af" }}>{active ? "✓" : ""}</span>
+              </button>
+            );
+          })
+        ) : (
+          <div style={{ padding: "10px 12px", fontSize: "13px", color: "#6b7280" }}>
+            No matching status
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export const handleGridKeyDown = (e) => {
   const td = e.currentTarget;
@@ -829,7 +1132,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
 
   useEffect(() => {
     const wrapper = tableWrapperRef.current;
-    if (!wrapper) return;
+    if (!wrapper || !open) return;
 
     const handleTrackpadHorizontalScroll = (e) => {
       const targetTag = String(e.target?.tagName || "").toLowerCase();
@@ -838,14 +1141,15 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
       const canScrollHorizontally = wrapper.scrollWidth > wrapper.clientWidth + 1;
       if (!canScrollHorizontally) return;
 
-      const mostlyHorizontal = Math.abs(e.deltaX) > 0 && Math.abs(e.deltaX) >= Math.abs(e.deltaY);
-      const shiftWheelHorizontal = e.shiftKey && Math.abs(e.deltaY) > 0;
-      const delta = mostlyHorizontal ? e.deltaX : shiftWheelHorizontal ? e.deltaY : 0;
-
-      if (!delta) return;
-
+      const absX = Math.abs(e.deltaX);
+      const absY = Math.abs(e.deltaY);
       const previousLeft = wrapper.scrollLeft;
-      wrapper.scrollLeft += delta * HORIZONTAL_TRACKPAD_MULTIPLIER;
+
+      if (absX > 0) {
+        wrapper.scrollLeft += e.deltaX;
+      } else if (absY > 0) {
+        wrapper.scrollLeft += e.deltaY;
+      }
 
       if (wrapper.scrollLeft !== previousLeft) {
         e.preventDefault();
@@ -857,7 +1161,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     return () => {
       wrapper.removeEventListener("wheel", handleTrackpadHorizontalScroll);
     };
-  }, [open, isUnlocked]);
+  }, [open, zoom, localItems.length]);
 
   useEffect(() => {
     const nextItems = slot.items || [];
@@ -1245,8 +1549,16 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
         `[data-grid-row="${rowIndex}"][data-grid-col="${colId}"]`
       );
 
+      if (target && typeof target.scrollIntoView === "function") {
+        target.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "nearest",
+        });
+      }
+
       if (target && typeof target.focus === "function") {
-        target.focus({ preventScroll: false });
+        target.focus({ preventScroll: true });
       }
     });
   };
@@ -1325,7 +1637,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
       case "rejectedTutor":
         return { rejectedTutor: value };
       case "status":
-        return { status: value };
+        return { status: stringifyMultiStatus(value) };
       case "feedback":
         return { feedback: value };
       case "demoDate":
@@ -1397,6 +1709,16 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
 
   const updateRecord = async (item, field, newValue, options = {}) => {
     await updateRecordFields(item, { [field]: newValue }, options);
+  };
+
+  const persistStatusEditorValue = async (item, nextValue) => {
+    const normalizedValue = stringifyMultiStatus(nextValue);
+    const currentValue = stringifyMultiStatus(getCellValue(item, gridColumnMap.status));
+
+    if (normalizedValue === currentValue) return;
+    await updateRecordFields(item, buildPatchForColumn("status", normalizedValue), {
+      refreshAfter: false,
+    });
   };
 
   const setEditingState = (cell, value, options = {}) => {
@@ -1734,6 +2056,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     if (
       col.editable &&
       col.kind !== "select" &&
+      col.kind !== "multiselect" &&
       col.type !== "date" &&
       col.type !== "time" &&
       e.key.length === 1 &&
@@ -1756,13 +2079,33 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
       return;
     }
 
+    const isFeedbackEditor = colId === "feedback";
+    const isStatusEditor = col?.kind === "multiselect";
+    const isFreeCursorEditor = isFeedbackEditor;
+
     if (e.key === "Enter") {
+      if (isFeedbackEditor && e.shiftKey) {
+        return;
+      }
+
       e.preventDefault();
+
+      if (isStatusEditor) {
+        commitEdit({ rowIndex, colId });
+        selectSingleCell(rowIndex, colId, true);
+        return;
+      }
 
       if (col?.kind === "select" || col?.type === "date") {
         const nextCell = getNextEditableCell(rowIndex, colId, 1);
         commitEdit(nextCell);
         selectSingleCell(nextCell.rowIndex, nextCell.colId, true);
+        return;
+      }
+
+      if (isFeedbackEditor) {
+        commitEdit({ rowIndex, colId });
+        selectSingleCell(rowIndex, colId, true);
         return;
       }
 
@@ -1780,7 +2123,15 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
       return;
     }
 
-    if (col?.kind !== "select" && col?.type !== "date" && col?.type !== "time" && e.key === "ArrowUp") {
+    if (isFreeCursorEditor) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        cancelEdit({ rowIndex, colId });
+      }
+      return;
+    }
+
+    if (col?.kind !== "select" && col?.kind !== "multiselect" && col?.type !== "date" && col?.type !== "time" && e.key === "ArrowUp") {
       e.preventDefault();
       const nextRow = Math.max(0, rowIndex - 1);
       commitEdit({ rowIndex: nextRow, colId });
@@ -1788,7 +2139,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
       return;
     }
 
-    if (col?.kind !== "select" && col?.type !== "date" && col?.type !== "time" && e.key === "ArrowDown") {
+    if (col?.kind !== "select" && col?.kind !== "multiselect" && col?.type !== "date" && col?.type !== "time" && e.key === "ArrowDown") {
       e.preventDefault();
       const nextRow = Math.min(filteredItems.length - 1, rowIndex + 1);
       commitEdit({ rowIndex: nextRow, colId });
@@ -1796,7 +2147,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
       return;
     }
 
-    if (col?.kind !== "select" && col?.type !== "date" && col?.type !== "time" && e.key === "ArrowLeft") {
+    if (col?.kind !== "select" && col?.kind !== "multiselect" && col?.type !== "date" && col?.type !== "time" && e.key === "ArrowLeft") {
       e.preventDefault();
       const currentColIndex = getColumnIndex(colId);
       const nextColIndex = Math.max(0, currentColIndex - 1);
@@ -1806,7 +2157,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
       return;
     }
 
-    if (col?.kind !== "select" && col?.type !== "date" && col?.type !== "time" && e.key === "ArrowRight") {
+    if (col?.kind !== "select" && col?.kind !== "multiselect" && col?.type !== "date" && col?.type !== "time" && e.key === "ArrowRight") {
       e.preventDefault();
       const currentColIndex = getColumnIndex(colId);
       const nextColIndex = Math.min(gridColumns.length - 1, currentColIndex + 1);
@@ -1944,7 +2295,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   }
 
   const renderDisplayValue = (col, val) => {
-    if (col.pill === "status") return renderPill(val, getStatusStyle, searchTerm);
+    if (col.pill === "status") return renderPillList(val, getStatusStyle, searchTerm);
     if (col.pill === "source") return renderPill(val, getSourceStyle, searchTerm);
     if (col.pill === "demoRating") return renderPill(val, getDemoRatingStyle, searchTerm);
     if (col.type === "time" && val) return highlightText(format12Hour(val), searchTerm);
@@ -1952,8 +2303,11 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   };
 
   const getCellBaseBackground = (item, col) => {
+    const value = getCellValue(item, col);
+
     if (col.id === "tuitionName") return item.tuitionNameColor || "inherit";
     if (col.id === "rejectedTutor") return columnColors["Rejected Tutor"];
+    if (col.id === "feedback" && feedbackContainsSatisfied(value)) return "#16a34a";
     return "inherit";
   };
 
@@ -1968,14 +2322,47 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
 
     const commonTdStyle = {
       ...styles.td,
-      padding: col.kind === "tuitionName" ? "0 10px" : col.pill ? "0 5px" : "0 10px",
-      height: "35px",
+      padding:
+        col.kind === "tuitionName"
+          ? "0 10px"
+          : col.id === "status"
+          ? "6px 8px"
+          : col.id === "feedback"
+          ? "6px 10px"
+          : col.pill
+          ? "0 5px"
+          : "0 10px",
+      height: col.id === "status" ? "auto" : "35px",
+      minHeight: col.id === "status" ? "52px" : "35px",
       cursor: col.editable ? "cell" : "default",
       backgroundColor: isEditing ? "#ffffff" : baseBackground,
+      color: !isEditing && col.id === "feedback" && feedbackContainsSatisfied(value) ? "#ffffff" : "inherit",
       boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
       position: "relative",
       textAlign: col.pill ? "center" : "center",
+      whiteSpace: col.id === "feedback" ? "normal" : "nowrap",
     };
+
+    if (isEditing && col.kind === "multiselect") {
+      return (
+        <td style={{ ...commonTdStyle, verticalAlign: "top" }}>
+          <StatusMultiEditor
+            inputRef={inputRef}
+            value={editValue}
+            options={col.options}
+            onChange={(nextValue) => {
+              editValueRef.current = nextValue;
+              setEditValue(nextValue);
+            }}
+            onImmediatePersist={(nextValue) => {
+              persistStatusEditorValue(item, nextValue);
+            }}
+            onCommit={() => commitEdit({ rowIndex, colId: col.id })}
+            onCancel={() => cancelEdit({ rowIndex, colId: col.id })}
+          />
+        </td>
+      );
+    }
 
     if (isEditing && col.kind === "select") {
       return (
@@ -2038,6 +2425,25 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
               />
             </div>
           </div>
+        </td>
+      );
+    }
+
+    if (isEditing && col.id === "feedback") {
+      return (
+        <td style={{ ...commonTdStyle, verticalAlign: "top" }}>
+          <textarea
+            ref={inputRef}
+            autoFocus
+            style={styles.inlineTextarea}
+            value={editValue}
+            onChange={(e) => {
+              editValueRef.current = e.target.value;
+              setEditValue(e.target.value);
+            }}
+            onBlur={() => commitEdit({ rowIndex, colId: col.id })}
+            onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
+          />
         </td>
       );
     }
@@ -2285,18 +2691,17 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
 
             <div
               style={{
-                transform: `scale(${zoom})`,
-                transformOrigin: "top left",
-                transition: "transform 0.2s ease",
-                width: `${100 / zoom}%`,
+                zoom,
+                width: "max-content",
+                minWidth: "100%",
               }}
             >
               <table style={styles.table}>
                 <thead>
                   <tr>
-                    <TH style={{ width: "42px", textAlign: "center", background: "#e5e7eb" }}>✓</TH>
-                    <TH style={{ width: "40px", textAlign: "center", background: "#e5e7eb" }}>Sort</TH>
-                    <TH style={{ width: "30px", textAlign: "center", background: "#e5e7eb" }}>🎨</TH>
+                    <TH style={{ width: "42px", minWidth: "42px", textAlign: "center", background: "#e5e7eb" }}>✓</TH>
+                    <TH style={{ width: "40px", minWidth: "40px", textAlign: "center", background: "#e5e7eb" }}>Sort</TH>
+                    <TH style={{ width: "30px", minWidth: "30px", textAlign: "center", background: "#e5e7eb" }}>🎨</TH>
 
                     {gridColumns.map((col) => (
                       <TH
@@ -2311,7 +2716,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
                       </TH>
                     ))}
 
-                    <TH style={{ textAlign: "center" }}>Action</TH>
+                    <TH style={{ width: "88px", minWidth: "88px", textAlign: "center", background: "#e5e7eb" }}>Action</TH>
                   </tr>
                 </thead>
 
@@ -2321,7 +2726,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
                   ) : filteredItems.length === 0 ? (
                     <tr>
                       <td
-                        colSpan="20"
+                        colSpan={gridColumns.length + 4}
                         style={{
                           ...styles.td,
                           textAlign: "center",

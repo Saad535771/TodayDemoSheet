@@ -35,7 +35,7 @@ export function makeTargetController({ TodayDemo, Tuition, Payment }) {
   status: "status",
   feedback: "feedback",
   rejectedTutor: "rejectedTutor",
-
+   demoRating: "demoRating",
   // target-only editable fields
   tuitionName: "tuitionName",
   source: "source",

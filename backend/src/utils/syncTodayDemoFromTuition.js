@@ -4,8 +4,16 @@ import { parseHourFromValue } from "./time.js";
 export const REVERSE_SYNC_FIELDS = [
   "tutorName",
   "status",
-  "rejectedTutor",
   "feedback",
+  "demoRating",
+];
+
+// Monthly -> TodayDemo mein in fields ko overwrite nahi karna
+export const NO_SYNC_FROM_TUITION_FIELDS = [
+  "tutorName",
+  "status",
+  "feedback",
+  "demoRating",
 ];
 
 // Target-only editable fields
@@ -28,7 +36,10 @@ function normalizeHour(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-export function buildTodayDemoPayloadFromTuition(item) {
+export function buildTodayDemoPayloadFromTuition(
+  item,
+  { skipFields = [] } = {}
+) {
   const parsedHour = parseHourFromValue(item.demoTime ?? null);
   const existingHour = normalizeHour(item.timeHour);
 
@@ -36,7 +47,7 @@ export function buildTodayDemoPayloadFromTuition(item) {
   // Agar demoTime parse ho jaye to usi ko prefer karo
   const timeHour = parsedHour ?? existingHour ?? null;
 
-  return {
+  const payload = {
     originalTuitionId: item.originalTuitionId || item.tuitionId,
     tuitionId: item.tuitionId,
     demoTime: item.demoTime || null,
@@ -56,6 +67,13 @@ export function buildTodayDemoPayloadFromTuition(item) {
     demoRating: item.demoRating || null,
     syncFlag: item.syncFlag || null,
   };
+
+  // Jo fields Monthly -> TodayDemo sync mein update nahi karni, unko payload se hata do
+  for (const field of skipFields) {
+    delete payload[field];
+  }
+
+  return payload;
 }
 
 export async function upsertTodayDemoFromTuition({
@@ -63,14 +81,16 @@ export async function upsertTodayDemoFromTuition({
   item,
   transaction,
 }) {
-  const payload = buildTodayDemoPayloadFromTuition(item);
-
   const existing = await TodayDemo.findOne({
-    where: { tuitionId: payload.tuitionId },
+    where: { tuitionId: item.tuitionId },
     transaction,
   });
 
+  // Agar TodayDemo mein row exist nahi karti to create kar do
+  // Create ke waqt full payload ja sakta hai
   if (!existing) {
+    const payload = buildTodayDemoPayloadFromTuition(item);
+
     return TodayDemo.create(
       {
         ...payload,
@@ -82,7 +102,12 @@ export async function upsertTodayDemoFromTuition({
     );
   }
 
-  // Target-only fields overwrite nahi karni
+  // Agar row already exist karti hai to Monthly -> TodayDemo
+  // in 4 fields ko overwrite nahi karna
+  const payload = buildTodayDemoPayloadFromTuition(item, {
+    skipFields: NO_SYNC_FROM_TUITION_FIELDS,
+  });
+
   return existing.update(payload, { transaction });
 }
 

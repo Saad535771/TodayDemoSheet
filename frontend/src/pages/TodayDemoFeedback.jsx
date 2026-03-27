@@ -2,18 +2,12 @@ import React, { useState } from "react";
 import SlotTable from "./SlotTable";
 
 const pageSearchStyles = {
-  wrapper: {
-    position: "sticky",
-    top: "10px",
-    zIndex: 50,
-    marginBottom: "20px",
-    display: "flex",
-    justifyContent: "center",
-  },
+
   inner: {
-    width: "min(1100px, 100%)",
+    width: "100%",
     background: "#fff",
     padding: "12px 16px",
+    overflow:"auto",
     borderRadius: "12px",
     display: "flex",
     gap: "10px",
