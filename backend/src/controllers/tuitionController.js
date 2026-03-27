@@ -1,11 +1,15 @@
 import { validationResult } from "express-validator";
 import { parseHourFromValue } from "../utils/time.js";
 import { Op } from "sequelize";
-import { syncPaymentFromTuition } from "../utils/syncPaymentFromTuition.js";
+import {
+  syncPaymentFromTuition,
+  removePaymentByTuitionId,
+} from "../utils/syncPaymentFromTuition.js";
 import {
   upsertTodayDemoFromTuition,
   removeTodayDemoByTuitionId,
 } from "../utils/syncTodayDemoFromTuition.js";
+
 const PRESERVE_IF_EMPTY = new Set(["status", "satisfactionRating", "demoRating"]);
 
 function normalizeTuitionId(v) {
@@ -23,7 +27,7 @@ function normalizeDate(v) {
   return s;
 }
 
-export function makeTuitionController({ Tuition,TodayDemo, Payment }) {
+export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
   return {
     async list(req, res) {
       const q = (req.query.q || "").toString().trim();
@@ -36,7 +40,7 @@ export function makeTuitionController({ Tuition,TodayDemo, Payment }) {
       try {
         const items = await Tuition.findAll({
           where,
-          order: [["orderIndex", "ASC"], ["id", "DESC"]]
+          order: [["orderIndex", "ASC"], ["id", "DESC"]],
         });
         res.json({ items });
       } catch (e) {
@@ -51,49 +55,82 @@ export function makeTuitionController({ Tuition,TodayDemo, Payment }) {
         const fieldsParam = (req.query.fields || "").toString().trim();
         const assignedTo = req.query.assignedTo;
         const sortField = (req.query.sortField || "orderIndex").toString();
-        const sortDir = (req.query.sortDir || "ASC").toString().toUpperCase() === "DESC" ? "DESC" : "ASC";
+        const sortDir =
+          (req.query.sortDir || "ASC").toString().toUpperCase() === "DESC"
+            ? "DESC"
+            : "ASC";
         const limit = Math.min(parseInt(req.query.limit || "200", 10), 1000);
 
         const allowedFields = [
-          "tuitionId", "tuitionName", "tutorName", "rejectedTutor", "feedback",
-          "country", "parentsContact", "className", "subjects", "source", "otmName",
-          "status", "demoRating", "syncFlag", "estimatedFee", "tutorFee",
-          "demoTime", "demoDate"
+          "tuitionId",
+          "tuitionName",
+          "tutorName",
+          "rejectedTutor",
+          "feedback",
+          "country",
+          "parentsContact",
+          "className",
+          "subjects",
+          "source",
+          "otmName",
+          "status",
+          "demoRating",
+          "syncFlag",
+          "estimatedFee",
+          "tutorFee",
+          "demoTime",
+          "demoDate",
         ];
 
         const fields = fieldsParam
-          ? fieldsParam.split(",").map(f => f.trim()).filter(f => allowedFields.includes(f))
+          ? fieldsParam
+              .split(",")
+              .map((f) => f.trim())
+              .filter((f) => allowedFields.includes(f))
           : allowedFields;
 
         const where = { isDeleted: 0 };
 
         if (assignedTo !== undefined && assignedTo !== "") {
-          where.assignedTo = isNaN(Number(assignedTo)) ? assignedTo : Number(assignedTo);
+          where.assignedTo = isNaN(Number(assignedTo))
+            ? assignedTo
+            : Number(assignedTo);
         }
 
         if (q) {
           where[Op.or] = fields.map((f) => ({
-            [f]: { [Op.like]: `%${q}%` }
+            [f]: { [Op.like]: `%${q}%` },
           }));
         }
 
-        const allowedSorts = ["orderIndex", "tuitionId", "tuitionName", "tutorName", "demoDate", "timeHour"];
-        const finalSortField = allowedSorts.includes(sortField) ? sortField : "orderIndex";
+        const allowedSorts = [
+          "orderIndex",
+          "tuitionId",
+          "tuitionName",
+          "tutorName",
+          "demoDate",
+          "timeHour",
+        ];
+        const finalSortField = allowedSorts.includes(sortField)
+          ? sortField
+          : "orderIndex";
 
         const items = await Tuition.findAll({
           where,
           order: [
             [finalSortField, sortDir],
             ["orderIndex", "ASC"],
-            ["id", "DESC"]
+            ["id", "DESC"],
           ],
-          limit
+          limit,
         });
 
         return res.json({ items });
       } catch (err) {
         console.error("SEARCH ERROR:", err);
-        return res.status(500).json({ message: "Error performing search", error: err.message });
+        return res
+          .status(500)
+          .json({ message: "Error performing search", error: err.message });
       }
     },
 
@@ -110,7 +147,9 @@ export function makeTuitionController({ Tuition,TodayDemo, Payment }) {
 
       const body = req.body || {};
       const tuitionId = normalizeTuitionId(body.tuitionId);
-      if (!tuitionId) return res.status(400).json({ message: "tuitionId is required" });
+      if (!tuitionId) {
+        return res.status(400).json({ message: "tuitionId is required" });
+      }
 
       let timeHour = parseHourFromValue(body.time || body.demoTime || "12:00");
       if (timeHour === null || isNaN(timeHour)) {
@@ -140,22 +179,23 @@ export function makeTuitionController({ Tuition,TodayDemo, Payment }) {
           status: body.status || null,
           feedback: body.feedback || null,
           demoDate: normalizeDate(body.demoDate),
-          satisfactionRating: body.satisfactionRating || body.satisfactionRationg || null,
+          satisfactionRating:
+            body.satisfactionRating || body.satisfactionRationg || null,
           demoRating: body.demoRating || null,
           syncFlag: body.syncFlag || body.sync || null,
           isDeleted: 0,
-          orderIndex: 0
+          orderIndex: 0,
         });
-await upsertTodayDemoFromTuition({
-  TodayDemo,
-  item: item.toJSON(),
-});
-        if (item.status === "Tuition Done") {
-          await syncPaymentFromTuition({
-            Payment,
-            item: item.toJSON()
-          });
-        }
+
+        await upsertTodayDemoFromTuition({
+          TodayDemo,
+          item: item.toJSON(),
+        });
+
+        await syncPaymentFromTuition({
+          Payment,
+          item: item.toJSON(),
+        });
 
         res.status(201).json({ item });
       } catch (error) {
@@ -199,92 +239,131 @@ await upsertTodayDemoFromTuition({
           sync: "syncFlag",
           syncFlag: "syncFlag",
           rowColor: "rowColor",
-          tuitionNameColor: "tuitionNameColor"
+          tuitionNameColor: "tuitionNameColor",
         };
 
         for (const [incoming, field] of Object.entries(map)) {
           if (body[incoming] === undefined) continue;
+
           let v = body[incoming];
           if (field === "date" || field === "demoDate") v = normalizeDate(v);
+
           const isEmpty = v === "" || v === null;
           if (preserveEmpty && isEmpty && PRESERVE_IF_EMPTY.has(field)) continue;
+
           item[field] = isEmpty ? null : v;
         }
+
         await item.save();
-await upsertTodayDemoFromTuition({
-  TodayDemo,
-  item: item.toJSON(),
-});
+
+        await upsertTodayDemoFromTuition({
+          TodayDemo,
+          item: item.toJSON(),
+        });
+
         await syncPaymentFromTuition({
           Payment,
-          item: item.toJSON()
+          item: item.toJSON(),
         });
+
         res.json({ item });
       } catch (error) {
         console.error("TUITION UPDATE ERROR:", error);
         res.status(500).json({ message: "Update failed", error: error.message });
       }
     },
-   async remove(req, res) {
-  const tuitionId = normalizeTuitionId(req.params.tuitionId);
-  const result = await Tuition.update(
-    { isDeleted: 1 },
-    { where: { tuitionId } }
-  );
-  if (result[0] === 0) {
-    return res.status(404).json({ message: "Not found" });
-  }
-  await removeTodayDemoByTuitionId({
-    TodayDemo,
-    tuitionId,
-  });
-  res.json({ ok: true, message: "Moved to Recycle Bin" });
-},
+
+    async remove(req, res) {
+      const tuitionId = normalizeTuitionId(req.params.tuitionId);
+
+      const result = await Tuition.update(
+        { isDeleted: 1 },
+        { where: { tuitionId } }
+      );
+
+      if (result[0] === 0) {
+        return res.status(404).json({ message: "Not found" });
+      }
+
+      await removeTodayDemoByTuitionId({
+        TodayDemo,
+        tuitionId,
+      });
+
+      await removePaymentByTuitionId({
+        Payment,
+        tuitionId,
+      });
+
+      res.json({ ok: true, message: "Moved to Recycle Bin" });
+    },
+
     async getTrash(req, res) {
       const items = await Tuition.findAll({
         where: { isDeleted: 1 },
-        order: [["updatedAt", "DESC"]]
+        order: [["updatedAt", "DESC"]],
       });
       res.json(items);
     },
+
     async restore(req, res) {
-  const { id } = req.params;
-  await Tuition.update({ isDeleted: 0 }, { where: { id } });
-  const item = await Tuition.findByPk(id);
-  if (item) {
-    await upsertTodayDemoFromTuition({
-      TodayDemo,
-      item: item.toJSON(),
-    });
-  }
-  res.json({ success: true, message: "Restored successfully" });
-},
+      const { id } = req.params;
+
+      await Tuition.update({ isDeleted: 0 }, { where: { id } });
+      const item = await Tuition.findByPk(id);
+
+      if (item) {
+        await upsertTodayDemoFromTuition({
+          TodayDemo,
+          item: item.toJSON(),
+        });
+
+        await syncPaymentFromTuition({
+          Payment,
+          item: item.toJSON(),
+        });
+      }
+
+      res.json({ success: true, message: "Restored successfully" });
+    },
+
     async forceDelete(req, res) {
       if (req.user.role !== "admin") {
         return res.status(403).json({ message: "Only Admin can delete permanently" });
       }
+
       const { id } = req.params;
       await Tuition.destroy({ where: { id } });
+
       res.json({ success: true, message: "Permanently deleted" });
     },
+
     async assignStaff(req, res) {
-      if (req.user.role !== "admin") return res.status(403).json({ message: "Access denied" });
+      if (req.user.role !== "admin") {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
       const { tuitionIds, staffId } = req.body;
+
       try {
         await Tuition.update(
           { assignedTo: staffId },
           { where: { id: tuitionIds } }
         );
+
         res.json({ success: true, message: "Staff assigned successfully" });
       } catch (e) {
         res.status(500).json({ message: "Error assigning staff" });
       }
     },
+
     async reorder(req, res) {
       const { items } = req.body;
+
       if (!items || !Array.isArray(items)) {
         return res.status(400).json({ message: "Invalid payload format" });
       }
+
       try {
         await Promise.all(
           items.map(async (item) => {
@@ -296,11 +375,15 @@ await upsertTodayDemoFromTuition({
             }
           })
         );
+
         res.json({ success: true, message: "Order sequence updated!" });
       } catch (error) {
         console.error("REORDER ERROR:", error);
-        res.status(500).json({ message: "Could not save order sequence", error: error.message });
+        res.status(500).json({
+          message: "Could not save order sequence",
+          error: error.message,
+        });
       }
-    }
+    },
   };
 }

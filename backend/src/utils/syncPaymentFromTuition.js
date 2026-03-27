@@ -24,32 +24,44 @@ function normalizeStatus(value) {
     .toLowerCase();
 }
 
-function splitHalf(value) {
-  if (value === null || value === undefined) return null;
+function roundMoney(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) return null;
+  return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+}
 
-  const num = Number(value);
-  if (!Number.isFinite(num)) return null;
-
-  return num / 2;
+export async function removePaymentByTuitionId({ Payment, tuitionId }) {
+  if (!tuitionId) return 0;
+  return Payment.destroy({ where: { tuitionId } });
 }
 
 export async function syncPaymentFromTuition({ Payment, item }) {
   const normalizedStatus = normalizeStatus(item.status);
+  const tuitionId = item.tuitionId || "";
 
-  // sirf Tuition Done par payment sheet me create/update karo
-  if (normalizedStatus !== "tuition done") return;
+  const existing = await Payment.findOne({
+    where: { tuitionId },
+  });
 
-  // Estimated Fee ko Total Fee maan lo
+  // Agar Tuition Done remove/change ho jaye to Payment sheet se record hata do
+  if (normalizedStatus !== "tuition done") {
+    if (existing) {
+      await existing.destroy();
+    }
+    return null;
+  }
+
+  // Estimated Fee / Total Fee ko total fee maan lo
   const totalFee = toNumberOrNull(
-    item.estimatedFee || item.totalFee || item.totalFees
+    item.estimatedFee ?? item.totalFee ?? item.totalFees
   );
 
-  // 50 / 50 split
-  const tutorFee = splitHalf(totalFee);
-  const lacasShare = splitHalf(totalFee);
+  // Tutor fee hamesha Tuition sheet wali exact value se aayegi
+  const tutorFee = toNumberOrNull(item.tutorFee ?? item.tutorFees);
+  const lacasShare =
+    totalFee === null ? null : roundMoney(totalFee - (tutorFee ?? 0));
 
   const payload = {
-    tuitionId: item.tuitionId || "",
+    tuitionId,
     date: item.date || item.demoDate || null,
     tuitionName: item.tuitionName || "",
     country: item.country || "",
@@ -57,26 +69,25 @@ export async function syncPaymentFromTuition({ Payment, item }) {
     daysPerWeek: toIntegerOrNull(item.daysPerWeek || item.days_per_week),
     tutorName: item.tutorName || "",
     tutorFee,
+    tutorShare: tutorFee,
     lacasShare,
     totalFee,
+    totalFees: totalFee,
     feedback: item.feedback || "",
     otmName: item.otmName || item.source || "",
     notes: item.notes || item.secondTutors || "",
   };
-
-  const existing = await Payment.findOne({
-    where: { tuitionId: item.tuitionId },
-  });
 
   if (existing) {
     await existing.update({
       ...payload,
       status: existing.status || "Tuition Pending",
     });
-  } else {
-    await Payment.create({
-      ...payload,
-      status: "Tuition Pending",
-    });
+    return existing;
   }
+
+  return Payment.create({
+    ...payload,
+    status: "Tuition Pending",
+  });
 }
