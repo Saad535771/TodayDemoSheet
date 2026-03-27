@@ -31,7 +31,7 @@ const styles = {
     minWidth: "1200px",
   },
   th: {
-    textAlign: "left",
+    textalign: "center",
     padding: "12px 16px",
     borderBottom: "2px solid #f0f2f5",
     color: "#888",

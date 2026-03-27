@@ -59,7 +59,7 @@ const styles = {
     background: "#f8fafc",
     color: "#334155",
     fontWeight: "700",
-    textAlign: "left",
+    textalign: "center",
     padding: "12px 14px",
     borderBottom: "1px solid #e5e7eb",
     whiteSpace: "nowrap",

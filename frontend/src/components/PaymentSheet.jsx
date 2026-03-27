@@ -754,7 +754,7 @@ const gridColumns = useMemo(() => {
       editable: true,
       width: '12px',
       type: "date",
-      align: "left",
+      align: "center",
     },
     {
       id: "tuitionName",
@@ -762,7 +762,7 @@ const gridColumns = useMemo(() => {
       field: "tuitionName",
       editable: true,
       width: 10,
-      align: "left",
+      align: "center",
     },
     {
       id: "country",
@@ -770,7 +770,7 @@ const gridColumns = useMemo(() => {
       field: "country",
       editable: true,
       width: 110,
-      align: "left",
+      align: "center",
     },
     {
       id: "className",
@@ -778,7 +778,7 @@ const gridColumns = useMemo(() => {
       field: "className",
       editable: true,
       width: 120,
-      align: "left",
+      align: "center",
     },
     {
       id: "daysPerWeek",
@@ -787,7 +787,7 @@ const gridColumns = useMemo(() => {
       editable: true,
       width: 130,
       type: "number",
-      align: "left",
+      align: "center",
     },
     {
       id: "tutorName",
@@ -795,7 +795,7 @@ const gridColumns = useMemo(() => {
       field: "tutorName",
       editable: true,
       width: 150,
-      align: "left",
+      align: "center",
     },
   ];
 
@@ -807,7 +807,7 @@ const gridColumns = useMemo(() => {
       editable: true,
       width: 120,
       type: "number",
-      align: "left",
+      align: "center",
     });
   }
 
@@ -819,7 +819,7 @@ const gridColumns = useMemo(() => {
       editable: true,
       width: 120,
       type: "number",
-      align: "left",
+      align: "center",
     });
   }
 
@@ -831,7 +831,7 @@ const gridColumns = useMemo(() => {
       editable: true,
       width: 120,
       type: "number",
-      align: "left",
+      align: "center",
     });
   }
 
@@ -852,7 +852,7 @@ const gridColumns = useMemo(() => {
       field: "feedback",
       editable: true,
       width: 220,
-      align: "left",
+      align: "center",
     },
     {
       id: "otmName",
@@ -860,7 +860,7 @@ const gridColumns = useMemo(() => {
       field: "otmName",
       editable: true,
       width: 150,
-      align: "left",
+      align: "center",
     },
     {
       id: "notes",
@@ -868,7 +868,7 @@ const gridColumns = useMemo(() => {
       field: "notes",
       editable: true,
       width: 240,
-      align: "left",
+      align: "center",
     },
 
     // extra fields agar rakhne hain to sequence ke baad
@@ -878,7 +878,7 @@ const gridColumns = useMemo(() => {
       field: "tuitionId",
       editable: true,
       width: 140,
-      align: "left",
+      align: "center",
     },
   );
 

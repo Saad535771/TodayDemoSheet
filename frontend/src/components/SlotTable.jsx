@@ -154,7 +154,7 @@ const styles = {
     border: "none",
     borderBottom: "1px solid #eef2f7",
     background: "#ffffff",
-    textAlign: "left",
+    textalign: "center",
     cursor: "pointer",
     fontSize: "14px",
     display: "flex",

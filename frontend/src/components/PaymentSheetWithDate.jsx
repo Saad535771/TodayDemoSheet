@@ -5,6 +5,8 @@ const LIVE_REFRESH_MS = 3000;
 const MIN_ZOOM = 0.7;
 const MAX_ZOOM = 1.5;
 const ZOOM_STEP = 0.1;
+const MAX_HISTORY = 100;
+const RECENT_MUTATION_PAUSE_MS = 1200;
 
 const styles = {
   page: {
@@ -297,6 +299,113 @@ function getRowId(row) {
 
 function rowsAreSame(a = [], b = []) {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function cloneRow(row) {
+  if (row === null || row === undefined) return row;
+  return JSON.parse(JSON.stringify(row));
+}
+
+function cloneRows(rows = []) {
+  return rows.map((row) => cloneRow(row));
+}
+
+function buildMergedPatchEntries(updates = []) {
+  const merged = new Map();
+
+  updates.forEach(({ row, patch }) => {
+    const rowId = getRowId(row);
+    if (rowId === undefined || rowId === null) return;
+    if (!patch || typeof patch !== "object") return;
+
+    const patchKeys = Object.keys(patch);
+    if (!patchKeys.length) return;
+
+    const existing = merged.get(String(rowId)) || {
+      rowId,
+      beforePatch: {},
+      afterPatch: {},
+    };
+
+    patchKeys.forEach((key) => {
+      existing.beforePatch[key] = row?.[key];
+      existing.afterPatch[key] = patch[key];
+    });
+
+    merged.set(String(rowId), existing);
+  });
+
+  return [...merged.values()].filter((entry) =>
+    Object.keys(entry.afterPatch).some(
+      (key) => !Object.is(entry.beforePatch[key], entry.afterPatch[key])
+    )
+  );
+}
+
+function applyPatchEntriesToRows(rows = [], entries = [], patchKey = "afterPatch") {
+  if (!entries.length) return rows;
+
+  const patchMap = new Map(
+    entries.map((entry) => [String(entry.rowId), entry[patchKey] || {}])
+  );
+
+  return rows.map((row) => {
+    const patch = patchMap.get(String(getRowId(row)));
+    return patch ? { ...row, ...patch } : row;
+  });
+}
+
+function buildReorderPayload(rows = []) {
+  return rows
+    .map((row, index) => {
+      const id = getRowId(row);
+      if (id === undefined || id === null) return null;
+      return {
+        id,
+        orderIndex:
+          typeof row?.orderIndex === "number" ? row.orderIndex : index,
+      };
+    })
+    .filter(Boolean);
+}
+
+function applyReorderPayloadToRows(rows = [], payload = []) {
+  if (!payload.length) return rows;
+
+  const orderMap = new Map(
+    payload.map((item, index) => [
+      String(item.id),
+      typeof item?.orderIndex === "number" ? item.orderIndex : index,
+    ])
+  );
+
+  return cloneRows(rows)
+    .map((row, index) => ({
+      ...row,
+      orderIndex: orderMap.has(String(getRowId(row)))
+        ? orderMap.get(String(getRowId(row)))
+        : typeof row?.orderIndex === "number"
+        ? row.orderIndex
+        : index,
+    }))
+    .sort((a, b) => {
+      const aOrder = typeof a?.orderIndex === "number" ? a.orderIndex : Number.MAX_SAFE_INTEGER;
+      const bOrder = typeof b?.orderIndex === "number" ? b.orderIndex : Number.MAX_SAFE_INTEGER;
+      return aOrder - bOrder;
+    });
+}
+
+function insertRowByOrder(rows = [], row) {
+  const next = cloneRows(rows).filter(
+    (item) => String(getRowId(item)) !== String(getRowId(row))
+  );
+
+  if (!row) return next;
+
+  const targetOrder = typeof row?.orderIndex === "number" ? row.orderIndex : next.length;
+  const insertAt = Math.max(0, Math.min(next.length, targetOrder));
+  next.splice(insertAt, 0, cloneRow(row));
+  return next;
 }
 
 function isTextLikeSelectionInput(el) {
@@ -622,6 +731,7 @@ export default function PaymentSheetWithDate({ me }) {
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState("");
   const [activeColorPicker, setActiveColorPicker] = useState(null);
+  const [historyMeta, setHistoryMeta] = useState({ canUndo: false, canRedo: false });
 
   const mountedRef = useRef(true);
   const itemsRef = useRef([]);
@@ -636,6 +746,11 @@ export default function PaymentSheetWithDate({ me }) {
   const isMouseSelectingRef = useRef(false);
   const dragAnchorCellRef = useRef(null);
   const localClipboardRef = useRef("");
+  const historyUndoRef = useRef([]);
+  const historyRedoRef = useRef([]);
+  const mutationInFlightRef = useRef(false);
+  const isApplyingHistoryRef = useRef(false);
+  const skipNextPollUntilRef = useRef(0);
 
   const canSeeTutorShare =
     me?.role === "admin" || me?.role === "hod" || !!me?.access_tutor_share;
@@ -779,7 +894,7 @@ export default function PaymentSheetWithDate({ me }) {
   );
 
   const firstEditableColumnId = gridColumns[0]?.id || "tuitionId";
-  const visibleColumnCount = gridColumns.length + 4;
+  const visibleColumnCount = gridColumns.length + 5;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -788,6 +903,9 @@ export default function PaymentSheetWithDate({ me }) {
 
     pollingRef.current = setInterval(() => {
       if (document.hidden) return;
+      if (editingCellRef.current) return;
+      if (mutationInFlightRef.current || isApplyingHistoryRef.current) return;
+      if (Date.now() < skipNextPollUntilRef.current) return;
       loadRows({ silent: true });
     }, LIVE_REFRESH_MS);
 
@@ -888,6 +1006,241 @@ export default function PaymentSheetWithDate({ me }) {
     }
   }, [editingCell, gridColumnMap]);
 
+
+  const syncHistoryMeta = () => {
+    setHistoryMeta({
+      canUndo: historyUndoRef.current.length > 0,
+      canRedo: historyRedoRef.current.length > 0,
+    });
+  };
+
+  const rememberHistoryEntry = (entry) => {
+    historyUndoRef.current.push(entry);
+    if (historyUndoRef.current.length > MAX_HISTORY) {
+      historyUndoRef.current.shift();
+    }
+    historyRedoRef.current = [];
+    syncHistoryMeta();
+  };
+
+  const markMutationSettled = () => {
+    skipNextPollUntilRef.current = Date.now() + RECENT_MUTATION_PAUSE_MS;
+  };
+
+  const setItemsImmediate = (nextItems) => {
+    itemsRef.current = nextItems;
+    setItems(nextItems);
+  };
+
+  const applyUpdateEntries = async (updates, { historyLabel = "Edit", recordHistory = true } = {}) => {
+    const normalized = buildMergedPatchEntries(updates);
+    if (!normalized.length) return false;
+
+    const previousItems = cloneRows(itemsRef.current);
+    const nextItems = applyPatchEntriesToRows(previousItems, normalized, "afterPatch");
+
+    setItemsImmediate(nextItems);
+    mutationInFlightRef.current = true;
+
+    try {
+      await Promise.all(
+        normalized.map((entry) =>
+          api.patch(`/payments-clone/${encodeURIComponent(entry.rowId)}`, entry.afterPatch)
+        )
+      );
+
+      if (recordHistory) {
+        rememberHistoryEntry({
+          type: "updateMany",
+          label: historyLabel,
+          updates: normalized.map((entry) => ({
+            rowId: entry.rowId,
+            beforePatch: cloneRow(entry.beforePatch),
+            afterPatch: cloneRow(entry.afterPatch),
+          })),
+        });
+      }
+
+      markMutationSettled();
+      await loadRows({ silent: true });
+      return true;
+    } catch (err) {
+      setItemsImmediate(previousItems);
+      throw err;
+    } finally {
+      mutationInFlightRef.current = false;
+    }
+  };
+
+  const applyReorderChange = async (nextRows, historyLabel = "Reorder Rows") => {
+    const beforeOrder = buildReorderPayload(itemsRef.current);
+    const afterOrder = buildReorderPayload(nextRows);
+
+    if (!afterOrder.length) return false;
+    if (JSON.stringify(beforeOrder) === JSON.stringify(afterOrder)) return false;
+
+    const previousItems = cloneRows(itemsRef.current);
+    setItemsImmediate(cloneRows(nextRows));
+    mutationInFlightRef.current = true;
+
+    try {
+      await api.post("/payments-clone/reorder", { items: afterOrder });
+      rememberHistoryEntry({
+        type: "reorder",
+        label: historyLabel,
+        beforeOrder: cloneRow(beforeOrder),
+        afterOrder: cloneRow(afterOrder),
+      });
+      markMutationSettled();
+      await loadRows({ silent: true });
+      return true;
+    } catch (err) {
+      setItemsImmediate(previousItems);
+      throw err;
+    } finally {
+      mutationInFlightRef.current = false;
+    }
+  };
+
+  const undoLastAction = async () => {
+    if (!historyUndoRef.current.length || mutationInFlightRef.current) return;
+
+    const entry = historyUndoRef.current.pop();
+    syncHistoryMeta();
+
+    const previousItems = cloneRows(itemsRef.current);
+    mutationInFlightRef.current = true;
+    isApplyingHistoryRef.current = true;
+
+    try {
+      if (entry.type === "updateMany") {
+        const undoEntries = entry.updates.map((item) => ({
+          rowId: item.rowId,
+          beforePatch: cloneRow(item.beforePatch),
+          afterPatch: cloneRow(item.beforePatch),
+        }));
+
+        setItemsImmediate(applyPatchEntriesToRows(previousItems, undoEntries, "afterPatch"));
+
+        await Promise.all(
+          entry.updates.map((item) =>
+            api.patch(`/payments-clone/${encodeURIComponent(item.rowId)}`, item.beforePatch)
+          )
+        );
+      } else if (entry.type === "reorder") {
+        setItemsImmediate(applyReorderPayloadToRows(previousItems, entry.beforeOrder));
+        await api.post("/payments-clone/reorder", { items: entry.beforeOrder });
+      } else if (entry.type === "deleteRow") {
+        setItemsImmediate(insertRowByOrder(previousItems, entry.row));
+        const res = await api.post("/payments-clone", entry.row);
+        entry.row = cloneRow(res.data?.item || res.data || entry.row);
+      } else if (entry.type === "addRow") {
+        const currentRowId = getRowId(entry.row);
+        setItemsImmediate(
+          previousItems.filter((item) => String(getRowId(item)) !== String(currentRowId))
+        );
+        await api.delete(`/payments-clone/${encodeURIComponent(currentRowId)}`);
+      }
+
+      historyRedoRef.current.push(entry);
+      markMutationSettled();
+      await loadRows({ silent: true });
+    } catch (err) {
+      setItemsImmediate(previousItems);
+      historyUndoRef.current.push(entry);
+      alert(err?.response?.data?.message || "Undo failed.");
+      console.error("Undo failed:", err);
+    } finally {
+      mutationInFlightRef.current = false;
+      isApplyingHistoryRef.current = false;
+      syncHistoryMeta();
+    }
+  };
+
+  const redoLastAction = async () => {
+    if (!historyRedoRef.current.length || mutationInFlightRef.current) return;
+
+    const entry = historyRedoRef.current.pop();
+    syncHistoryMeta();
+
+    const previousItems = cloneRows(itemsRef.current);
+    mutationInFlightRef.current = true;
+    isApplyingHistoryRef.current = true;
+
+    try {
+      if (entry.type === "updateMany") {
+        const redoEntries = entry.updates.map((item) => ({
+          rowId: item.rowId,
+          beforePatch: cloneRow(item.afterPatch),
+          afterPatch: cloneRow(item.afterPatch),
+        }));
+
+        setItemsImmediate(applyPatchEntriesToRows(previousItems, redoEntries, "afterPatch"));
+
+        await Promise.all(
+          entry.updates.map((item) =>
+            api.patch(`/payments-clone/${encodeURIComponent(item.rowId)}`, item.afterPatch)
+          )
+        );
+      } else if (entry.type === "reorder") {
+        setItemsImmediate(applyReorderPayloadToRows(previousItems, entry.afterOrder));
+        await api.post("/payments-clone/reorder", { items: entry.afterOrder });
+      } else if (entry.type === "deleteRow") {
+        const currentRowId = getRowId(entry.row);
+        setItemsImmediate(
+          previousItems.filter((item) => String(getRowId(item)) !== String(currentRowId))
+        );
+        await api.delete(`/payments-clone/${encodeURIComponent(currentRowId)}`);
+      } else if (entry.type === "addRow") {
+        setItemsImmediate(insertRowByOrder(previousItems, entry.row));
+        const res = await api.post("/payments-clone", entry.row);
+        entry.row = cloneRow(res.data?.item || res.data || entry.row);
+      }
+
+      historyUndoRef.current.push(entry);
+      markMutationSettled();
+      await loadRows({ silent: true });
+    } catch (err) {
+      setItemsImmediate(previousItems);
+      historyRedoRef.current.push(entry);
+      alert(err?.response?.data?.message || "Redo failed.");
+      console.error("Redo failed:", err);
+    } finally {
+      mutationInFlightRef.current = false;
+      isApplyingHistoryRef.current = false;
+      syncHistoryMeta();
+    }
+  };
+
+  useEffect(() => {
+    const handleUndoRedoShortcuts = (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+
+      const activeEl = document.activeElement;
+      const activeTag = String(activeEl?.tagName || "").toLowerCase();
+
+      if (editingCellRef.current) return;
+      if (isTextLikeSelectionInput(activeEl)) return;
+      if (activeTag === "textarea" || activeTag === "select") return;
+
+      const key = String(e.key || "").toLowerCase();
+
+      if (key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        void undoLastAction();
+        return;
+      }
+
+      if (key === "y" || (key === "z" && e.shiftKey)) {
+        e.preventDefault();
+        void redoLastAction();
+      }
+    };
+
+    document.addEventListener("keydown", handleUndoRedoShortcuts);
+    return () => document.removeEventListener("keydown", handleUndoRedoShortcuts);
+  }, []);
+
   async function loadRows({ initial = false, silent = false } = {}) {
     try {
       if (initial) setLoading(true);
@@ -917,6 +1270,7 @@ export default function PaymentSheetWithDate({ me }) {
   async function addRow() {
     try {
       setAdding(true);
+      mutationInFlightRef.current = true;
 
       const nextOrderIndex =
         itemsRef.current.reduce((max, item, index) => {
@@ -952,17 +1306,23 @@ export default function PaymentSheetWithDate({ me }) {
       const res = await api.post("/payments-clone", newRow);
       const created = res.data?.item || res.data;
 
-      if (created && getRowId(created) !== undefined) {
-        setItems((prev) => [
-          ...prev,
-          {
-            ...created,
-            orderIndex:
-              typeof created?.orderIndex === "number"
-                ? created.orderIndex
-                : nextOrderIndex,
-          },
-        ]);
+      if (created && getRowId(created) !== undefined && getRowId(created) !== null) {
+        const createdRow = {
+          ...created,
+          orderIndex:
+            typeof created?.orderIndex === "number"
+              ? created.orderIndex
+              : nextOrderIndex,
+        };
+
+        setItemsImmediate([...itemsRef.current, createdRow]);
+        rememberHistoryEntry({
+          type: "addRow",
+          label: "Add Row",
+          row: cloneRow(createdRow),
+        });
+        markMutationSettled();
+        await loadRows({ silent: true });
       } else {
         await loadRows({ silent: true });
       }
@@ -970,36 +1330,25 @@ export default function PaymentSheetWithDate({ me }) {
       console.error("Failed to add row:", err);
       alert(err?.response?.data?.message || "Failed to create a new row.");
     } finally {
+      mutationInFlightRef.current = false;
       setAdding(false);
     }
   }
 
-  async function updateRowFields(row, patchFields) {
-    const rowId = getRowId(row);
-    if (rowId === undefined || rowId === null) {
-      alert("Row ID is missing.");
-      return;
-    }
-
-    const oldItems = itemsRef.current;
-    const updatedRow = { ...row, ...patchFields };
-
-    setItems((prev) =>
-      prev.map((item) => (getRowId(item) === rowId ? updatedRow : item))
-    );
-
+  async function updateRowFields(row, patchFields, options = {}) {
     try {
-      await api.patch(`/payments-clone/${encodeURIComponent(rowId)}`, patchFields);
-      await loadRows({ silent: true });
+      await applyUpdateEntries([{ row, patch: patchFields }], {
+        historyLabel: options.historyLabel || "Edit Cell",
+        recordHistory: options.recordHistory !== false,
+      });
     } catch (err) {
       console.error("Failed to update row:", err);
-      setItems(oldItems);
       alert(err?.response?.data?.message || "Failed to update the row.");
     }
   }
 
-  async function updateRow(row, field, newValue) {
-    await updateRowFields(row, { [field]: newValue });
+  async function updateRow(row, field, newValue, options = {}) {
+    await updateRowFields(row, { [field]: newValue }, options);
   }
 
   async function moveRow(index, direction) {
@@ -1007,7 +1356,7 @@ export default function PaymentSheetWithDate({ me }) {
     if (direction === "up" && index === 0) return;
     if (direction === "down" && index === items.length - 1) return;
 
-    const newItems = [...items];
+    const newItems = cloneRows(itemsRef.current);
     const targetIndex = direction === "up" ? index - 1 : index + 1;
 
     [newItems[index], newItems[targetIndex]] = [
@@ -1020,16 +1369,8 @@ export default function PaymentSheetWithDate({ me }) {
       orderIndex: idx,
     }));
 
-    setItems(normalized);
-
     try {
-      const reorderPayload = normalized.map((item, idx) => ({
-        id: getRowId(item),
-        orderIndex: idx,
-      }));
-
-      await api.post("/payments-clone/reorder", { items: reorderPayload });
-      await loadRows({ silent: true });
+      await applyReorderChange(normalized, `Move Row ${direction === "up" ? "Up" : "Down"}`);
     } catch (err) {
       console.error("Failed to reorder rows:", err);
       alert(err?.response?.data?.message || "Failed to save row order.");
@@ -1045,7 +1386,7 @@ export default function PaymentSheetWithDate({ me }) {
     );
     if (!selectedSet.size) return;
 
-    const newItems = [...items];
+    const newItems = cloneRows(itemsRef.current);
 
     if (direction === "up") {
       for (let i = 1; i < newItems.length; i += 1) {
@@ -1072,16 +1413,11 @@ export default function PaymentSheetWithDate({ me }) {
       orderIndex: idx,
     }));
 
-    setItems(normalized);
-
     try {
-      const reorderPayload = normalized.map((item, idx) => ({
-        id: getRowId(item),
-        orderIndex: idx,
-      }));
-
-      await api.post("/payments-clone/reorder", { items: reorderPayload });
-      await loadRows({ silent: true });
+      await applyReorderChange(
+        normalized,
+        `Move Selected Rows ${direction === "up" ? "Up" : "Down"}`
+      );
     } catch (err) {
       console.error("Failed to move selected rows:", err);
       alert(err?.response?.data?.message || "Failed to save selected row order.");
@@ -1098,16 +1434,27 @@ export default function PaymentSheetWithDate({ me }) {
 
     if (!window.confirm("Are you sure you want to delete this row?")) return;
 
-    const oldItems = itemsRef.current;
-    setItems((prev) => prev.filter((item) => getRowId(item) !== rowId));
+    const previousItems = cloneRows(itemsRef.current);
+    setItemsImmediate(
+      previousItems.filter((item) => String(getRowId(item)) !== String(rowId))
+    );
+    mutationInFlightRef.current = true;
 
     try {
       await api.delete(`/payments-clone/${encodeURIComponent(rowId)}`);
+      rememberHistoryEntry({
+        type: "deleteRow",
+        label: "Delete Row",
+        row: cloneRow(row),
+      });
+      markMutationSettled();
       await loadRows({ silent: true });
     } catch (err) {
       console.error("Failed to delete row:", err);
-      setItems(oldItems);
+      setItemsImmediate(previousItems);
       alert(err?.response?.data?.message || "Failed to delete the row.");
+    } finally {
+      mutationInFlightRef.current = false;
     }
   }
 
@@ -1456,22 +1803,13 @@ export default function PaymentSheetWithDate({ me }) {
 
       if (!updatesById.size) return;
 
-      setItems((prev) =>
-        prev.map((item) => {
-          const rowId = getRowId(item);
-          const entry = updatesById.get(rowId);
-          return entry ? { ...item, ...entry.patch } : item;
-        })
+      await applyUpdateEntries(
+        [...updatesById.values()].map((entry) => ({
+          row: entry.row,
+          patch: entry.patch,
+        })),
+        { historyLabel: "Paste Cells" }
       );
-
-      await Promise.all(
-        [...updatesById.values()].map((entry) => {
-          const rowId = getRowId(entry.row);
-          return api.patch(`/payments-clone/${encodeURIComponent(rowId)}`, entry.patch);
-        })
-      );
-
-      await loadRows({ silent: true });
 
       const endRow = Math.min(
         filteredItemsRef.current.length - 1,
@@ -1595,18 +1933,19 @@ export default function PaymentSheetWithDate({ me }) {
 
     if (!updatesById.size) return;
 
-    setItems((prev) =>
-      prev.map((row) => {
-        const rowId = getRowId(row);
-        const entry = updatesById.get(rowId);
-        return entry ? { ...row, ...entry.patch } : row;
-      })
-    );
-
     clearEditingState();
 
-    for (const [, entry] of updatesById.entries()) {
-      await updateRowFields(entry.row, entry.patch);
+    try {
+      await applyUpdateEntries(
+        [...updatesById.values()].map((entry) => ({
+          row: entry.row,
+          patch: entry.patch,
+        })),
+        { historyLabel: "Clear Cells" }
+      );
+    } catch (err) {
+      console.error("Failed to clear selected cells:", err);
+      alert(err?.response?.data?.message || "Failed to clear selected cells.");
     }
   };
 
@@ -2101,11 +2440,11 @@ export default function PaymentSheetWithDate({ me }) {
         <div style={styles.headerRow}>
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>Payment Sheet With Date</h2>
-            <p style={styles.subtitle}>Independent CRUD sheet with Excel-style keyboard navigation</p>
+            <p style={styles.subtitle}>Excel-style sheet with live sync, multi-cell selection, and undo/redo</p>
           </div>
 
           <div style={styles.actions}>
-            <div style={styles.liveBadge}>● Independent CRUD</div>
+            <div style={styles.liveBadge}>● Excel-style Live Sheet</div>
 
             <div style={styles.zoomControls}>
               <button
@@ -2146,6 +2485,24 @@ export default function PaymentSheetWithDate({ me }) {
             </button>
 
             <button
+              onClick={() => void undoLastAction()}
+              style={styles.refreshBtn}
+              disabled={!historyMeta.canUndo || mutationInFlightRef.current}
+              title="Undo last change"
+            >
+              Undo (Ctrl+Z)
+            </button>
+
+            <button
+              onClick={() => void redoLastAction()}
+              style={styles.refreshBtn}
+              disabled={!historyMeta.canRedo || mutationInFlightRef.current}
+              title="Redo last undone change"
+            >
+              Redo (Ctrl+Y)
+            </button>
+
+            <button
               onClick={() => void moveSelectedRows("up")}
               style={styles.refreshBtn}
               disabled={!selectedRowIds.size}
@@ -2172,6 +2529,7 @@ export default function PaymentSheetWithDate({ me }) {
             <table style={styles.table}>
               <thead>
               <tr>
+                <th style={{ ...styles.th, minWidth: "68px" }}>#</th>
                 <th style={{ ...styles.th, minWidth: "58px" }}>
                   <input
                     type="checkbox"
@@ -2226,6 +2584,20 @@ export default function PaymentSheetWithDate({ me }) {
                       key={rowId ?? visibleIndex}
                       style={{ backgroundColor: row.rowColor || "#fff" }}
                     >
+                      <td style={{ ...styles.td, textAlign: "center" }}>
+                        <div
+                          style={{
+                            ...styles.readCell,
+                            justifyContent: "center",
+                            fontWeight: "700",
+                            minWidth: "68px",
+                          }}
+                          aria-label={`Row number ${visibleIndex + 1}`}
+                        >
+                          {visibleIndex + 1}
+                        </div>
+                      </td>
+
                       <td style={{ ...styles.td, textAlign: "center" }}>
                         <div style={styles.readCell}>
                           <input

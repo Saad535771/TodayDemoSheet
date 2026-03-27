@@ -40,7 +40,7 @@ const styles = {
     borderCollapse: "collapse",
   },
   th: {
-    textAlign: "left",
+    textalign: "center",
     padding: "12px",
     borderBottom: "2px solid #f0f2f5",
     color: "#888",
