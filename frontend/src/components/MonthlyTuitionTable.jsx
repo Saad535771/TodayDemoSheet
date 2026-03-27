@@ -178,6 +178,36 @@ const gridColumnMap = Object.fromEntries(gridColumns.map((c) => [c.id, c]));
 const firstEditableColumnId = gridColumns[0]?.id || "demoTime";
 const columnColors = { "Rejected Tutor": "#c00000" };
 
+
+const stableSerialize = (value) => {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableSerialize(entry)).join(",")}]`;
+  }
+
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`)
+      .join(",")}}`;
+  }
+
+  return JSON.stringify(value ?? null);
+};
+
+const areItemListsEqual = (prevItems, nextItems) => {
+  if (prevItems === nextItems) return true;
+  if (!Array.isArray(prevItems) || !Array.isArray(nextItems)) return false;
+  if (prevItems.length !== nextItems.length) return false;
+
+  for (let i = 0; i < prevItems.length; i += 1) {
+    if (stableSerialize(prevItems[i]) !== stableSerialize(nextItems[i])) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 const getCellKey = (rowIndex, colId) => `${rowIndex}__${colId}`;
 
 const parseCellKey = (key) => {
@@ -541,8 +571,11 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const undoStackRef = useRef([]);
   const isUndoRunningRef = useRef(false);
   const recordSaveQueueRef = useRef(new Map());
+  const isSearchingRef = useRef(isSearching);
+  const refreshInFlightRef = useRef(false);
   const HORIZONTAL_TRACKPAD_MULTIPLIER = 1;
-const AUTO_REFRESH_INTERVAL = 4000;
+  const AUTO_REFRESH_INTERVAL = 10000;
+
   useEffect(() => {
     localItemsRef.current = localItems;
   }, [localItems]);
@@ -554,6 +587,10 @@ const AUTO_REFRESH_INTERVAL = 4000;
   useEffect(() => {
     editValueRef.current = editValue;
   }, [editValue]);
+
+  useEffect(() => {
+    isSearchingRef.current = isSearching;
+  }, [isSearching]);
 
   useEffect(() => {
     if (editingCell?.colId !== "status") {
@@ -588,24 +625,101 @@ const AUTO_REFRESH_INTERVAL = 4000;
     };
   }, [HORIZONTAL_TRACKPAD_MULTIPLIER]);
   useEffect(() => {
-    setLocalItems(items);
-    setSelectedRows(new Set());
+    const nextItems = Array.isArray(items) ? items : [];
 
-    if (items?.length) {
-      const first = { rowIndex: 0, colId: firstEditableColumnId };
-      setSelectedCell(first);
-      setAnchorCell(first);
-      setSelectedCells(new Set([getCellKey(0, firstEditableColumnId)]));
-    } else {
+    if (areItemListsEqual(localItemsRef.current, nextItems)) {
+      return;
+    }
+
+    const previousItems = localItemsRef.current || [];
+    const previousSelected = selectedCell;
+    const previousAnchor = anchorCell;
+    const previousEditing = editingCellRef.current;
+    const previousSelectedRowId =
+      previousSelected && previousItems[previousSelected.rowIndex]
+        ? previousItems[previousSelected.rowIndex].tuitionId
+        : null;
+    const previousAnchorRowId =
+      previousAnchor && previousItems[previousAnchor.rowIndex]
+        ? previousItems[previousAnchor.rowIndex].tuitionId
+        : null;
+    const previousEditingRowId =
+      previousEditing && previousItems[previousEditing.rowIndex]
+        ? previousItems[previousEditing.rowIndex].tuitionId
+        : null;
+
+    const resolveRowIndex = (rowId, fallbackIndex = 0) => {
+      if (!nextItems.length) return -1;
+      if (rowId) {
+        const matchedIndex = nextItems.findIndex((item) => item?.tuitionId === rowId);
+        if (matchedIndex >= 0) return matchedIndex;
+      }
+      return Math.max(0, Math.min(nextItems.length - 1, fallbackIndex));
+    };
+
+    setLocalItems(nextItems);
+
+    setSelectedRows((prev) => {
+      if (!prev.size) return prev;
+
+      const nextIds = new Set(nextItems.map((item) => item?.tuitionId));
+      const filtered = new Set([...prev].filter((id) => nextIds.has(id)));
+
+      return filtered.size === prev.size ? prev : filtered;
+    });
+
+    if (!nextItems.length) {
       setSelectedCell(null);
       setAnchorCell(null);
       setSelectedCells(new Set());
+      setEditingCell(null);
+      editingCellRef.current = null;
+      setEditValue("");
+      editValueRef.current = "";
+      return;
     }
 
-    setEditingCell(null);
-    editingCellRef.current = null;
-    setEditValue("");
-    editValueRef.current = "";
+    const nextSelected = {
+      rowIndex: resolveRowIndex(previousSelectedRowId, previousSelected?.rowIndex ?? 0),
+      colId: gridColumnMap[previousSelected?.colId]?.id
+        ? previousSelected.colId
+        : firstEditableColumnId,
+    };
+
+    const nextAnchor = {
+      rowIndex: resolveRowIndex(previousAnchorRowId, previousAnchor?.rowIndex ?? nextSelected.rowIndex),
+      colId: gridColumnMap[previousAnchor?.colId]?.id
+        ? previousAnchor.colId
+        : nextSelected.colId,
+    };
+
+    setSelectedCell(nextSelected);
+    setAnchorCell(nextAnchor);
+
+    if (selectedCells.size > 1 && previousSelected && previousAnchor) {
+      setSelectedCells(getRangeCells(nextAnchor, nextSelected));
+    } else {
+      setSelectedCells(new Set([getCellKey(nextSelected.rowIndex, nextSelected.colId)]));
+    }
+
+    if (previousEditing) {
+      const nextEditingRowIndex = resolveRowIndex(
+        previousEditingRowId,
+        previousEditing.rowIndex
+      );
+
+      if (nextEditingRowIndex >= 0) {
+        const nextEditing = {
+          rowIndex: nextEditingRowIndex,
+          colId: gridColumnMap[previousEditing.colId]?.id
+            ? previousEditing.colId
+            : nextSelected.colId,
+        };
+
+        setEditingCell(nextEditing);
+        editingCellRef.current = nextEditing;
+      }
+    }
   }, [items]);
 
   useEffect(() => {
@@ -785,7 +899,10 @@ const AUTO_REFRESH_INTERVAL = 4000;
   const performSearch = async (query) => {
     try {
       if (!query) {
-        setLocalItems(items);
+        const nextItems = Array.isArray(items) ? items : [];
+        if (!areItemListsEqual(localItemsRef.current, nextItems)) {
+          setLocalItems(nextItems);
+        }
         return;
       }
 
@@ -815,6 +932,51 @@ const AUTO_REFRESH_INTERVAL = 4000;
     const timer = setTimeout(() => performSearch(searchTerm), 400);
     return () => clearTimeout(timer);
   }, [searchTerm, sortField, sortDir, assignedFilter, items]);
+
+  useEffect(() => {
+    if (typeof load !== "function") return;
+
+    const maybeRefresh = async () => {
+      if (refreshInFlightRef.current) return;
+      if (editingCellRef.current) return;
+      if (isUndoRunningRef.current) return;
+      if (recordSaveQueueRef.current.size > 0) return;
+      if (isSearchingRef.current) return;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+
+      refreshInFlightRef.current = true;
+
+      try {
+        await load();
+      } catch (error) {
+        console.error("Monthly auto refresh failed", error);
+      } finally {
+        refreshInFlightRef.current = false;
+      }
+    };
+
+    const intervalId = window.setInterval(maybeRefresh, AUTO_REFRESH_INTERVAL);
+
+    const handleWindowFocus = () => {
+      maybeRefresh();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        maybeRefresh();
+      }
+    };
+
+    maybeRefresh();
+    window.addEventListener("focus", handleWindowFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleWindowFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [load]);
 
   const getColumnIndex = (colId) => gridColumnIds.findIndex((id) => id === colId);
 
@@ -1795,7 +1957,7 @@ const getCellTextColor = (item, col) => {
                         background: isActive ? "#f0fdf4" : "transparent",
                         padding: "8px 10px",
                         cursor: "pointer",
-                        textAlign: "left",
+                        textalign: "center",
                         fontSize: "12px",
                       }}
                     >
@@ -1923,7 +2085,7 @@ if (isEditing && col.id === "feedback") {
           whiteSpace: "pre-wrap",
           overflowWrap: "anywhere",
           lineHeight: "1.4",
-          textAlign: "left",
+          textalign: "center",
         }}
       />
     </td>
@@ -1982,7 +2144,7 @@ if (isEditing && col.id === "feedback") {
             <span
               style={{
                 flex: 1,
-                textAlign: "left",
+                textalign: "center",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
