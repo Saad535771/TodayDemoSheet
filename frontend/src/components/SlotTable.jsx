@@ -538,7 +538,7 @@ const STATUS_LIST = [
   "Pending",
 ];
 const columnColors = { "Rejected Tutor": "#ffebee" };
-const PASSWORD_SECRET = "admin12345678";
+const PASSWORD_SECRET = "admin123456789";
 const AUTO_REFRESH_INTERVAL = 14000;
 function areItemListsEqual(left = [], right = []) {
   return JSON.stringify(left || []) === JSON.stringify(right || []);
@@ -1051,9 +1051,9 @@ const ColorSwatch = ({
 /* =========================
    SlotTable component
    ========================= */
-export default function SlotTable({ slot, onChanged, isProtected, isLoadingData }) {
+export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,globalZoom = 1 }) {
  const [open, setOpen] = useState(true);
-  const [zoom, setZoom] = useState(1);
+  const [localZoom, setLocalZoom] = useState(1);
   const [localItems, setLocalItems] = useState([]);
   const [isUpdating, setIsUpdating] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -1095,7 +1095,12 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
   const isUnlockedRef = useRef(isUnlocked);
   const isUpdatingRef = useRef(isUpdating);
   const refreshInFlightRef = useRef(false);
-
+const effectiveZoom = useMemo(() => {
+  let next = globalZoom * localZoom;
+  if (next < 0.4) next = 0.4;
+  if (next > 2.5) next = 2.5;
+  return Number(next.toFixed(2));
+}, [globalZoom, localZoom]);
   useEffect(() => {
     localItemsRef.current = localItems;
   }, [localItems]);
@@ -1161,7 +1166,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     return () => {
       wrapper.removeEventListener("wheel", handleTrackpadHorizontalScroll);
     };
-  }, [open, zoom, localItems.length]);
+ }, [open, effectiveZoom, localItems.length]);
 
   useEffect(() => {
     const nextItems = slot.items || [];
@@ -2263,16 +2268,20 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
     }
   };
 
-  const handleZoom = (e, factor) => {
-    e.stopPropagation();
-    setZoom((prev) => {
-      let newZoom = prev + factor;
-      if (newZoom < 0.5) newZoom = 0.5;
-      if (newZoom > 2) newZoom = 2;
-      return newZoom;
-    });
-  };
+ const handleZoom = (e, factor) => {
+  e.stopPropagation();
+  setLocalZoom((prev) => {
+    let newZoom = prev + factor;
+    if (newZoom < 0.5) newZoom = 0.5;
+    if (newZoom > 2) newZoom = 2;
+    return Number(newZoom.toFixed(2));
+  });
+};
 
+const resetLocalZoom = (e) => {
+  e.stopPropagation();
+  setLocalZoom(1);
+};
   async function removeItem(tuitionId) {
     if (
       !window.confirm(
@@ -2670,7 +2679,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
                     textAlign: "center",
                   }}
                 >
-                  {Math.round(zoom * 100)}%
+                 Local {Math.round(localZoom * 100)}% | Final {Math.round(effectiveZoom * 100)}%
                 </span>
 
                 <button
@@ -2691,7 +2700,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData 
 
             <div
               style={{
-                zoom,
+                zoom: effectiveZoom,
                 width: "max-content",
                 minWidth: "100%",
               }}
