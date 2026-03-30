@@ -52,32 +52,14 @@ function isPickerTarget(node) {
   const type = String(node.getAttribute("type") || node.type || "").toLowerCase();
 
   if (tagName === "select") return true;
-  if (tagName === "input" && ["date", "time", "datetime-local", "month", "week"].includes(type)) {
+  if (
+    tagName === "input" &&
+    ["date", "time", "datetime-local", "month", "week"].includes(type)
+  ) {
     return true;
   }
 
   return false;
-}
-
-function findHorizontalScrollHost(root) {
-  if (!root) return null;
-
-  const queue = [root];
-  while (queue.length) {
-    const node = queue.shift();
-    if (!(node instanceof HTMLElement)) continue;
-
-    if (node.scrollWidth > node.clientWidth + 4) {
-      const style = window.getComputedStyle(node);
-      if (["auto", "scroll", "overlay"].includes(style.overflowX)) {
-        return node;
-      }
-    }
-
-    queue.push(...Array.from(node.children || []));
-  }
-
-  return root instanceof HTMLElement ? root : null;
 }
 
 function findVerticalScrollHost(root) {
@@ -127,8 +109,12 @@ function keepCheckedRowsVisible(root) {
 
     const hostRect = scrollHost.getBoundingClientRect();
     const rowRects = rows.map((row) => row.getBoundingClientRect());
-    const firstTop = Math.min(...rowRects.map((rect) => rect.top - hostRect.top + scrollHost.scrollTop));
-    const lastBottom = Math.max(...rowRects.map((rect) => rect.bottom - hostRect.top + scrollHost.scrollTop));
+    const firstTop = Math.min(
+      ...rowRects.map((rect) => rect.top - hostRect.top + scrollHost.scrollTop)
+    );
+    const lastBottom = Math.max(
+      ...rowRects.map((rect) => rect.bottom - hostRect.top + scrollHost.scrollTop)
+    );
 
     const viewportTop = scrollHost.scrollTop;
     const viewportBottom = viewportTop + scrollHost.clientHeight;
@@ -166,7 +152,6 @@ function EnhancedSlotShell({ children }) {
       window.removeEventListener("touchstart", handlePointerDown, true);
     };
   }, []);
-
 
   useEffect(() => {
     const root = shellRef.current;
@@ -207,7 +192,9 @@ function EnhancedSlotShell({ children }) {
       const text = String(button.textContent || "").trim();
       if (text !== "▲" && text !== "▼") return;
 
-      const checkedCount = root.querySelectorAll('tbody input[type="checkbox"]:checked').length;
+      const checkedCount = root.querySelectorAll(
+        'tbody input[type="checkbox"]:checked'
+      ).length;
       const directionLabel = text === "▲" ? "up" : "down";
 
       requestAnimationFrame(() => {
@@ -244,8 +231,6 @@ function EnhancedSlotShell({ children }) {
       {moveHint ? (
         <div
           style={{
-          
-   
             zIndex: 30,
             marginTop: 8,
             marginLeft: "auto",
@@ -270,11 +255,25 @@ export default function TargetBoard() {
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [globalZoom, setGlobalZoom] = useState(1);
 
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
   const latestRequestRef = useRef(0);
   const lastChildRefreshAtRef = useRef(0);
+
+  const handleGlobalZoom = (factor) => {
+    setGlobalZoom((prev) => {
+      let next = prev + factor;
+      if (next < 0.5) next = 0.5;
+      if (next > 2) next = 2;
+      return Number(next.toFixed(2));
+    });
+  };
+
+  const resetGlobalZoom = () => {
+    setGlobalZoom(1);
+  };
 
   useEffect(() => {
     return () => {
@@ -352,13 +351,16 @@ export default function TargetBoard() {
 
   return (
     <div className="">
-      <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
+      <div
+        className="row"
+        style={{ alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}
+      >
         <div className="mx-1">
           <h5 style={{ margin: 0 }}>Today Demo + Feedback (Target)</h5>
-    
+          <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>{slotCountLabel}</div>
         </div>
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <select
             className="select"
             style={{ width: 180 }}
@@ -379,6 +381,77 @@ export default function TargetBoard() {
               </option>
             ))}
           </select>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 10px",
+              border: "1px solid #d1d5db",
+              borderRadius: 10,
+              background: "#fff",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+            }}
+          >
+            <button
+              onClick={() => handleGlobalZoom(-0.1)}
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 8,
+                border: "1px solid #d1d5db",
+                background: "#f9fafb",
+                cursor: "pointer",
+                fontSize: 18,
+                fontWeight: 700,
+              }}
+            >
+              -
+            </button>
+
+            <span
+              style={{
+                minWidth: 86,
+                textAlign: "center",
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+            >
+              Global {Math.round(globalZoom * 100)}%
+            </span>
+
+            <button
+              onClick={() => handleGlobalZoom(0.1)}
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 8,
+                border: "1px solid #d1d5db",
+                background: "#f9fafb",
+                cursor: "pointer",
+                fontSize: 18,
+                fontWeight: 700,
+              }}
+            >
+              +
+            </button>
+
+            <button
+              onClick={resetGlobalZoom}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "1px solid #d1d5db",
+                background: "#ffffff",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              Reset
+            </button>
+          </div>
         </div>
       </div>
 
@@ -390,7 +463,11 @@ export default function TargetBoard() {
       <div style={{ display: "grid", gap: 12 }}>
         {slots.map((slot) => (
           <EnhancedSlotShell key={slot.slotHeader}>
-            <SlotTable slot={slot} onChanged={requestChildRefresh} />
+            <SlotTable
+              slot={slot}
+              onChanged={requestChildRefresh}
+              globalZoom={globalZoom}
+            />
           </EnhancedSlotShell>
         ))}
       </div>

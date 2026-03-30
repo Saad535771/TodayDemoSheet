@@ -3,126 +3,263 @@ import { api } from "../api/api.js";
 
 const styles = {
   card: {
-    background: "#ffffff",
-    borderRadius: "16px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
-    padding: "24px",
-    border: "1px solid #eef0f3",
+    background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)",
+    borderRadius: "22px",
+    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
+    padding: "22px",
+    border: "1px solid #e7edf5",
     marginBottom: "24px",
   },
+
   header: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     gap: "12px",
-    marginBottom: "16px",
+    marginBottom: "18px",
     flexWrap: "wrap",
   },
+
   titleWrap: {
     display: "flex",
     flexDirection: "column",
     gap: "4px",
   },
+
   title: {
-    fontSize: "20px",
-    fontWeight: "700",
-    color: "#1e3c72",
+    fontSize: "22px",
+    fontWeight: "800",
+    color: "#163b68",
     margin: 0,
   },
+
   subtitle: {
     fontSize: "13px",
-    color: "#666",
+    color: "#64748b",
     margin: 0,
   },
+
+  actions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+
   liveBadge: {
     background: "#ecfdf5",
-    color: "#065f46",
-    border: "1px solid #a7f3d0",
+    color: "#166534",
+    border: "1px solid #bbf7d0",
     borderRadius: "999px",
-    padding: "6px 10px",
+    padding: "7px 12px",
     fontSize: "12px",
-    fontWeight: "700",
+    fontWeight: "800",
     whiteSpace: "nowrap",
   },
-  tableWrap: {
-    width: "100%",
-    overflowX: "auto",
+
+  refreshBtn: {
+    background: "#ffffff",
+    color: "#1e293b",
+    border: "1px solid #dbe4ee",
     borderRadius: "12px",
-    border: "1px solid #e5e7eb",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    minWidth: "900px",
-  },
-  th: {
-    background: "#f8fafc",
-    color: "#334155",
+    padding: "9px 14px",
+    cursor: "pointer",
     fontWeight: "700",
-    textalign: "center",
-    padding: "12px 14px",
-    borderBottom: "1px solid #e5e7eb",
-    whiteSpace: "nowrap",
-    fontSize: "12px",
-    textTransform: "uppercase",
+    fontSize: "13px",
+    boxShadow: "0 4px 10px rgba(15, 23, 42, 0.05)",
   },
-  td: {
-    padding: "12px 14px",
-    borderBottom: "1px solid #eef2f7",
+
+  topStats: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap",
+    marginBottom: "16px",
+  },
+
+  statBox: {
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
     color: "#334155",
+    padding: "8px 12px",
+    borderRadius: "12px",
+    fontSize: "13px",
+    fontWeight: "700",
+  },
+
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+    gap: "14px",
+  },
+
+  userCard: {
+    position: "relative",
+    background: "#ffffff",
+    border: "1px solid #e7edf5",
+    borderRadius: "18px",
+    padding: "14px",
+    boxShadow: "0 8px 20px rgba(15, 23, 42, 0.05)",
+    transition: "0.25s ease",
+    overflow: "hidden",
+  },
+
+  topLine: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "4px",
+    background: "linear-gradient(90deg, #22c55e, #3b82f6, #8b5cf6)",
+  },
+
+  topRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    marginBottom: "12px",
+  },
+
+  avatar: {
+    width: "42px",
+    height: "42px",
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, #1d4ed8, #2563eb)",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "15px",
+    fontWeight: "800",
+    flexShrink: 0,
+    boxShadow: "0 8px 16px rgba(37, 99, 235, 0.22)",
+  },
+
+  infoWrap: {
+    minWidth: 0,
+    flex: 1,
+  },
+
+  email: {
+    margin: 0,
     fontSize: "14px",
+    fontWeight: "800",
+    color: "#0f172a",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  empty: {
-    padding: "24px",
-    textAlign: "center",
+
+  sessionText: {
+    fontSize: "11px",
     color: "#64748b",
+    marginTop: "3px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
-  statusBadge: {
+
+  statusMini: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "5px",
+    background: "#ecfdf5",
+    color: "#166534",
+    border: "1px solid #bbf7d0",
+    borderRadius: "999px",
+    padding: "5px 8px",
+    fontSize: "11px",
+    fontWeight: "800",
+    whiteSpace: "nowrap",
+  },
+
+  dot: {
+    width: "7px",
+    height: "7px",
+    borderRadius: "50%",
+    background: "#22c55e",
+  },
+
+  badgesWrap: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+  },
+
+  badgeBase: {
     display: "inline-flex",
     alignItems: "center",
     gap: "6px",
-    background: "#dcfce7",
-    color: "#166534",
-    border: "1px solid #86efac",
     borderRadius: "999px",
-    padding: "6px 10px",
-    fontSize: "12px",
-    fontWeight: "700",
+    padding: "7px 10px",
+    fontSize: "11px",
+    fontWeight: "800",
+    lineHeight: 1.2,
+    whiteSpace: "nowrap",
+    maxWidth: "100%",
   },
+
   roleBadge: (role) => ({
-    background: role === "admin" ? "#e6fffa" : role === "hod" ? "#ecfeff" : "#f3e8ff",
-    color: role === "admin" ? "#0f766e" : role === "hod" ? "#0f766e" : "#7c3aed",
-    padding: "4px 10px",
-    borderRadius: "999px",
-    fontSize: "12px",
-    fontWeight: "700",
-    textTransform: "uppercase",
+    background:
+      role === "admin"
+        ? "#dcfce7"
+        : role === "hod"
+        ? "#e0f2fe"
+        : "#f3e8ff",
+    color:
+      role === "admin"
+        ? "#166534"
+        : role === "hod"
+        ? "#075985"
+        : "#6d28d9",
+    border: `1px solid ${
+      role === "admin"
+        ? "#bbf7d0"
+        : role === "hod"
+        ? "#bae6fd"
+        : "#ddd6fe"
+    }`,
   }),
-  refreshBtn: {
-    background: "#f3f4f6",
-    color: "#333",
-    border: "1px solid #ddd",
-    borderRadius: "10px",
-    padding: "8px 14px",
-    cursor: "pointer",
-    fontWeight: "600",
-    fontSize: "13px",
+
+  sheetBadge: {
+    background: "#fff7ed",
+    color: "#9a3412",
+    border: "1px solid #fed7aa",
+  },
+
+  loginBadge: {
+    background: "#eff6ff",
+    color: "#1d4ed8",
+    border: "1px solid #bfdbfe",
+  },
+
+  seenBadge: {
+    background: "#fefce8",
+    color: "#a16207",
+    border: "1px solid #fde68a",
+  },
+
+  empty: {
+    padding: "30px 20px",
+    textAlign: "center",
+    color: "#64748b",
+    background: "#f8fafc",
+    borderRadius: "16px",
+    border: "1px dashed #cbd5e1",
   },
 };
 
 function formatSheetName(sheet) {
   switch (sheet) {
     case "main":
-      return "Monthly Tuitions";
+      return "Monthly";
     case "target":
       return "Today Demo";
     case "payment":
-      return "Payment Sheet";
+      return "Payment";
     case "trash":
       return "Recycle Bin";
     case "staff":
-      return "Staff Manager";
+      return "Staff";
     case "dashboard":
       return "Dashboard";
     default:
@@ -130,11 +267,22 @@ function formatSheetName(sheet) {
   }
 }
 
-function formatDateTime(value) {
+function formatDateTimeShort(value) {
   if (!value) return "--";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "--";
-  return date.toLocaleString();
+
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getInitial(email) {
+  if (!email) return "U";
+  return email.trim().charAt(0).toUpperCase();
 }
 
 export default function ActiveUsersPanel() {
@@ -171,58 +319,98 @@ export default function ActiveUsersPanel() {
           <h2 style={styles.title}>🟢 Active Users</h2>
         </div>
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <div style={styles.liveBadge}>● Auto Refresh 5s</div>
+        <div style={styles.actions}>
+          <div style={styles.liveBadge}>● Auto Refresh 15s</div>
           <button style={styles.refreshBtn} onClick={() => loadActiveUsers(true)}>
             Refresh
           </button>
         </div>
       </div>
 
-      <div style={styles.tableWrap}>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Email</th>
-              <th style={styles.th}>Role</th>
-              <th style={styles.th}>Current Sheet</th>
-              <th style={styles.th}>Login Time</th>
-              <th style={styles.th}>Last Seen</th>
-              <th style={styles.th}>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td style={styles.empty} colSpan={6}>
-                  Loading active users...
-                </td>
-              </tr>
-            ) : users.length === 0 ? (
-              <tr>
-                <td style={styles.empty} colSpan={6}>
-                    No active users found.
-                </td>
-              </tr>
-            ) : (
-              users.map((user) => (
-                <tr key={`${user.session_id}-${user.user_id}`}>
-                  <td style={styles.td}>{user.email || "--"}</td>
-                  <td style={styles.td}>
-                    <span style={styles.roleBadge(user.role)}>{user.role || "--"}</span>
-                  </td>
-                  <td style={styles.td}>{formatSheetName(user.current_sheet)}</td>
-                  <td style={styles.td}>{formatDateTime(user.login_at)}</td>
-                  <td style={styles.td}>{formatDateTime(user.last_seen_at)}</td>
-                  <td style={styles.td}>
-                    <span style={styles.statusBadge}>● Online</span>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div style={styles.topStats}>
+        <div style={styles.statBox}>Online Users: {users.length}</div>
       </div>
+
+      {loading ? (
+        <div style={styles.empty}>Loading active users...</div>
+      ) : users.length === 0 ? (
+        <div style={styles.empty}>No active users found.</div>
+      ) : (
+        <div style={styles.grid}>
+          {users.map((user) => (
+            <div
+              key={`${user.session_id}-${user.user_id}`}
+              style={styles.userCard}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-4px)";
+                e.currentTarget.style.boxShadow =
+                  "0 16px 30px rgba(15, 23, 42, 0.10)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0px)";
+                e.currentTarget.style.boxShadow =
+                  "0 8px 20px rgba(15, 23, 42, 0.05)";
+              }}
+            >
+              <div style={styles.topLine} />
+
+              <div style={styles.topRow}>
+                <div style={styles.avatar}>{getInitial(user.email)}</div>
+
+                <div style={styles.infoWrap}>
+                  <p style={styles.email}>{user.email || "--"}</p>
+                  <div style={styles.sessionText}>
+                    Session: {user.session_id || "--"}
+                  </div>
+                </div>
+
+                <div style={styles.statusMini}>
+                  <span style={styles.dot}></span>
+                  Online
+                </div>
+              </div>
+
+              <div style={styles.badgesWrap}>
+                <span
+                  style={{
+                    ...styles.badgeBase,
+                    ...styles.roleBadge(user.role),
+                  }}
+                >
+                  {user.role || "--"}
+                </span>
+
+                <span
+                  style={{
+                    ...styles.badgeBase,
+                    ...styles.sheetBadge,
+                  }}
+                >
+                  📄 {formatSheetName(user.current_sheet)}
+                </span>
+
+                <span
+                  style={{
+                    ...styles.badgeBase,
+                    ...styles.loginBadge,
+                  }}
+                >
+                  ⏰ Login: {formatDateTimeShort(user.login_at)}
+                </span>
+
+                <span
+                  style={{
+                    ...styles.badgeBase,
+                    ...styles.seenBadge,
+                  }}
+                >
+                  👁 Last Seen: {formatDateTimeShort(user.last_seen_at)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
