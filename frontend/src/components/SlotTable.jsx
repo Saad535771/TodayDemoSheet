@@ -537,7 +537,7 @@ const STATUS_LIST = [
   "Not available",
   "Pending",
 ];
-const columnColors = { "Rejected Tutor": "#ffebee" };
+const columnColors = { "Rejected Tutor": "#c4001d" };
 const PASSWORD_SECRET = "admin123456789";
 const AUTO_REFRESH_INTERVAL = 14000;
 function areItemListsEqual(left = [], right = []) {
