@@ -159,7 +159,7 @@ export default function ActiveUsersPanel() {
 
     const interval = setInterval(() => {
       loadActiveUsers(false);
-    }, 5000);
+    }, 15000);
 
     return () => clearInterval(interval);
   }, []);

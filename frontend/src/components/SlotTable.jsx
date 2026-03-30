@@ -539,7 +539,7 @@ const STATUS_LIST = [
 ];
 const columnColors = { "Rejected Tutor": "#ffebee" };
 const PASSWORD_SECRET = "admin123";
-const AUTO_REFRESH_INTERVAL = 4000;
+const AUTO_REFRESH_INTERVAL = 14000;
 function areItemListsEqual(left = [], right = []) {
   return JSON.stringify(left || []) === JSON.stringify(right || []);
 }

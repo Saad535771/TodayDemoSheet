@@ -3,7 +3,7 @@ import { api } from "../api/api.js";
 import SlotTable from "./SlotTable.jsx";
 
 const FILTERS = ["", "Followup", "Today Demo", "Future Demo"];
-const AUTO_REFRESH_MS = 7000;
+const AUTO_REFRESH_MS = 15000;
 const CHILD_REFRESH_THROTTLE_MS = 1200;
 const MOVE_HINT_MS = 1400;
 

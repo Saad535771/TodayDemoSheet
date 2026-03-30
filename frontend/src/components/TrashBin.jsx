@@ -7,7 +7,6 @@ const styles = {
     background: "#f4f6f8",
     minHeight: "100vh",
   },
-
   container: {
     background: "#ffffff",
     border: "1px solid #2f3747",
