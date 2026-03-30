@@ -12,7 +12,15 @@ export function initModels(sequelize) {
   const PaymentClone = definePaymentClone(sequelize);
   const TodayDemo = defineTodayDemo(sequelize);
   const UserPresence = defineUserPresence(sequelize);
+UserPresence.belongsTo(User, {
+    foreignKey: "userId",
+    as: "user",
+  });
 
+  User.hasMany(UserPresence, {
+    foreignKey: "userId",
+    as: "presences",
+  });
   return {
     User,
     Tuition,
