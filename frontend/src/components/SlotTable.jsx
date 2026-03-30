@@ -19,14 +19,14 @@ const styles = {
     padding: "16px 24px",
     cursor: "pointer",
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent: "center",
     alignItems: "center",
     transition: "all 0.3s ease",
     borderBottom: isOpen ? "none" : "1px solid #eee",
   }),
-  headerTitle: { fontSize: "18px", fontWeight: "700", margin: 0 },
+  headerTitle: { fontSize: "20px", fontWeight: "700", margin: 0 },
   headerMeta: {
-    fontSize: "13px",
+    fontSize: "12px",
     opacity: 0.85,
     marginTop: "4px",
     display: "block",
@@ -159,7 +159,7 @@ const styles = {
     fontSize: "14px",
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
     fontFamily: "'Calibri', sans-serif",
   },
   actionBtn: {
@@ -2576,14 +2576,9 @@ const resetLocalZoom = (e) => {
             <h3 style={styles.headerTitle}>
               {isProtected && !isUnlocked ? "🔒 " : ""} {slot.slotHeader}
             </h3>
-            <span style={styles.headerMeta}>
-              {slot.displayRange} • {filteredItems.length} records
-            </span>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-            <div style={{ fontSize: "14px", opacity: 0.8 }}>{open ? "▲ Collapse" : "▼ Expand"}</div>
-          </div>
+         
         </div>
 
         {open && isUnlocked ? (
@@ -2591,7 +2586,7 @@ const resetLocalZoom = (e) => {
             <div
               style={{
                 display: "flex",
-                justifyContent: "space-between",
+                justifyContent: "center",
                 alignItems: "center",
                 margin: "8px 12px",
               }}

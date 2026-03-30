@@ -21,7 +21,7 @@ const styles = {
   },
   headerRow: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent: "center",
     alignItems: "center",
     gap: "10px",
     marginBottom: "14px",
@@ -42,6 +42,7 @@ const styles = {
     fontSize: "13px",
     color: "#444444",
     margin: 0,
+    textAlign:'center',
   },
   actions: {
     display: "flex",
@@ -160,7 +161,7 @@ const styles = {
     padding: "0",
     textAlign: "center",
     height: "42px",
-    verticalAlign: "middle",
+    
     background: "#fff",
   },
   input: {
@@ -172,7 +173,7 @@ const styles = {
     fontSize: "12px",
     background: "transparent",
     boxSizing: "border-box",
-    textAlign: "left",
+    textAlign: "center",
     color: "inherit",
     fontWeight: "600",
   },
@@ -199,10 +200,6 @@ const styles = {
     cursor: "cell",
     fontWeight: "600",
     color: "#111111",
-  },
-  textLeft: {
-    justifyContent: "flex-start",
-    textAlign: "left",
   },
   deleteBtn: {
     background: "#b00101",
@@ -1032,8 +1029,13 @@ export default function PaymentSheetWithDate({ me }) {
     setItems(nextItems);
   };
 
-  const applyUpdateEntries = async (updates, { historyLabel = "Edit", recordHistory = true } = {}) => {
-    const normalized = buildMergedPatchEntries(updates);
+const applyUpdateEntries = async (updates, { historyLabel = "Edit", recordHistory = true } = {}) => {
+  const updatesWithAutoTotal = updates.map(({ row, patch }) => ({
+    row,
+    patch: withAutoTotalFee(row, patch),
+  }));
+
+  const normalized = buildMergedPatchEntries(updatesWithAutoTotal);
     if (!normalized.length) return false;
 
     const previousItems = cloneRows(itemsRef.current);
@@ -1174,9 +1176,7 @@ export default function PaymentSheetWithDate({ me }) {
           beforePatch: cloneRow(item.afterPatch),
           afterPatch: cloneRow(item.afterPatch),
         }));
-
         setItemsImmediate(applyPatchEntriesToRows(previousItems, redoEntries, "afterPatch"));
-
         await Promise.all(
           entry.updates.map((item) =>
             api.patch(`/payments-clone/${encodeURIComponent(item.rowId)}`, item.afterPatch)
@@ -1196,7 +1196,6 @@ export default function PaymentSheetWithDate({ me }) {
         const res = await api.post("/payments-clone", entry.row);
         entry.row = cloneRow(res.data?.item || res.data || entry.row);
       }
-
       historyUndoRef.current.push(entry);
       markMutationSettled();
       await loadRows({ silent: true });
@@ -1211,49 +1210,38 @@ export default function PaymentSheetWithDate({ me }) {
       syncHistoryMeta();
     }
   };
-
   useEffect(() => {
     const handleUndoRedoShortcuts = (e) => {
       if (!(e.ctrlKey || e.metaKey)) return;
-
       const activeEl = document.activeElement;
       const activeTag = String(activeEl?.tagName || "").toLowerCase();
-
       if (editingCellRef.current) return;
       if (isTextLikeSelectionInput(activeEl)) return;
       if (activeTag === "textarea" || activeTag === "select") return;
-
       const key = String(e.key || "").toLowerCase();
-
       if (key === "z" && !e.shiftKey) {
         e.preventDefault();
         void undoLastAction();
         return;
       }
-
       if (key === "y" || (key === "z" && e.shiftKey)) {
         e.preventDefault();
         void redoLastAction();
       }
     };
-
     document.addEventListener("keydown", handleUndoRedoShortcuts);
     return () => document.removeEventListener("keydown", handleUndoRedoShortcuts);
   }, []);
-
   async function loadRows({ initial = false, silent = false } = {}) {
     try {
       if (initial) setLoading(true);
-
       const res = await api.get("/payments-clone");
       const rows = Array.isArray(res.data?.items)
         ? res.data.items
         : Array.isArray(res.data)
         ? res.data
         : [];
-
       if (!mountedRef.current) return;
-
       if (!rowsAreSame(itemsRef.current, rows)) {
         setItems(rows);
       }
@@ -1266,7 +1254,6 @@ export default function PaymentSheetWithDate({ me }) {
       if (mountedRef.current && initial) setLoading(false);
     }
   }
-
   async function addRow() {
     try {
       setAdding(true);
@@ -1278,7 +1265,6 @@ export default function PaymentSheetWithDate({ me }) {
             typeof item?.orderIndex === "number" ? item.orderIndex : index;
           return Math.max(max, currentOrder);
         }, -1) + 1;
-
       const newRow = {
         tuitionId: `manual-${Date.now()}`,
         paymentDate: "",
@@ -1302,10 +1288,8 @@ export default function PaymentSheetWithDate({ me }) {
         rowColor: "",
         tuitionNameColor: "",
       };
-
       const res = await api.post("/payments-clone", newRow);
       const created = res.data?.item || res.data;
-
       if (created && getRowId(created) !== undefined && getRowId(created) !== null) {
         const createdRow = {
           ...created,
@@ -1314,7 +1298,6 @@ export default function PaymentSheetWithDate({ me }) {
               ? created.orderIndex
               : nextOrderIndex,
         };
-
         setItemsImmediate([...itemsRef.current, createdRow]);
         rememberHistoryEntry({
           type: "addRow",
@@ -1457,7 +1440,41 @@ export default function PaymentSheetWithDate({ me }) {
       mutationInFlightRef.current = false;
     }
   }
+// cloneRows ke baad yeh helpers add kar do
 
+function parseFeeInput(value) {
+  if (value === null || value === undefined) return null;
+
+  const cleaned = String(value).replace(/,/g, "").trim();
+  if (cleaned === "") return null;
+
+  const num = Number(cleaned);
+  return Number.isFinite(num) ? num : null;
+}
+
+function calculateAutoTotalFees(tutorShare, lacasShare) {
+  const tutor = parseFeeInput(tutorShare);
+  const lacas = parseFeeInput(lacasShare);
+
+  if (tutor === null && lacas === null) return "";
+  return String((tutor ?? 0) + (lacas ?? 0));
+}
+
+function withAutoTotalFee(row, patch = {}) {
+  const hasTutorShare = Object.prototype.hasOwnProperty.call(patch, "tutorShare");
+  const hasLacasShare = Object.prototype.hasOwnProperty.call(patch, "lacasShare");
+
+  // Sirf tab auto total banao jab Tutor Fee ya Lacas Share change ho
+  if (!hasTutorShare && !hasLacasShare) return patch;
+
+  const nextTutorShare = hasTutorShare ? patch.tutorShare : row?.tutorShare;
+  const nextLacasShare = hasLacasShare ? patch.lacasShare : row?.lacasShare;
+
+  return {
+    ...patch,
+    totalFees: calculateAutoTotalFees(nextTutorShare, nextLacasShare),
+  };
+}
   const filteredItems = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return items;
@@ -2246,14 +2263,33 @@ export default function PaymentSheetWithDate({ me }) {
       cancelEdit({ rowIndex, colId });
     }
   };
+const getLiveTotalFeeValue = (row, rowIndex) => {
+  if (editingCell?.rowIndex !== rowIndex) {
+    return row?.totalFees ?? "";
+  }
 
+  if (editingCell?.colId !== "tutorShare" && editingCell?.colId !== "lacasShare") {
+    return row?.totalFees ?? "";
+  }
+
+  const tutorShare =
+    editingCell.colId === "tutorShare" ? editValue : row?.tutorShare;
+
+  const lacasShare =
+    editingCell.colId === "lacasShare" ? editValue : row?.lacasShare;
+
+  return calculateAutoTotalFees(tutorShare, lacasShare);
+};
   const renderGridCell = (row, rowIndex, col) => {
     const cellKey = getCellKey(rowIndex, col.id);
     const isSelected = selectedCells.has(cellKey);
     const isEditing =
       editingCell?.rowIndex === rowIndex && editingCell?.colId === col.id;
 
-    const value = getCellValue(row, col);
+   const rawValue = getCellValue(row, col);
+const value = col.id === "totalFees"
+  ? getLiveTotalFeeValue(row, rowIndex)
+  : rawValue;
     const rowId = getRowId(row);
 
     const commonTdStyle = {
@@ -2297,7 +2333,7 @@ export default function PaymentSheetWithDate({ me }) {
     if (isEditing && col.kind === "tuitionName") {
       return (
         <td key={cellKey} style={{ ...commonTdStyle, backgroundColor: row.tuitionNameColor || "#fff" }}>
-          <div style={{ display: "flex", alignItems: "center", height: "100%", gap: "8px" }}>
+          <div style={{  height: "100%", gap: "8px" }}>
             <input
               ref={inputRef}
               autoFocus
@@ -2309,9 +2345,8 @@ export default function PaymentSheetWithDate({ me }) {
               }}
               onBlur={() => void commitEdit({ rowIndex, colId: col.id })}
               onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
-              style={{ ...styles.input, flex: 1 }}
+              style={{ ...styles.input,  }}
             />
-
             <div
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => {
@@ -2613,10 +2648,8 @@ export default function PaymentSheetWithDate({ me }) {
                       <td style={{ ...styles.td, textAlign: "center" }}>
                         <div
                           style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
+                          
+                           
                             minHeight: "46px",
                           }}
                         >

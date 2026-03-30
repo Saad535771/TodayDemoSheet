@@ -224,10 +224,9 @@ export default function TrashBin() {
       <div style={styles.container}>
         <div style={styles.header}>
           <h2 style={styles.title}>
-            🗑 Recycle Bin
+            🗑 Recycle Bin For Monthly Tuition Sheet
             <span style={styles.countBadge}>{items.length}</span>
           </h2>
-
           <button onClick={fetchTrash} style={styles.refreshBtn}>
             Refresh
           </button>
