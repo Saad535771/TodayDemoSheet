@@ -473,27 +473,27 @@ function getStatusStyle(status) {
   switch ((status || "").trim()) {
     case "Fees Receive":
       return {
-        background: "#dcfce7",
-        color: "#166534",
-        border: "1px solid #86efac",
+        background: "#08752e",
+        color: "#ffffff",
+        border: "1px solid #ffffff",
       };
     case "Fee Pending":
       return {
-        background: "#fef3c7",
-        color: "#92400e",
+        background: "#ad4500",
+        color: "#ffffff",
         border: "1px solid #fcd34d",
       };
     case "Tuition Close":
       return {
-        background: "#dbeafe",
-        color: "#1d4ed8",
+        background: "#004aaa",
+        color: "#ffffff",
         border: "1px solid #93c5fd",
       };
     case "Tuition Pending":
       return {
-        background: "#fee2e2",
-        color: "#b91c1c",
-        border: "1px solid #fca5a5",
+        background: "#d30000",
+        color: "#ffffff",
+        border: "1px solid #ffffff",
       };
     default:
       return {
@@ -841,7 +841,7 @@ const gridColumns = useMemo(() => {
       label: "Status",
       field: "status",
       editable: true,
-      width: 150,
+      width: 100,
       kind: "select",
       options: statusOptions,
       align: "center",
