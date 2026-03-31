@@ -6,6 +6,7 @@ export const REVERSE_SYNC_FIELDS = [
   "status",
   "feedback",
   "demoRating",
+  "tutorFee",
 ];
 
 // Monthly -> TodayDemo mein in fields ko overwrite nahi karna
@@ -14,6 +15,7 @@ export const NO_SYNC_FROM_TUITION_FIELDS = [
   "status",
   "feedback",
   "demoRating",
+  "tutorFee",
 ];
 
 // Target-only editable fields

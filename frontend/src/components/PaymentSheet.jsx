@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/api.js";
+import PaymentSheetWithDate from "./PaymentSheetWithDate.jsx";
 
 const LIVE_REFRESH_MS = 13000;
 const MIN_ZOOM = 30;
@@ -2896,6 +2897,7 @@ async function applyColorToSelectedRows(field, colorValue) {
           </div>
         </div>
       </div>
+      <PaymentSheetWithDate/>
     </div>
   );
 }

@@ -1,3 +1,9 @@
+
+
+
+
+
+
 import React, { useState, useEffect, useRef } from "react";
 import { api } from "../api/api.js";
 
@@ -128,6 +134,7 @@ const searchColumns = [
   { key: "subjects", label: "Subject" },
   { key: "source", label: "Source" },
   { key: "status", label: "Status" },
+  { key: "paymentApprovalStatus", label: "Payment Approval" },
   { key: "demoRating", label: "Demo Rating" },
   { key: "syncFlag", label: "Sync" },
   { key: "estimatedFee", label: "Estimated Fee" },
@@ -155,6 +162,7 @@ const gridColumns = [
   { id: "demoTime", label: "Demo Time", width: 110, editable: true, field: "demoTime", type: "time" },
   { id: "tuitionName", label: "Tuition Name", width: 180, editable: true, field: "tuitionName", kind: "tuitionName" },
   { id: "status", label: "Status", width: 220, editable: true, field: "status", kind: "select", options: statusList, pill: "status" },
+  { id: "paymentApprovalStatus", label: "Payment Approval", width: 180, editable: false, field: "paymentApprovalStatus", kind: "approvalStatus", pill: "paymentApprovalStatus" },
   { id: "estimatedFee", label: "Estimated Fee", width: 120, editable: true, field: "estimatedFee" },
   { id: "tutorName", label: "Tutor Name", width: 160, editable: true, field: "tutorName" },
   { id: "tutorFees", label: "Tutor Fees", width: 120, editable: true, field: "tutorFees" },
@@ -386,6 +394,18 @@ const getSourceStyle = (source) => {
       return { backgroundColor: "#ec4899", color: "white", border: "1px solid #ec4899" };
     case "sibgha":
       return { backgroundColor: "#14b8a6", color: "white", border: "1px solid #14b8a6" };
+    default:
+      return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
+  }
+};
+const getPaymentApprovalStyle = (status) => {
+  switch (String(status || "").trim().toLowerCase()) {
+    case "pending":
+      return { backgroundColor: "#f59e0b", color: "white", border: "1px solid #f59e0b" };
+    case "approved":
+      return { backgroundColor: "#16a34a", color: "white", border: "1px solid #16a34a" };
+    case "rejected":
+      return { backgroundColor: "#dc2626", color: "white", border: "1px solid #dc2626" };
     default:
       return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
   }
@@ -1760,6 +1780,19 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
 
     if (col.pill === "source") return renderPill(val, getSourceStyle);
     if (col.pill === "demoRating") return renderPill(val, getDemoRatingStyle);
+    if (col.pill === "paymentApprovalStatus") {
+      const normalized = String(val || "").trim().toLowerCase();
+      if (!normalized) return "";
+      const label =
+        normalized === "pending"
+          ? "Pending Approval"
+          : normalized === "approved"
+          ? "Approved"
+          : normalized === "rejected"
+          ? "Rejected"
+          : val;
+      return renderPill(label, getPaymentApprovalStyle);
+    }
     if (col.type === "time" && val) return format12Hour(val);
     return val || "";
   };

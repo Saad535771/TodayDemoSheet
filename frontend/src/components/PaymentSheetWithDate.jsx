@@ -1408,38 +1408,41 @@ const applyUpdateEntries = async (updates, { historyLabel = "Edit", recordHistor
     }
   }
 
-  async function deleteRow(row) {
-    const rowId = getRowId(row);
-    if (rowId === undefined || rowId === null) {
-      alert("Row ID is missing.");
-      return;
-    }
-
-    if (!window.confirm("Are you sure you want to delete this row?")) return;
-
-    const previousItems = cloneRows(itemsRef.current);
-    setItemsImmediate(
-      previousItems.filter((item) => String(getRowId(item)) !== String(rowId))
-    );
-    mutationInFlightRef.current = true;
-
-    try {
-      await api.delete(`/payments-clone/${encodeURIComponent(rowId)}`);
-      rememberHistoryEntry({
-        type: "deleteRow",
-        label: "Delete Row",
-        row: cloneRow(row),
-      });
-      markMutationSettled();
-      await loadRows({ silent: true });
-    } catch (err) {
-      console.error("Failed to delete row:", err);
-      setItemsImmediate(previousItems);
-      alert(err?.response?.data?.message || "Failed to delete the row.");
-    } finally {
-      mutationInFlightRef.current = false;
-    }
+async function deleteRow(row) {
+  const rowId = getRowId(row);
+  if (rowId === undefined || rowId === null) {
+    alert("Row ID is missing.");
+    return;
   }
+
+  const ok = window.confirm(
+    "Are you sure? This row will be moved to trash."
+  );
+  if (!ok) return;
+
+  const previousItems = cloneRows(itemsRef.current);
+  setItemsImmediate(
+    previousItems.filter((item) => String(getRowId(item)) !== String(rowId))
+  );
+  mutationInFlightRef.current = true;
+
+  try {
+    await api.delete(`/payments-clone/${encodeURIComponent(rowId)}`);
+    rememberHistoryEntry({
+      type: "deleteRow",
+      label: "Delete Row",
+      row: cloneRow(row),
+    });
+    markMutationSettled();
+    await loadRows({ silent: true });
+  } catch (err) {
+    console.error("Failed to delete row:", err);
+    setItemsImmediate(previousItems);
+    alert(err?.response?.data?.message || "Failed to delete the row.");
+  } finally {
+    mutationInFlightRef.current = false;
+  }
+}
 // cloneRows ke baad yeh helpers add kar do
 
 function parseFeeInput(value) {

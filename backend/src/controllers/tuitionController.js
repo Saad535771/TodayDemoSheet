@@ -11,6 +11,9 @@ import {
 } from "../utils/syncTodayDemoFromTuition.js";
 
 const PRESERVE_IF_EMPTY = new Set(["status", "satisfactionRating", "demoRating"]);
+const PAYMENT_APPROVAL_PENDING = "pending";
+const PAYMENT_APPROVAL_APPROVED = "approved";
+const PAYMENT_APPROVAL_REJECTED = "rejected";
 
 function normalizeTuitionId(v) {
   if (v === null || v === undefined) return "";
@@ -25,6 +28,80 @@ function normalizeDate(v) {
   const s = String(v).trim();
   if (s === "" || s.toLowerCase() === "invalid date") return null;
   return s;
+}
+
+function normalizeMultiValue(value) {
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((entry) => String(entry || "").trim()).filter(Boolean))];
+  }
+
+  if (value === null || value === undefined) return [];
+
+  const raw = String(value).trim();
+  if (!raw) return [];
+
+  if (raw.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return [
+          ...new Set(parsed.map((entry) => String(entry || "").trim()).filter(Boolean)),
+        ];
+      }
+    } catch (error) {
+      // fallback
+    }
+  }
+
+  return [...new Set(raw.split(",").map((entry) => entry.trim()).filter(Boolean))];
+}
+
+function hasStatus(value, target) {
+  return normalizeMultiValue(value).includes(target);
+}
+
+function setApprovalPending(item) {
+  item.paymentApprovalStatus = PAYMENT_APPROVAL_PENDING;
+  item.paymentApprovalRequestedAt = item.paymentApprovalRequestedAt || new Date();
+  item.paymentApprovedAt = null;
+  item.paymentApprovedBy = null;
+  item.paymentRejectionReason = null;
+}
+
+function clearApprovalState(item) {
+  item.paymentApprovalStatus = null;
+  item.paymentApprovalRequestedAt = null;
+  item.paymentApprovedAt = null;
+  item.paymentApprovedBy = null;
+  item.paymentRejectionReason = null;
+}
+
+async function syncPaymentByApprovalState({ Payment, item }) {
+  const isTuitionDone = hasStatus(item?.status, "Tuition Done");
+
+  if (!isTuitionDone) {
+    if (item?.tuitionId) {
+      await removePaymentByTuitionId({ Payment, tuitionId: item.tuitionId });
+    }
+    return;
+  }
+
+  if (item?.paymentApprovalStatus === PAYMENT_APPROVAL_APPROVED) {
+    await syncPaymentFromTuition({ Payment, item });
+    return;
+  }
+
+  if (item?.tuitionId) {
+    await removePaymentByTuitionId({ Payment, tuitionId: item.tuitionId });
+  }
+}
+
+function requireHodOrAdmin(req, res) {
+  if (req.user?.role !== "admin" && req.user?.role !== "hod") {
+    res.status(403).json({ message: "Only Admin or HOD can perform this action" });
+    return false;
+  }
+  return true;
 }
 
 export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
@@ -80,6 +157,7 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
           "tutorFee",
           "demoTime",
           "demoDate",
+          "paymentApprovalStatus",
         ];
 
         const fields = fieldsParam
@@ -92,7 +170,7 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
         const where = { isDeleted: 0 };
 
         if (assignedTo !== undefined && assignedTo !== "") {
-          where.assignedTo = isNaN(Number(assignedTo))
+          where.assignedTo = Number.isNaN(Number(assignedTo))
             ? assignedTo
             : Number(assignedTo);
         }
@@ -110,7 +188,10 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
           "tutorName",
           "demoDate",
           "timeHour",
+          "paymentApprovalStatus",
+          "paymentApprovalRequestedAt",
         ];
+
         const finalSortField = allowedSorts.includes(sortField)
           ? sortField
           : "orderIndex";
@@ -134,6 +215,122 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
       }
     },
 
+    async getPaymentApprovals(req, res) {
+      if (!requireHodOrAdmin(req, res)) return;
+
+      try {
+        const items = await Tuition.findAll({
+          where: {
+            isDeleted: 0,
+            paymentApprovalStatus: PAYMENT_APPROVAL_PENDING,
+          },
+          order: [
+            ["paymentApprovalRequestedAt", "DESC"],
+            ["updatedAt", "DESC"],
+            ["id", "DESC"],
+          ],
+        });
+
+        return res.json({ items });
+      } catch (error) {
+        console.error("PAYMENT APPROVAL LIST ERROR:", error);
+        return res.status(500).json({
+          message: "Failed to fetch payment approvals",
+          error: error.message,
+        });
+      }
+    },
+
+    async getPaymentApprovalsCount(req, res) {
+      if (!requireHodOrAdmin(req, res)) return;
+
+      try {
+        const count = await Tuition.count({
+          where: {
+            isDeleted: 0,
+            paymentApprovalStatus: PAYMENT_APPROVAL_PENDING,
+          },
+        });
+
+        return res.json({ count });
+      } catch (error) {
+        console.error("PAYMENT APPROVAL COUNT ERROR:", error);
+        return res.status(500).json({
+          message: "Failed to fetch payment approval count",
+          error: error.message,
+        });
+      }
+    },
+
+    async decidePaymentApproval(req, res) {
+      if (!requireHodOrAdmin(req, res)) return;
+
+      try {
+        const tuitionId = normalizeTuitionId(req.params.tuitionId);
+        const action = String(req.body?.action || "").trim().toLowerCase();
+        const reason = String(req.body?.reason || "").trim();
+
+        if (!["approve", "reject"].includes(action)) {
+          return res.status(400).json({ message: "action must be approve or reject" });
+        }
+
+        const item = await Tuition.findOne({
+          where: { tuitionId, isDeleted: 0 },
+        });
+
+        if (!item) {
+          return res.status(404).json({ message: "Tuition not found" });
+        }
+
+        if (!hasStatus(item.status, "Tuition Done")) {
+          return res.status(400).json({
+            message: "Only Tuition Done records can be approved for payment",
+          });
+        }
+
+        if (action === "approve") {
+          item.paymentApprovalStatus = PAYMENT_APPROVAL_APPROVED;
+          item.paymentApprovalRequestedAt =
+            item.paymentApprovalRequestedAt || new Date();
+          item.paymentApprovedAt = new Date();
+          item.paymentApprovedBy = req.user.id;
+          item.paymentRejectionReason = null;
+
+          await item.save();
+
+          await syncPaymentFromTuition({
+            Payment,
+            item: item.toJSON(),
+          });
+        } else {
+          item.paymentApprovalStatus = PAYMENT_APPROVAL_REJECTED;
+          item.paymentApprovalRequestedAt =
+            item.paymentApprovalRequestedAt || new Date();
+          item.paymentApprovedAt = null;
+          item.paymentApprovedBy = null;
+          item.paymentRejectionReason = reason || null;
+
+          await item.save();
+
+          await removePaymentByTuitionId({
+            Payment,
+            tuitionId: item.tuitionId,
+          });
+        }
+
+        return res.json({
+          success: true,
+          item,
+        });
+      } catch (error) {
+        console.error("PAYMENT APPROVAL ACTION ERROR:", error);
+        return res.status(500).json({
+          message: "Failed to process payment approval",
+          error: error.message,
+        });
+      }
+    },
+
     async getByTuitionId(req, res) {
       const tuitionId = normalizeTuitionId(req.params.tuitionId);
       const item = await Tuition.findOne({ where: { tuitionId, isDeleted: 0 } });
@@ -152,11 +349,34 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
       }
 
       let timeHour = parseHourFromValue(body.time || body.demoTime || "12:00");
-      if (timeHour === null || isNaN(timeHour)) {
+      if (timeHour === null || Number.isNaN(timeHour)) {
         timeHour = 12;
       }
 
       try {
+        const maxOrderIndex = await Tuition.max("orderIndex", {
+          where: { isDeleted: 0 },
+        });
+        const nextOrderIndex =
+          (Number.isFinite(maxOrderIndex) ? maxOrderIndex : -1) + 1;
+
+        const initialStatus = body.status || null;
+        const initialApproval = hasStatus(initialStatus, "Tuition Done")
+          ? {
+              paymentApprovalStatus: PAYMENT_APPROVAL_PENDING,
+              paymentApprovalRequestedAt: new Date(),
+              paymentApprovedAt: null,
+              paymentApprovedBy: null,
+              paymentRejectionReason: null,
+            }
+          : {
+              paymentApprovalStatus: null,
+              paymentApprovalRequestedAt: null,
+              paymentApprovedAt: null,
+              paymentApprovedBy: null,
+              paymentRejectionReason: null,
+            };
+
         const item = await Tuition.create({
           tuitionId,
           date: normalizeDate(body.date),
@@ -176,7 +396,7 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
           classTime: body.classTime || null,
           secondTutors: body.secondTutors || null,
           rejectedTutor: body.rejectedTutor || null,
-          status: body.status || null,
+          status: initialStatus,
           feedback: body.feedback || null,
           demoDate: normalizeDate(body.demoDate),
           satisfactionRating:
@@ -184,7 +404,8 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
           demoRating: body.demoRating || null,
           syncFlag: body.syncFlag || body.sync || null,
           isDeleted: 0,
-          orderIndex: 0,
+          orderIndex: nextOrderIndex,
+          ...initialApproval,
         });
 
         await upsertTodayDemoFromTuition({
@@ -192,7 +413,7 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
           item: item.toJSON(),
         });
 
-        await syncPaymentFromTuition({
+        await syncPaymentByApprovalState({
           Payment,
           item: item.toJSON(),
         });
@@ -209,6 +430,8 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
         const tuitionId = normalizeTuitionId(req.params.tuitionId);
         const item = await Tuition.findOne({ where: { tuitionId } });
         if (!item) return res.status(404).json({ message: "Not found" });
+
+        const previousHadTuitionDone = hasStatus(item.status, "Tuition Done");
 
         const body = req.body || {};
         const source = (body._source || "").toString().toLowerCase();
@@ -254,6 +477,16 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
           item[field] = isEmpty ? null : v;
         }
 
+        const nowHasTuitionDone = hasStatus(item.status, "Tuition Done");
+
+        if (!nowHasTuitionDone) {
+          clearApprovalState(item);
+        } else if (!previousHadTuitionDone) {
+          setApprovalPending(item);
+        } else if (!item.paymentApprovalStatus) {
+          setApprovalPending(item);
+        }
+
         await item.save();
 
         await upsertTodayDemoFromTuition({
@@ -261,7 +494,7 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
           item: item.toJSON(),
         });
 
-        await syncPaymentFromTuition({
+        await syncPaymentByApprovalState({
           Payment,
           item: item.toJSON(),
         });
@@ -313,12 +546,22 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
       const item = await Tuition.findByPk(id);
 
       if (item) {
+        const hasTuitionDoneStatus = hasStatus(item.status, "Tuition Done");
+
+        if (!hasTuitionDoneStatus) {
+          clearApprovalState(item);
+          await item.save();
+        } else if (!item.paymentApprovalStatus) {
+          setApprovalPending(item);
+          await item.save();
+        }
+
         await upsertTodayDemoFromTuition({
           TodayDemo,
           item: item.toJSON(),
         });
 
-        await syncPaymentFromTuition({
+        await syncPaymentByApprovalState({
           Payment,
           item: item.toJSON(),
         });
@@ -366,11 +609,11 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
 
       try {
         await Promise.all(
-          items.map(async (item) => {
-            if (item.tuitionId && item.orderIndex !== undefined) {
+          items.map(async (entry) => {
+            if (entry.tuitionId && entry.orderIndex !== undefined) {
               await Tuition.update(
-                { orderIndex: item.orderIndex },
-                { where: { tuitionId: item.tuitionId } }
+                { orderIndex: entry.orderIndex },
+                { where: { tuitionId: entry.tuitionId } }
               );
             }
           })

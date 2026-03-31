@@ -24,6 +24,45 @@ function normalizeStatus(value) {
     .toLowerCase();
 }
 
+function normalizeStatusList(value) {
+  if (Array.isArray(value)) {
+    return [
+      ...new Set(value.map((entry) => normalizeStatus(entry)).filter(Boolean)),
+    ];
+  }
+
+  if (value === null || value === undefined) return [];
+
+  const raw = String(value).trim();
+  if (!raw) return [];
+
+  if (raw.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return [
+          ...new Set(parsed.map((entry) => normalizeStatus(entry)).filter(Boolean)),
+        ];
+      }
+    } catch (error) {
+      // ignore and fall back to comma-separated parsing
+    }
+  }
+
+  return [
+    ...new Set(
+      raw
+        .split(",")
+        .map((entry) => normalizeStatus(entry))
+        .filter(Boolean)
+    ),
+  ];
+}
+
+function hasStatus(value, targetStatus) {
+  return normalizeStatusList(value).includes(normalizeStatus(targetStatus));
+}
+
 function roundMoney(value) {
   if (value === null || value === undefined || Number.isNaN(value)) return null;
   return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
@@ -35,27 +74,26 @@ export async function removePaymentByTuitionId({ Payment, tuitionId }) {
 }
 
 export async function syncPaymentFromTuition({ Payment, item }) {
-  const normalizedStatus = normalizeStatus(item.status);
-  const tuitionId = item.tuitionId || "";
+  const tuitionId = item?.tuitionId || "";
+  if (!tuitionId) return null;
 
   const existing = await Payment.findOne({
     where: { tuitionId },
   });
 
-  // Agar Tuition Done remove/change ho jaye to Payment sheet se record hata do
-  if (normalizedStatus !== "tuition done") {
+  const isTuitionDone = hasStatus(item?.status, "Tuition Done");
+
+  if (!isTuitionDone) {
     if (existing) {
       await existing.destroy();
     }
     return null;
   }
 
-  // Estimated Fee / Total Fee ko total fee maan lo
   const totalFee = toNumberOrNull(
     item.estimatedFee ?? item.totalFee ?? item.totalFees
   );
 
-  // Tutor fee hamesha Tuition sheet wali exact value se aayegi
   const tutorFee = toNumberOrNull(item.tutorFee ?? item.tutorFees);
   const lacasShare =
     totalFee === null ? null : roundMoney(totalFee - (tutorFee ?? 0));
@@ -69,10 +107,8 @@ export async function syncPaymentFromTuition({ Payment, item }) {
     daysPerWeek: toIntegerOrNull(item.daysPerWeek || item.days_per_week),
     tutorName: item.tutorName || "",
     tutorFee,
-    tutorShare: tutorFee,
     lacasShare,
     totalFee,
-    totalFees: totalFee,
     feedback: item.feedback || "",
     otmName: item.otmName || item.source || "",
     notes: item.notes || item.secondTutors || "",

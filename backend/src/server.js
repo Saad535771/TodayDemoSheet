@@ -28,17 +28,16 @@ async function main() {
     await sequelize.authenticate();
     console.log("✅ DB connected");
 
-    const { PaymentClone } = models;
+    const { PaymentClone,PaymentCloneTrash } = models;
 
     if (!PaymentClone) {
       throw new Error("PaymentClone model not found in initModels(sequelize)");
     }
-
     const authController = makeAuthController(models);
     const tuitionController = makeTuitionController(models);
     const targetController = makeTargetController(models);
     const paymentController = makePaymentController(models);
-    const paymentCloneController = makePaymentCloneController({ PaymentClone });
+    const paymentCloneController = makePaymentCloneController({ PaymentClone,PaymentCloneTrash });
 
     const authRoutes = makeAuthRoutes(authController);
     const tuitionRoutes = makeTuitionRoutes(tuitionController, requireAuth);

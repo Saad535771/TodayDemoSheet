@@ -4,7 +4,7 @@ import TargetBoard from "../components/TargetBoard.jsx";
 import StaffManager from "../components/StaffManager.jsx";
 import TrashBin from "../components/TrashBin.jsx";
 import PaymentSheet from "../components/PaymentSheet.jsx";
-import PaymentSheetWithDate from "../components/PaymentSheetWithDate.jsx";
+import HodApprovals from "../components/HodApprovals.jsx";
 import ActiveUsersPanel from "../components/ActiveUsersPanel.jsx";
 import { api, clearToken, getStoredToken, setAuthToken } from "../api/api.js";
 import Logo from "../assets/Logo-1-Blue.png";
@@ -13,6 +13,7 @@ const LAST_TAB_KEY = "dashboard_active_tab";
 const TAB_SCROLL_KEY = "dashboard_tab_scroll_positions";
 const SESSION_KEY = "dashboard_session_id";
 const HEARTBEAT_MS = 20000;
+const APPROVAL_BADGE_MS = 15000;
 
 function getOrCreateSessionId() {
   let sessionId = sessionStorage.getItem(SESSION_KEY);
@@ -83,7 +84,23 @@ const styles = {
     color: isActive ? "#fff" : "#666",
     background: isActive ? "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)" : "transparent",
     boxShadow: isActive ? "0 4px 12px rgba(30, 60, 114, 0.2)" : "none",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
   }),
+  badge: {
+    minWidth: "20px",
+    height: "20px",
+    borderRadius: "999px",
+    background: "#dc2626",
+    color: "#fff",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "11px",
+    fontWeight: "700",
+    padding: "0 6px",
+  },
   actionSection: {
     display: "flex",
     alignItems: "center",
@@ -132,7 +149,10 @@ const styles = {
   },
   modalOverlay: {
     position: "fixed",
-    top: 0, left: 0, right: 0, bottom: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     background: "rgba(0,0,0,0.5)",
     zIndex: 1000,
     display: "flex",
@@ -201,6 +221,9 @@ function getPreferredTab(userData) {
   if (userData.role === "admin" || userData.role === "hod" || userData.access_payment_sheet) {
     allowedTabs.push("payment");
   }
+  if (userData.role === "admin" || userData.role === "hod") {
+    allowedTabs.push("hod_approvals");
+  }
   if (userData.role === "admin" || userData.access_trash) {
     allowedTabs.push("trash");
   }
@@ -219,6 +242,7 @@ export default function Dashboard() {
   const [tab, setTab] = useState("target");
   const [me, setMe] = useState(null);
   const [mountedTabs, setMountedTabs] = useState({});
+  const [approvalCount, setApprovalCount] = useState(0);
 
   const [showRegModal, setShowRegModal] = useState(false);
   const [regData, setRegData] = useState({ email: "", password: "", role: "staff" });
@@ -228,12 +252,28 @@ export default function Dashboard() {
   const contentRefs = useRef({});
   const scrollPositionsRef = useRef(getSavedScrollPositions());
   const heartbeatIntervalRef = useRef(null);
+  const approvalIntervalRef = useRef(null);
 
   const canAccessMonthly = me?.role === "admin" || me?.role === "hod" || me?.access_monthly;
   const canAccessDemo = me?.role === "admin" || me?.role === "hod" || me?.access_demo;
   const canAccessPayment = me?.role === "admin" || me?.role === "hod" || me?.access_payment_sheet;
+  const canAccessHodApprovals = me?.role === "admin" || me?.role === "hod";
   const canAccessTrash = me?.role === "admin" || me?.access_trash;
   const canAccessStaff = me?.role === "admin";
+
+  async function loadApprovalCount() {
+    if (!canAccessHodApprovals) {
+      setApprovalCount(0);
+      return;
+    }
+
+    try {
+      const { data } = await api.get("/tuitions/payment-approvals/count");
+      setApprovalCount(Number(data?.count || 0));
+    } catch (error) {
+      console.error("Failed to load approval count:", error?.response?.data || error.message);
+    }
+  }
 
   async function sendHeartbeat(currentTab) {
     try {
@@ -353,15 +393,41 @@ export default function Dashboard() {
   }, [me, tab]);
 
   useEffect(() => {
+    if (!canAccessHodApprovals) {
+      setApprovalCount(0);
+      return undefined;
+    }
+
+    loadApprovalCount();
+
+    if (approvalIntervalRef.current) {
+      clearInterval(approvalIntervalRef.current);
+    }
+
+    approvalIntervalRef.current = setInterval(() => {
+      loadApprovalCount();
+    }, APPROVAL_BADGE_MS);
+
+    return () => {
+      if (approvalIntervalRef.current) {
+        clearInterval(approvalIntervalRef.current);
+      }
+    };
+  }, [canAccessHodApprovals]);
+
+  useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && me) {
         sendHeartbeat(tab);
+        if (canAccessHodApprovals) {
+          loadApprovalCount();
+        }
       }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [me, tab]);
+  }, [me, tab, canAccessHodApprovals]);
 
   function saveTabPosition(tabKey) {
     if (!tabKey) return;
@@ -429,31 +495,41 @@ export default function Dashboard() {
         <div style={styles.tabsContainer}>
           {canAccessMonthly && (
             <div style={styles.tab(tab === "main")} onClick={() => handleTabChange("main")}>
-              📅 Monthly Tuitions
+              <span>📅 Monthly Tuitions</span>
             </div>
           )}
 
           {canAccessDemo && (
             <div style={styles.tab(tab === "target")} onClick={() => handleTabChange("target")}>
-              🔥 Today Demo
+              <span>🔥 Today Demo</span>
             </div>
           )}
 
           {canAccessPayment && (
             <div style={styles.tab(tab === "payment")} onClick={() => handleTabChange("payment")}>
-              💳 Payment Sheet
+              <span>💳 Payment Sheet</span>
+            </div>
+          )}
+
+          {canAccessHodApprovals && (
+            <div
+              style={styles.tab(tab === "hod_approvals")}
+              onClick={() => handleTabChange("hod_approvals")}
+            >
+              <span>✅ HOD Approvals</span>
+              {approvalCount > 0 && <span style={styles.badge}>{approvalCount}</span>}
             </div>
           )}
 
           {canAccessTrash && (
             <div style={styles.tab(tab === "trash")} onClick={() => handleTabChange("trash")}>
-              🗑️ Recycle Bin
+              <span>🗑️ Recycle Bin</span>
             </div>
           )}
 
           {canAccessStaff && (
             <div style={styles.tab(tab === "staff")} onClick={() => handleTabChange("staff")}>
-              👥 Staff
+              <span>👥 Staff</span>
             </div>
           )}
         </div>
@@ -485,7 +561,9 @@ export default function Dashboard() {
       <div className="overflow-auto">
         {mountedTabs.target && (
           <div
-            ref={(el) => { contentRefs.current.target = el; }}
+            ref={(el) => {
+              contentRefs.current.target = el;
+            }}
             className="fade-in"
             style={{ display: tab === "target" ? "block" : "none" }}
           >
@@ -495,7 +573,9 @@ export default function Dashboard() {
 
         {mountedTabs.main && (
           <div
-            ref={(el) => { contentRefs.current.main = el; }}
+            ref={(el) => {
+              contentRefs.current.main = el;
+            }}
             className="fade-in"
             style={{ display: tab === "main" ? "block" : "none" }}
           >
@@ -505,18 +585,33 @@ export default function Dashboard() {
 
         {mountedTabs.payment && (
           <div
-            ref={(el) => { contentRefs.current.payment = el; }}
+            ref={(el) => {
+              contentRefs.current.payment = el;
+            }}
             className="fade-in"
             style={{ display: tab === "payment" ? "block" : "none" }}
           >
             <PaymentSheet me={me} />
-            <PaymentSheetWithDate me={me} />
+          </div>
+        )}
+
+        {mountedTabs.hod_approvals && (
+          <div
+            ref={(el) => {
+              contentRefs.current.hod_approvals = el;
+            }}
+            className="fade-in"
+            style={{ display: tab === "hod_approvals" ? "block" : "none" }}
+          >
+            <HodApprovals me={me} onCountChange={setApprovalCount} />
           </div>
         )}
 
         {mountedTabs.trash && (
           <div
-            ref={(el) => { contentRefs.current.trash = el; }}
+            ref={(el) => {
+              contentRefs.current.trash = el;
+            }}
             className="fade-in"
             style={{ display: tab === "trash" ? "block" : "none" }}
           >
@@ -526,7 +621,9 @@ export default function Dashboard() {
 
         {mountedTabs.staff && (
           <div
-            ref={(el) => { contentRefs.current.staff = el; }}
+            ref={(el) => {
+              contentRefs.current.staff = el;
+            }}
             className="fade-in"
             style={{ display: tab === "staff" ? "block" : "none" }}
           >
@@ -548,7 +645,14 @@ export default function Dashboard() {
       {showRegModal && (
         <div style={styles.modalOverlay} onClick={() => setShowRegModal(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 20,
+              }}
+            >
               <h3 style={{ margin: 0 }}>Register New Staff</h3>
               <button
                 onClick={() => setShowRegModal(false)}
