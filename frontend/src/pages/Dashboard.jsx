@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import MainTuitions from "../components/MainTuitions.jsx";
 import TargetBoard from "../components/TargetBoard.jsx";
 import StaffManager from "../components/StaffManager.jsx";
@@ -9,11 +9,16 @@ import ActiveUsersPanel from "../components/ActiveUsersPanel.jsx";
 import { api, clearToken, getStoredToken, setAuthToken } from "../api/api.js";
 import Logo from "../assets/Logo-1-Blue.png";
 
+// Agar ye components project me already mojood hain to uncomment kar den:
+// import TutorShare from "../components/TutorShare.jsx";
+// import LacasShare from "../components/LacasShare.jsx";
+// import TotalFees from "../components/TotalFees.jsx";
+
 const LAST_TAB_KEY = "dashboard_active_tab";
 const TAB_SCROLL_KEY = "dashboard_tab_scroll_positions";
 const SESSION_KEY = "dashboard_session_id";
 const HEARTBEAT_MS = 20000;
-const APPROVAL_BADGE_MS = 15000;
+const BADGE_POLL_MS = 15000;
 
 function getOrCreateSessionId() {
   let sessionId = sessionStorage.getItem(SESSION_KEY);
@@ -34,14 +39,16 @@ const styles = {
     position: "sticky",
     top: 0,
     zIndex: 100,
-    background: "rgba(255, 255, 255, 0.85)",
+    background: "rgba(255, 255, 255, 0.92)",
     backdropFilter: "blur(12px)",
     borderBottom: "1px solid rgba(0,0,0,0.05)",
     boxShadow: "0 4px 20px rgba(0,0,0,0.03)",
-    padding: "12px 30px",
+    padding: "12px 20px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: "16px",
+    flexWrap: "wrap",
     transition: "all 0.3s ease",
   },
   logoSection: {
@@ -65,6 +72,12 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     color: "white",
+    flexShrink: 0,
+  },
+  tabsWrap: {
+    flex: 1,
+    minWidth: 0,
+    overflowX: "auto",
   },
   tabsContainer: {
     display: "flex",
@@ -72,11 +85,13 @@ const styles = {
     padding: "4px",
     borderRadius: "12px",
     gap: "5px",
-    flexWrap: "wrap",
+    width: "max-content",
+    minWidth: "100%",
+    flexWrap: "nowrap",
   },
   tab: (isActive) => ({
-    padding: "8px 20px",
-    borderRadius: "8px",
+    padding: "10px 16px",
+    borderRadius: "10px",
     fontSize: "14px",
     fontWeight: "600",
     cursor: "pointer",
@@ -84,9 +99,11 @@ const styles = {
     color: isActive ? "#fff" : "#666",
     background: isActive ? "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)" : "transparent",
     boxShadow: isActive ? "0 4px 12px rgba(30, 60, 114, 0.2)" : "none",
-    display: "flex",
+    display: "inline-flex",
     alignItems: "center",
     gap: "8px",
+    whiteSpace: "nowrap",
+    userSelect: "none",
   }),
   badge: {
     minWidth: "20px",
@@ -104,7 +121,9 @@ const styles = {
   actionSection: {
     display: "flex",
     alignItems: "center",
-    gap: "16px",
+    gap: "12px",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
   },
   userInfo: {
     textAlign: "right",
@@ -127,7 +146,7 @@ const styles = {
     background: "#fff",
     border: "1px solid #e1e4e8",
     borderRadius: "8px",
-    padding: "8px",
+    padding: "8px 12px",
     cursor: "pointer",
     color: "#555",
     transition: "0.2s",
@@ -159,10 +178,12 @@ const styles = {
     justifyContent: "center",
     alignItems: "center",
     backdropFilter: "blur(4px)",
+    padding: "16px",
   },
   modalCard: {
     background: "white",
-    width: "400px",
+    width: "100%",
+    maxWidth: "400px",
     padding: "24px",
     borderRadius: "16px",
     boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
@@ -185,6 +206,7 @@ const styles = {
     border: "1px solid #ddd",
     fontSize: "14px",
     outline: "none",
+    boxSizing: "border-box",
   },
   primaryBtn: {
     width: "100%",
@@ -197,6 +219,14 @@ const styles = {
     cursor: "pointer",
     marginTop: "10px",
   },
+  fallbackCard: {
+    margin: "24px",
+    background: "#fff",
+    border: "1px solid #e5e7eb",
+    borderRadius: "14px",
+    padding: "20px",
+    boxShadow: "0 6px 20px rgba(0,0,0,0.04)",
+  },
 };
 
 function getSavedScrollPositions() {
@@ -208,41 +238,42 @@ function getSavedScrollPositions() {
   }
 }
 
-function getPreferredTab(userData) {
-  const savedTab = sessionStorage.getItem(LAST_TAB_KEY);
-  const allowedTabs = [];
+function normalizeRole(role) {
+  return String(role || "").trim().toLowerCase();
+}
 
-  if (userData.role === "admin" || userData.role === "hod" || userData.access_monthly) {
-    allowedTabs.push("main");
-  }
-  if (userData.role === "admin" || userData.role === "hod" || userData.access_demo) {
-    allowedTabs.push("target");
-  }
-  if (userData.role === "admin" || userData.role === "hod" || userData.access_payment_sheet) {
-    allowedTabs.push("payment");
-  }
-  if (userData.role === "admin" || userData.role === "hod") {
-    allowedTabs.push("hod_approvals");
-  }
-  if (userData.role === "admin" || userData.access_trash) {
-    allowedTabs.push("trash");
-  }
-  if (userData.role === "admin") {
-    allowedTabs.push("staff");
-  }
+function hasAccessByRoleOrFlag(userData, permissionKey, rolesAllowed = []) {
+  const role = normalizeRole(userData?.role);
+  if (rolesAllowed.includes(role)) return true;
+  return Boolean(userData?.[permissionKey]);
+}
 
-  if (savedTab && allowedTabs.includes(savedTab)) {
-    return savedTab;
-  }
-
-  return allowedTabs[0] || "no_access";
+function DashboardFallback({ title }) {
+  return (
+    <div style={styles.fallbackCard}>
+      <h3 style={{ marginTop: 0 }}>{title}</h3>
+      <p style={{ marginBottom: 0, color: "#666" }}>
+        Is tab ka access aur topbar ab enable hai. Ab yahan aap apna actual component mount kar sakte hain.
+      </p>
+    </div>
+  );
 }
 
 export default function Dashboard() {
   const [tab, setTab] = useState("target");
   const [me, setMe] = useState(null);
   const [mountedTabs, setMountedTabs] = useState({});
-  const [approvalCount, setApprovalCount] = useState(0);
+  const [badgeCounts, setBadgeCounts] = useState({
+    hod_approvals: 0,
+    main: 0,
+    target: 0,
+    payment: 0,
+    trash: 0,
+    tutor_share: 0,
+    lacas_share: 0,
+    total_fees: 0,
+    staff: 0,
+  });
 
   const [showRegModal, setShowRegModal] = useState(false);
   const [regData, setRegData] = useState({ email: "", password: "", role: "staff" });
@@ -252,27 +283,169 @@ export default function Dashboard() {
   const contentRefs = useRef({});
   const scrollPositionsRef = useRef(getSavedScrollPositions());
   const heartbeatIntervalRef = useRef(null);
-  const approvalIntervalRef = useRef(null);
+  const badgeIntervalRef = useRef(null);
 
-  const canAccessMonthly = me?.role === "admin" || me?.role === "hod" || me?.access_monthly;
-  const canAccessDemo = me?.role === "admin" || me?.role === "hod" || me?.access_demo;
-  const canAccessPayment = me?.role === "admin" || me?.role === "hod" || me?.access_payment_sheet;
-  const canAccessHodApprovals = me?.role === "admin" || me?.role === "hod";
-  const canAccessTrash = me?.role === "admin" || me?.access_trash;
-  const canAccessStaff = me?.role === "admin";
+  const role = normalizeRole(me?.role);
 
-  async function loadApprovalCount() {
-    if (!canAccessHodApprovals) {
-      setApprovalCount(0);
-      return;
+  const tabsConfig = useMemo(() => {
+    const base = [
+      {
+        key: "main",
+        label: "📅 Monthly Tuitions",
+        permissionKey: "access_monthly",
+        rolesAllowed: ["admin", "hod"],
+        component: <MainTuitions />,
+      },
+      {
+        key: "target",
+        label: "🔥 Today Demo",
+        permissionKey: "access_demo",
+        rolesAllowed: ["admin", "hod"],
+        component: <TargetBoard />,
+      },
+      {
+        key: "payment",
+        label: "💳 Payment Sheet",
+        permissionKey: "access_payment_sheet",
+        rolesAllowed: ["admin", "hod"],
+        component: <PaymentSheet me={me} />,
+      },
+      {
+        key: "hod_approvals",
+        label: "✅ HOD Approvals",
+        permissionKey: "access_hod_approvals",
+        rolesAllowed: ["admin", "hod"],
+        component: <HodApprovals me={me} onCountChange={(count) => updateSingleBadge("hod_approvals", count)} />,
+      },
+      {
+        key: "trash",
+        label: "🗑️ Recycle Bin",
+        permissionKey: "access_trash",
+        rolesAllowed: ["admin"],
+        component: <TrashBin />,
+      },
+     
+
+     
+      {
+        key: "staff",
+        label: "👥 Staff",
+        permissionKey: "access_staff",
+        rolesAllowed: ["admin"],
+        component: (
+          <div style={{ padding: "24px" }}>
+            <ActiveUsersPanel />
+            <StaffManager />
+          </div>
+        ),
+      },
+    ];
+
+    return base.map((item) => ({
+      ...item,
+      allowed: hasAccessByRoleOrFlag(me, item.permissionKey, item.rolesAllowed),
+    }));
+  }, [me]);
+
+  const allowedTabs = useMemo(() => tabsConfig.filter((tabItem) => tabItem.allowed), [tabsConfig]);
+
+  function getPreferredTab(userData) {
+    const savedTab = sessionStorage.getItem(LAST_TAB_KEY);
+    const roleNow = normalizeRole(userData?.role);
+
+    const nextAllowedTabs = tabsConfig
+      .map((t) => ({
+        ...t,
+        allowed:
+          t.rolesAllowed.includes(roleNow) || Boolean(userData?.[t.permissionKey]),
+      }))
+      .filter((t) => t.allowed)
+      .map((t) => t.key);
+
+    if (savedTab && nextAllowedTabs.includes(savedTab)) {
+      return savedTab;
     }
 
-    try {
-      const { data } = await api.get("/tuitions/payment-approvals/count");
-      setApprovalCount(Number(data?.count || 0));
-    } catch (error) {
-      console.error("Failed to load approval count:", error?.response?.data || error.message);
-    }
+    return nextAllowedTabs[0] || "no_access";
+  }
+
+  function updateSingleBadge(key, count) {
+    setBadgeCounts((prev) => ({
+      ...prev,
+      [key]: Number(count || 0),
+    }));
+  }
+
+  async function loadAllTabBadges() {
+    if (!me) return;
+
+    const requests = [
+      {
+        key: "hod_approvals",
+        enabled: allowedTabs.some((t) => t.key === "hod_approvals"),
+        url: "/tuitions/payment-approvals/count",
+        map: (data) => Number(data?.count || 0),
+      },
+
+      // Neeche apne existing APIs laga den:
+      // {
+      //   key: "main",
+      //   enabled: allowedTabs.some((t) => t.key === "main"),
+      //   url: "/tuitions/monthly/count",
+      //   map: (data) => Number(data?.count || 0),
+      // },
+      // {
+      //   key: "target",
+      //   enabled: allowedTabs.some((t) => t.key === "target"),
+      //   url: "/tuitions/demo/count",
+      //   map: (data) => Number(data?.count || 0),
+      // },
+      // {
+      //   key: "payment",
+      //   enabled: allowedTabs.some((t) => t.key === "payment"),
+      //   url: "/payment-sheet/count",
+      //   map: (data) => Number(data?.count || 0),
+      // },
+      // {
+      //   key: "trash",
+      //   enabled: allowedTabs.some((t) => t.key === "trash"),
+      //   url: "/trash/count",
+      //   map: (data) => Number(data?.count || 0),
+      // },
+      // {
+      //   key: "tutor_share",
+      //   enabled: allowedTabs.some((t) => t.key === "tutor_share"),
+      //   url: "/tutor-share/count",
+      //   map: (data) => Number(data?.count || 0),
+      // },
+      // {
+      //   key: "lacas_share",
+      //   enabled: allowedTabs.some((t) => t.key === "lacas_share"),
+      //   url: "/lacas-share/count",
+      //   map: (data) => Number(data?.count || 0),
+      // },
+      // {
+      //   key: "total_fees",
+      //   enabled: allowedTabs.some((t) => t.key === "total_fees"),
+      //   url: "/total-fees/count",
+      //   map: (data) => Number(data?.count || 0),
+      // },
+    ];
+
+    const enabledRequests = requests.filter((r) => r.enabled);
+
+    if (!enabledRequests.length) return;
+
+    await Promise.all(
+      enabledRequests.map(async (item) => {
+        try {
+          const { data } = await api.get(item.url);
+          updateSingleBadge(item.key, item.map(data));
+        } catch (error) {
+          console.error(`Failed to load badge count for ${item.key}:`, error?.response?.data || error.message);
+        }
+      })
+    );
   }
 
   async function sendHeartbeat(currentTab) {
@@ -300,15 +473,68 @@ export default function Dashboard() {
     }
   }
 
+  function saveTabPosition(tabKey) {
+    if (!tabKey) return;
+
+    const wrapper = contentRefs.current[tabKey];
+    const nextPositions = {
+      ...scrollPositionsRef.current,
+      [tabKey]: {
+        windowScroll: window.scrollY,
+        innerScroll: wrapper ? wrapper.scrollTop : 0,
+      },
+    };
+
+    scrollPositionsRef.current = nextPositions;
+    sessionStorage.setItem(TAB_SCROLL_KEY, JSON.stringify(nextPositions));
+    sessionStorage.setItem(LAST_TAB_KEY, tabKey);
+  }
+
+  function handleTabChange(nextTab) {
+    if (nextTab === tab) return;
+    saveTabPosition(tab);
+    setTab(nextTab);
+  }
+
+  async function logout() {
+    saveTabPosition(tab);
+    await markOffline();
+    clearToken();
+    window.location.href = "/login";
+  }
+
+  async function handleRegister(e) {
+    e.preventDefault();
+    setRegLoading(true);
+    setRegMsg("");
+
+    try {
+      await api.post("/auth/register", regData);
+      setRegMsg("✅ User created successfully!");
+      setRegData({ email: "", password: "", role: "staff" });
+
+      setTimeout(() => {
+        setShowRegModal(false);
+        setRegMsg("");
+        if (tab === "staff") {
+          window.location.reload();
+        }
+      }, 1500);
+    } catch (err) {
+      setRegMsg(`❌ ${err?.response?.data?.message || "Failed to create user"}`);
+    } finally {
+      setRegLoading(false);
+    }
+  }
+
   useEffect(() => {
     const token = getStoredToken();
     if (token) setAuthToken(token);
 
     api.get("/auth/me")
       .then((r) => {
-        const userData = r.data.user;
+        const userData = r.data.user || {};
         setMe(userData);
-
         const firstTab = getPreferredTab(userData);
         setTab(firstTab);
       })
@@ -393,95 +619,36 @@ export default function Dashboard() {
   }, [me, tab]);
 
   useEffect(() => {
-    if (!canAccessHodApprovals) {
-      setApprovalCount(0);
-      return undefined;
+    if (!me) return;
+
+    loadAllTabBadges();
+
+    if (badgeIntervalRef.current) {
+      clearInterval(badgeIntervalRef.current);
     }
 
-    loadApprovalCount();
-
-    if (approvalIntervalRef.current) {
-      clearInterval(approvalIntervalRef.current);
-    }
-
-    approvalIntervalRef.current = setInterval(() => {
-      loadApprovalCount();
-    }, APPROVAL_BADGE_MS);
+    badgeIntervalRef.current = setInterval(() => {
+      loadAllTabBadges();
+    }, BADGE_POLL_MS);
 
     return () => {
-      if (approvalIntervalRef.current) {
-        clearInterval(approvalIntervalRef.current);
+      if (badgeIntervalRef.current) {
+        clearInterval(badgeIntervalRef.current);
       }
     };
-  }, [canAccessHodApprovals]);
+  }, [me, role, allowedTabs.length]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && me) {
         sendHeartbeat(tab);
-        if (canAccessHodApprovals) {
-          loadApprovalCount();
-        }
+        loadAllTabBadges();
       }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [me, tab, canAccessHodApprovals]);
-
-  function saveTabPosition(tabKey) {
-    if (!tabKey) return;
-
-    const wrapper = contentRefs.current[tabKey];
-    const nextPositions = {
-      ...scrollPositionsRef.current,
-      [tabKey]: {
-        windowScroll: window.scrollY,
-        innerScroll: wrapper ? wrapper.scrollTop : 0,
-      },
-    };
-
-    scrollPositionsRef.current = nextPositions;
-    sessionStorage.setItem(TAB_SCROLL_KEY, JSON.stringify(nextPositions));
-    sessionStorage.setItem(LAST_TAB_KEY, tabKey);
-  }
-
-  function handleTabChange(nextTab) {
-    if (nextTab === tab) return;
-    saveTabPosition(tab);
-    setTab(nextTab);
-  }
-
-  async function logout() {
-    saveTabPosition(tab);
-    await markOffline();
-    clearToken();
-    window.location.href = "/login";
-  }
-
-  async function handleRegister(e) {
-    e.preventDefault();
-    setRegLoading(true);
-    setRegMsg("");
-
-    try {
-      await api.post("/auth/register", regData);
-      setRegMsg("✅ User created successfully!");
-      setRegData({ email: "", password: "", role: "staff" });
-
-      setTimeout(() => {
-        setShowRegModal(false);
-        setRegMsg("");
-        if (tab === "staff") {
-          window.location.reload();
-        }
-      }, 1500);
-    } catch (err) {
-      setRegMsg(`❌ ${err?.response?.data?.message || "Failed to create user"}`);
-    } finally {
-      setRegLoading(false);
-    }
-  }
+  }, [me, tab]);
 
   return (
     <div style={styles.dashboardContainer}>
@@ -492,50 +659,25 @@ export default function Dashboard() {
           </div>
         </a>
 
-        <div style={styles.tabsContainer}>
-          {canAccessMonthly && (
-            <div style={styles.tab(tab === "main")} onClick={() => handleTabChange("main")}>
-              <span>📅 Monthly Tuitions</span>
-            </div>
-          )}
-
-          {canAccessDemo && (
-            <div style={styles.tab(tab === "target")} onClick={() => handleTabChange("target")}>
-              <span>🔥 Today Demo</span>
-            </div>
-          )}
-
-          {canAccessPayment && (
-            <div style={styles.tab(tab === "payment")} onClick={() => handleTabChange("payment")}>
-              <span>💳 Payment Sheet</span>
-            </div>
-          )}
-
-          {canAccessHodApprovals && (
-            <div
-              style={styles.tab(tab === "hod_approvals")}
-              onClick={() => handleTabChange("hod_approvals")}
-            >
-              <span>✅ HOD Approvals</span>
-              {approvalCount > 0 && <span style={styles.badge}>{approvalCount}</span>}
-            </div>
-          )}
-
-          {canAccessTrash && (
-            <div style={styles.tab(tab === "trash")} onClick={() => handleTabChange("trash")}>
-              <span>🗑️ Recycle Bin</span>
-            </div>
-          )}
-
-          {canAccessStaff && (
-            <div style={styles.tab(tab === "staff")} onClick={() => handleTabChange("staff")}>
-              <span>👥 Staff</span>
-            </div>
-          )}
+        <div style={styles.tabsWrap}>
+          <div style={styles.tabsContainer}>
+            {allowedTabs.map((item) => (
+              <div
+                key={item.key}
+                style={styles.tab(tab === item.key)}
+                onClick={() => handleTabChange(item.key)}
+              >
+                <span>{item.label}</span>
+                {badgeCounts[item.key] > 0 && (
+                  <span style={styles.badge}>{badgeCounts[item.key]}</span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
         <div style={styles.actionSection}>
-          {me?.role === "admin" && (
+          {role === "admin" && (
             <button
               style={styles.iconBtn}
               onClick={() => setShowRegModal(true)}
@@ -545,7 +687,7 @@ export default function Dashboard() {
             </button>
           )}
 
-          <div style={{ width: 1, height: 24, background: "#ddd" }}></div>
+          <div style={{ width: 1, height: 24, background: "#ddd" }} />
 
           <div style={styles.userInfo}>
             <span style={styles.userEmail}>{me?.email || "Guest"}</span>
@@ -559,80 +701,20 @@ export default function Dashboard() {
       </div>
 
       <div className="overflow-auto">
-        {mountedTabs.target && (
-          <div
-            ref={(el) => {
-              contentRefs.current.target = el;
-            }}
-            className="fade-in"
-            style={{ display: tab === "target" ? "block" : "none" }}
-          >
-            <TargetBoard />
-          </div>
-        )}
-
-        {mountedTabs.main && (
-          <div
-            ref={(el) => {
-              contentRefs.current.main = el;
-            }}
-            className="fade-in"
-            style={{ display: tab === "main" ? "block" : "none" }}
-          >
-            <MainTuitions />
-          </div>
-        )}
-
-        {mountedTabs.payment && (
-          <div
-            ref={(el) => {
-              contentRefs.current.payment = el;
-            }}
-            className="fade-in"
-            style={{ display: tab === "payment" ? "block" : "none" }}
-          >
-            <PaymentSheet me={me} />
-          </div>
-        )}
-
-        {mountedTabs.hod_approvals && (
-          <div
-            ref={(el) => {
-              contentRefs.current.hod_approvals = el;
-            }}
-            className="fade-in"
-            style={{ display: tab === "hod_approvals" ? "block" : "none" }}
-          >
-            <HodApprovals me={me} onCountChange={setApprovalCount} />
-          </div>
-        )}
-
-        {mountedTabs.trash && (
-          <div
-            ref={(el) => {
-              contentRefs.current.trash = el;
-            }}
-            className="fade-in"
-            style={{ display: tab === "trash" ? "block" : "none" }}
-          >
-            <TrashBin />
-          </div>
-        )}
-
-        {mountedTabs.staff && (
-          <div
-            ref={(el) => {
-              contentRefs.current.staff = el;
-            }}
-            className="fade-in"
-            style={{ display: tab === "staff" ? "block" : "none" }}
-          >
-            <div style={{ padding: "24px" }}>
-              <ActiveUsersPanel />
-              <StaffManager />
+        {allowedTabs.map((item) => (
+          mountedTabs[item.key] && (
+            <div
+              key={item.key}
+              ref={(el) => {
+                contentRefs.current[item.key] = el;
+              }}
+              className="fade-in"
+              style={{ display: tab === item.key ? "block" : "none" }}
+            >
+              {item.component}
             </div>
-          </div>
-        )}
+          )
+        ))}
 
         {tab === "no_access" && (
           <div className="fade-in" style={{ textAlign: "center", padding: 40, color: "#666" }}>
@@ -728,12 +810,24 @@ export default function Dashboard() {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        .fade-in { animation: fadeIn 0.4s ease-out; }
+
+        .fade-in {
+          animation: fadeIn 0.4s ease-out;
+        }
+
+        @media (max-width: 1024px) {
+          .overflow-auto {
+            overflow-x: hidden;
+          }
+        }
 
         @media (max-width: 768px) {
-          .topbar { flex-direction: column; gap: 15px; padding: 15px; }
-          .tabsContainer { width: 100%; justify-content: center; flex-wrap: wrap; }
-          .actionSection { width: 100%; justify-content: space-between; }
+          .topbar {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+            padding: 12px;
+          }
         }
       `}</style>
     </div>
