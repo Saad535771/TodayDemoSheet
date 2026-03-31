@@ -324,9 +324,6 @@ export default function Dashboard() {
         rolesAllowed: ["admin"],
         component: <TrashBin />,
       },
-     
-
-     
       {
         key: "staff",
         label: "👥 Staff",
