@@ -17,16 +17,19 @@ const styles = {
     background: "#ffffff",
     borderRadius: "16px",
     boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
-    padding: "24px",
-    marginBottom: "24px",
+   paddingTop: "14px",
+    marginBottom: "4px",
     border: "1px solid #eef0f3",
     width: "100%",
     minWidth: 0,
+    position:'fixed',
+    zIndex:'99',
+    top:'70px',
   },
   singleLineForm: {
     display: "flex",
     overflowX: "auto",
-  
+    
     width: "100%",
     minWidth: 0,
     boxSizing: "border-box",

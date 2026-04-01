@@ -1,30 +1,41 @@
-
-
-
-
-
-
 import React, { useState, useEffect, useRef } from "react";
 import { api } from "../api/api.js";
-
 const styles = {
   card: {
     background: "#ffffff",
     borderRadius: "16px",
     boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
-    padding: "24px",
+    marginTop: "150px",
     marginBottom: "24px",
     border: "1px solid #eef0f3",
   },
-  title: { fontSize: "22px", fontWeight: "700", color: "#000000", marginBottom: 10 },
-  tableWrapper: {
-    overflowX: "auto",
-    height: "100%",
-    marginTop: "0px",
-    overscrollBehaviorX: "contain",
-    WebkitOverflowScrolling: "touch",
+
+  title: {
+    fontSize: "22px",
+    fontWeight: "700",
+    color: "#000000",
+    marginBottom: 10,
   },
-  table: { width: "100%", height: "100%", fontSize: "12px" },
+
+  tableWrapper: {
+    overflow: "auto",
+    maxHeight: "70vh",
+    height: "70vh",
+    marginTop: "0px",
+    position: "relative",
+    overscrollBehavior: "contain",
+    WebkitOverflowScrolling: "touch",
+    border: "1px solid #000000",
+  },
+
+  table: {
+    width: "max-content",
+    width: "100%",
+    fontSize: "12px",
+    borderCollapse: "separate",
+    borderSpacing: 0,
+  },
+
   th: {
     background: "#000000",
     color: "#fdfdfd",
@@ -32,19 +43,22 @@ const styles = {
     padding: "8px 10px",
     textAlign: "center",
     border: "1px solid #000000",
+    position: "sticky",
     top: 0,
-    height: "100%",
-    zIndex: 10,
-    position: "relative",
+    zIndex: 50,
+    whiteSpace: "nowrap",
   },
+
   td: {
     padding: "0",
     border: "1px solid #000000",
     textAlign: "center",
     verticalAlign: "middle",
-    height: "15px",
+    height: "35px",
     width: "15px",
+    backgroundClip: "padding-box",
   },
+
   inlineInput: {
     width: "100%",
     height: "100%",
@@ -115,12 +129,9 @@ const styles = {
     top: "75px",
     right: 0,
     width: "80%",
-    padding: "14px 24px",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
     zIndex: 100,
   },
 };
-
 const searchColumns = [
   { key: "tuitionId", label: "Tuition Id" },
   { key: "date", label: "Date" },
@@ -142,7 +153,6 @@ const searchColumns = [
   { key: "demoTime", label: "Demo Time" },
   { key: "demoDate", label: "Demo Date" },
 ];
-
 const demoRatings = ["", "Average Demo", "Strong Demo", "Weak Demo"];
 const sourcesList = ["", "mahad", "areeba", "sibgha"];
 const statusList = [
@@ -156,7 +166,6 @@ const statusList = [
   "Not available",
   "Pending",
 ];
-
 const gridColumns = [
   { id: "date", label: "Date", width: 130, editable: true, field: "date", type: "date" },
   { id: "demoTime", label: "Demo Time", width: 110, editable: true, field: "demoTime", type: "time" },
@@ -180,77 +189,57 @@ const gridColumns = [
   { id: "tuitionId", label: "Tuition Id", width: 100, editable: false, field: "tuitionId", kind: "readonly" },
   { id: "sync", label: "Sync", width: 80, editable: true, field: "sync" },
 ];
-
 const gridColumnIds = gridColumns.map((c) => c.id);
 const gridColumnMap = Object.fromEntries(gridColumns.map((c) => [c.id, c]));
 const firstEditableColumnId = gridColumns[0]?.id || "demoTime";
 const columnColors = { "Rejected Tutor": "#c00000" };
-
-
 const stableSerialize = (value) => {
   if (Array.isArray(value)) {
     return `[${value.map((entry) => stableSerialize(entry)).join(",")}]`;
   }
-
   if (value && typeof value === "object") {
     return `{${Object.keys(value)
       .sort()
       .map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`)
       .join(",")}}`;
   }
-
   return JSON.stringify(value ?? null);
 };
-
 const areItemListsEqual = (prevItems, nextItems) => {
   if (prevItems === nextItems) return true;
   if (!Array.isArray(prevItems) || !Array.isArray(nextItems)) return false;
   if (prevItems.length !== nextItems.length) return false;
-
   for (let i = 0; i < prevItems.length; i += 1) {
     if (stableSerialize(prevItems[i]) !== stableSerialize(nextItems[i])) {
       return false;
     }
   }
-
   return true;
 };
-
 const getCellKey = (rowIndex, colId) => `${rowIndex}__${colId}`;
-
 const parseCellKey = (key) => {
   const [rowIndex, ...rest] = key.split("__");
   return { rowIndex: Number(rowIndex), colId: rest.join("__") };
 };
-
 function format12Hour(time24) {
   if (!time24) return "";
-
   const clean = String(time24).trim();
   const parts = clean.split(":");
   if (parts.length < 2) return clean;
-
   let hours = parseInt(parts[0], 10);
   const minutes = parts[1] ?? "00";
-
   if (Number.isNaN(hours)) return clean;
-
   const ampm = hours >= 12 ? "PM" : "AM";
   hours = hours % 12 || 12;
-
   return `${hours}:${minutes} ${ampm}`;
 }
-
 const normalizeMultiValue = (value) => {
   if (Array.isArray(value)) {
     return [...new Set(value.map((entry) => String(entry || "").trim()).filter(Boolean))];
   }
-
   if (value == null) return [];
-
   const raw = String(value).trim();
   if (!raw) return [];
-
   if (raw.startsWith("[")) {
     try {
       const parsed = JSON.parse(raw);
@@ -1004,11 +993,9 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     requestAnimationFrame(() => {
       const root = tableWrapperRef.current;
       if (!root) return;
-
       const target = root.querySelector(
         `[data-grid-row="${rowIndex}"][data-grid-col="${colId}"]`
       );
-
       if (target && typeof target.scrollIntoView === "function") {
         target.scrollIntoView({
           behavior,
@@ -1018,16 +1005,13 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       }
     });
   };
-
   const focusCell = (rowIndex, colId) => {
     requestAnimationFrame(() => {
       const root = tableWrapperRef.current;
       if (!root) return;
-
       const target = root.querySelector(
         `[data-grid-row="${rowIndex}"][data-grid-col="${colId}"]`
       );
-
       if (target && typeof target.scrollIntoView === "function") {
         target.scrollIntoView({
           behavior: "smooth",
@@ -1035,13 +1019,11 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
           inline: "nearest",
         });
       }
-
       if (target && typeof target.focus === "function") {
         target.focus({ preventScroll: true });
       }
     });
   };
-
   const selectSingleCell = (rowIndex, colId, shouldFocus = true) => {
     const cell = { rowIndex, colId };
     setSelectedCell(cell);
@@ -1049,34 +1031,25 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     setSelectedCells(new Set([getCellKey(rowIndex, colId)]));
     if (shouldFocus) focusCell(rowIndex, colId);
   };
-
   const getRangeCells = (start, end) => {
     if (!start || !end) return new Set();
-
     const startRow = Math.min(start.rowIndex, end.rowIndex);
     const endRow = Math.max(start.rowIndex, end.rowIndex);
     const startColIndex = getColumnIndex(start.colId);
     const endColIndex = getColumnIndex(end.colId);
-
     if (startColIndex < 0 || endColIndex < 0) return new Set();
-
     const minCol = Math.min(startColIndex, endColIndex);
     const maxCol = Math.max(startColIndex, endColIndex);
-
     const range = new Set();
-
     for (let r = startRow; r <= endRow; r++) {
       for (let c = minCol; c <= maxCol; c++) {
         range.add(getCellKey(r, gridColumnIds[c]));
       }
     }
-
     return range;
   };
-
   const getCellValue = (item, col) => {
     if (!item || !col) return "";
-
     switch (col.id) {
       case "tutorFees":
         return item.tutorFees ?? item.tutorFee ?? "";
@@ -1860,7 +1833,7 @@ const getCellTextColor = (item, col) => {
         );
 
       return (
-        <td style={{ ...commonTdStyle, overflow: "visible" }}>
+        <td style={{ ...commonTdStyle, overflow: "auto" }}>
           <div
             style={{
               display: "flex",
@@ -1870,6 +1843,7 @@ const getCellTextColor = (item, col) => {
               padding: "4px 8px",
               flexWrap: "wrap",
               position: "relative",
+          
               background: "#ffffff",
             }}
             onMouseDown={(e) => e.stopPropagation()}
@@ -1944,7 +1918,7 @@ const getCellTextColor = (item, col) => {
                 width: "auto",
                 flex: 1,
                 padding: "0",
-                height: "24px",
+               
                 fontSize: "12px",
               }}
             />
@@ -2353,7 +2327,6 @@ if (isEditing && col.id === "feedback") {
           </div>
         </div>
       </div>
-      <h2 style={styles.title}>Monthly Tuitions (Excel View)</h2>
       <div style={styles.tableWrapper} ref={tableWrapperRef}>
         <div
           style={{
@@ -2364,9 +2337,9 @@ if (isEditing && col.id === "feedback") {
           }}
         >
           <table style={styles.table}>
-            <thead>
-              <tr>
-                <TH style={{ width: "52px", textAlign: "center" }}>#</TH>
+            <thead >
+              <tr >
+                <TH style={{ width: "22px", textAlign: "center" }}>#</TH>
                 <TH style={{ width: "42px", textAlign: "center" }}>✓</TH>
                 <TH style={{ width: "40px", textAlign: "center" }}>Sort</TH>
                 <TH style={{ width: "36px", textAlign: "center" }}>🎨</TH>
@@ -2375,7 +2348,7 @@ if (isEditing && col.id === "feedback") {
                   <TH
                     key={col.id}
                     style={{
-                      position: "relative",
+                      position: "sticky",
                       minWidth: `${col.width}px`,
                       width: `${col.width}px`,
                     }}

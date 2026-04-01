@@ -29,12 +29,13 @@ export default function MainTuitions() {
   };
 
   return (
-    <div style={{ fontFamily: "'Calibri', sans-serif", color: "#333" }}>
+    <div style={{ fontFamily: "'Calibri', sans-serif", color: "#333" , }}>
       {/* Component 1: Add Form */}
-      <MonthlyTuition onLoad={load} />
+      <MonthlyTuition  onLoad={load} />
 
       {/* Component 2: Excel Table */}
       <MonthlyTuitionTable 
+      
         items={items} 
         load={load} 
         zoom={zoom} 
