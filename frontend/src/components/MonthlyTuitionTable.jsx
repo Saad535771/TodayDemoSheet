@@ -27,14 +27,12 @@ const styles = {
     WebkitOverflowScrolling: "touch",
     border: "1px solid #000000",
   },
-
   table: {
     width: "100%",
     fontSize: "12px",
     borderCollapse: "separate",
     borderSpacing: 0,
   },
-
   th: {
     background: "#000000",
     color: "#fdfdfd",
@@ -47,7 +45,6 @@ const styles = {
     zIndex: 50,
     whiteSpace: "nowrap",
   },
-
   td: {
     padding: "0",
     border: "1px solid #000000",
@@ -57,7 +54,6 @@ const styles = {
     width: "15px",
     backgroundClip: "padding-box",
   },
-
   inlineInput: {
     width: "100%",
     height: "100%",
