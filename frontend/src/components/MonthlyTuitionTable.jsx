@@ -29,7 +29,6 @@ const styles = {
   },
 
   table: {
-    width: "max-content",
     width: "100%",
     fontSize: "12px",
     borderCollapse: "separate",
