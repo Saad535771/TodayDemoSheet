@@ -11,29 +11,29 @@ const PAGE_TOP_OFFSET = 78;
 const FIXED_TOOLBAR_HEIGHT = 118;
 const STICKY_TOP = 0;
 const styles = {
- page: {
-  minHeight: "100vh",
-  padding: "0px",
-  overflowX: "hidden",
-  background: "#ffffff",
-},
- card: {
-  padding: "0px",
-  position: "relative",
-},
+  page: {
+    minHeight: "100vh",
+    padding: "0px",
+    overflowX: "hidden",
+    background: "#ffffff",
+  },
+  card: {
+    padding: "0px",
+    position: "relative",
+  },
   headerRow: {
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  gap: "10px",
-  marginBottom: "0px",
-  flexWrap: "wrap",
-  position: "relative",
-  zIndex: 200,
-  background: "#ffffff",
-  padding: "0px 0 0px",
-  boxShadow: "0 6px 14px rgba(0,0,0,0.08)",
-},
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "10px",
+    marginBottom: "0px",
+    flexWrap: "wrap",
+    position: "relative",
+    zIndex: 200,
+    background: "#ffffff",
+    padding: "0px 0 0px",
+    boxShadow: "0 6px 14px rgba(0,0,0,0.08)",
+  },
   titleWrap: {
     display: "flex",
     flexDirection: "column",
@@ -49,7 +49,7 @@ const styles = {
     fontSize: "13px",
     color: "#444444",
     margin: 0,
-    textAlign:'center',
+    textAlign: 'center',
   },
   actions: {
     display: "flex",
@@ -150,25 +150,25 @@ const styles = {
     background: "#ffffff",
   },
   th: {
-  background: "#000000",
-  color: "#ffffff",
-  fontWeight: "700",
-  textAlign: "center",
-  padding: "12px 10px",
-  borderBottom: "1.5px solid #000000",
-  borderRight: "1.5px solid #000000",
-  position: "sticky",
-  top: "0px",
-  zIndex: 4,
-  whiteSpace: "nowrap",
-},
+    background: "#000000",
+    color: "#ffffff",
+    fontWeight: "700",
+    textAlign: "center",
+    padding: "12px 10px",
+    borderBottom: "1.5px solid #000000",
+    borderRight: "1.5px solid #000000",
+    position: "sticky",
+    top: "0px",
+    zIndex: 4,
+    whiteSpace: "nowrap",
+  },
   td: {
     borderBottom: "1.5px solid #000000",
     borderRight: "1.5px solid #000000",
     padding: "0",
     textAlign: "center",
     height: "42px",
-    
+
     background: "#fff",
   },
   input: {
@@ -389,8 +389,8 @@ function applyReorderPayloadToRows(rows = [], payload = []) {
       orderIndex: orderMap.has(String(getRowId(row)))
         ? orderMap.get(String(getRowId(row)))
         : typeof row?.orderIndex === "number"
-        ? row.orderIndex
-        : index,
+          ? row.orderIndex
+          : index,
     }))
     .sort((a, b) => {
       const aOrder = typeof a?.orderIndex === "number" ? a.orderIndex : Number.MAX_SAFE_INTEGER;
@@ -736,19 +736,19 @@ export default function PaymentSheetWithDate({ me }) {
   const [editValue, setEditValue] = useState("");
   const [activeColorPicker, setActiveColorPicker] = useState(null);
   const [historyMeta, setHistoryMeta] = useState({ canUndo: false, canRedo: false });
-const [isHeaderPinned, setIsHeaderPinned] = useState(false);
-const [headerMetrics, setHeaderMetrics] = useState({
-  height: 0,
-  left: 0,
-  width: 0,
-});
+  const [isHeaderPinned, setIsHeaderPinned] = useState(false);
+  const [headerMetrics, setHeaderMetrics] = useState({
+    height: 0,
+    left: 0,
+    width: 0,
+  });
   const mountedRef = useRef(true);
   const itemsRef = useRef([]);
   const filteredItemsRef = useRef([]);
   const pollingRef = useRef(null);
   const tableWrapperRef = useRef(null);
   const cardRef = useRef(null);
-const headerRowRef = useRef(null);
+  const headerRowRef = useRef(null);
   const inputRef = useRef(null);
   const editingCellRef = useRef(editingCell);
   const editValueRef = useRef(editValue);
@@ -890,8 +890,8 @@ const headerRowRef = useRef(null);
         width: 150,
         align: "left",
       },
-      
-     
+
+
     );
 
     return cols;
@@ -983,38 +983,32 @@ const headerRowRef = useRef(null);
     wrapper.addEventListener("wheel", handleWheel, { passive: false });
     return () => wrapper.removeEventListener("wheel", handleWheel);
   }, []);
-useEffect(() => {
-  const updateStickyHeader = () => {
-    const cardEl = cardRef.current;
-    const headerEl = headerRowRef.current;
+  useEffect(() => {
+    const updateStickyHeader = () => {
+      const cardEl = cardRef.current;
+      const headerEl = headerRowRef.current;
+      if (!cardEl || !headerEl) return;
+      const cardRect = cardEl.getBoundingClientRect();
+      const headerHeight = headerEl.offsetHeight || 0;
+      const shouldPin =
+        cardRect.top <= STICKY_TOP &&
+        cardRect.bottom > STICKY_TOP + headerHeight + 8;
+      setIsHeaderPinned(shouldPin);
+      setHeaderMetrics({
+        height: headerHeight,
+        left: cardRect.left + 10,
+        width: Math.max(cardEl.clientWidth - 20, 0),
+      });
+    };
 
-    if (!cardEl || !headerEl) return;
-
-    const cardRect = cardEl.getBoundingClientRect();
-    const headerHeight = headerEl.offsetHeight || 0;
-
-    const shouldPin =
-      cardRect.top <= STICKY_TOP &&
-      cardRect.bottom > STICKY_TOP + headerHeight + 8;
-
-    setIsHeaderPinned(shouldPin);
-
-    setHeaderMetrics({
-      height: headerHeight,
-      left: cardRect.left + 10,
-      width: Math.max(cardEl.clientWidth - 20, 0),
-    });
-  };
-
-  updateStickyHeader();
-window.addEventListener("scroll", updateStickyHeader, { passive: true });
-  window.addEventListener("resize", updateStickyHeader);
-
-  return () => {
-    window.removeEventListener("scroll", updateStickyHeader);
-    window.removeEventListener("resize", updateStickyHeader);
-  };
-}, []);
+    updateStickyHeader();
+    window.addEventListener("scroll", updateStickyHeader, { passive: true });
+    window.addEventListener("resize", updateStickyHeader);
+    return () => {
+      window.removeEventListener("scroll", updateStickyHeader);
+      window.removeEventListener("resize", updateStickyHeader);
+    };
+  }, []);
   useEffect(() => {
     if (editingCell && inputRef.current) {
       const col = gridColumnMap[editingCell.colId];
@@ -1074,13 +1068,13 @@ window.addEventListener("scroll", updateStickyHeader, { passive: true });
     setItems(nextItems);
   };
 
-const applyUpdateEntries = async (updates, { historyLabel = "Edit", recordHistory = true } = {}) => {
-  const updatesWithAutoTotal = updates.map(({ row, patch }) => ({
-    row,
-    patch: withAutoTotalFee(row, patch),
-  }));
+  const applyUpdateEntries = async (updates, { historyLabel = "Edit", recordHistory = true } = {}) => {
+    const updatesWithAutoTotal = updates.map(({ row, patch }) => ({
+      row,
+      patch: withAutoTotalFee(row, patch),
+    }));
 
-  const normalized = buildMergedPatchEntries(updatesWithAutoTotal);
+    const normalized = buildMergedPatchEntries(updatesWithAutoTotal);
     if (!normalized.length) return false;
 
     const previousItems = cloneRows(itemsRef.current);
@@ -1284,8 +1278,8 @@ const applyUpdateEntries = async (updates, { historyLabel = "Edit", recordHistor
       const rows = Array.isArray(res.data?.items)
         ? res.data.items
         : Array.isArray(res.data)
-        ? res.data
-        : [];
+          ? res.data
+          : [];
       if (!mountedRef.current) return;
       if (!rowsAreSame(itemsRef.current, rows)) {
         setItems(rows);
@@ -1453,76 +1447,76 @@ const applyUpdateEntries = async (updates, { historyLabel = "Edit", recordHistor
     }
   }
 
-async function deleteRow(row) {
-  const rowId = getRowId(row);
-  if (rowId === undefined || rowId === null) {
-    alert("Row ID is missing.");
-    return;
+  async function deleteRow(row) {
+    const rowId = getRowId(row);
+    if (rowId === undefined || rowId === null) {
+      alert("Row ID is missing.");
+      return;
+    }
+
+    const ok = window.confirm(
+      "Are you sure? This row will be moved to trash."
+    );
+    if (!ok) return;
+
+    const previousItems = cloneRows(itemsRef.current);
+    setItemsImmediate(
+      previousItems.filter((item) => String(getRowId(item)) !== String(rowId))
+    );
+    mutationInFlightRef.current = true;
+
+    try {
+      await api.delete(`/payments-clone/${encodeURIComponent(rowId)}`);
+      rememberHistoryEntry({
+        type: "deleteRow",
+        label: "Delete Row",
+        row: cloneRow(row),
+      });
+      markMutationSettled();
+      await loadRows({ silent: true });
+    } catch (err) {
+      console.error("Failed to delete row:", err);
+      setItemsImmediate(previousItems);
+      alert(err?.response?.data?.message || "Failed to delete the row.");
+    } finally {
+      mutationInFlightRef.current = false;
+    }
+  }
+  // cloneRows ke baad yeh helpers add kar do
+
+  function parseFeeInput(value) {
+    if (value === null || value === undefined) return null;
+
+    const cleaned = String(value).replace(/,/g, "").trim();
+    if (cleaned === "") return null;
+
+    const num = Number(cleaned);
+    return Number.isFinite(num) ? num : null;
   }
 
-  const ok = window.confirm(
-    "Are you sure? This row will be moved to trash."
-  );
-  if (!ok) return;
+  function calculateAutoTotalFees(tutorShare, lacasShare) {
+    const tutor = parseFeeInput(tutorShare);
+    const lacas = parseFeeInput(lacasShare);
 
-  const previousItems = cloneRows(itemsRef.current);
-  setItemsImmediate(
-    previousItems.filter((item) => String(getRowId(item)) !== String(rowId))
-  );
-  mutationInFlightRef.current = true;
-
-  try {
-    await api.delete(`/payments-clone/${encodeURIComponent(rowId)}`);
-    rememberHistoryEntry({
-      type: "deleteRow",
-      label: "Delete Row",
-      row: cloneRow(row),
-    });
-    markMutationSettled();
-    await loadRows({ silent: true });
-  } catch (err) {
-    console.error("Failed to delete row:", err);
-    setItemsImmediate(previousItems);
-    alert(err?.response?.data?.message || "Failed to delete the row.");
-  } finally {
-    mutationInFlightRef.current = false;
+    if (tutor === null && lacas === null) return "";
+    return String((tutor ?? 0) + (lacas ?? 0));
   }
-}
-// cloneRows ke baad yeh helpers add kar do
 
-function parseFeeInput(value) {
-  if (value === null || value === undefined) return null;
+  function withAutoTotalFee(row, patch = {}) {
+    const hasTutorShare = Object.prototype.hasOwnProperty.call(patch, "tutorShare");
+    const hasLacasShare = Object.prototype.hasOwnProperty.call(patch, "lacasShare");
 
-  const cleaned = String(value).replace(/,/g, "").trim();
-  if (cleaned === "") return null;
+    // Sirf tab auto total banao jab Tutor Fee ya Lacas Share change ho
+    if (!hasTutorShare && !hasLacasShare) return patch;
 
-  const num = Number(cleaned);
-  return Number.isFinite(num) ? num : null;
-}
+    const nextTutorShare = hasTutorShare ? patch.tutorShare : row?.tutorShare;
+    const nextLacasShare = hasLacasShare ? patch.lacasShare : row?.lacasShare;
 
-function calculateAutoTotalFees(tutorShare, lacasShare) {
-  const tutor = parseFeeInput(tutorShare);
-  const lacas = parseFeeInput(lacasShare);
-
-  if (tutor === null && lacas === null) return "";
-  return String((tutor ?? 0) + (lacas ?? 0));
-}
-
-function withAutoTotalFee(row, patch = {}) {
-  const hasTutorShare = Object.prototype.hasOwnProperty.call(patch, "tutorShare");
-  const hasLacasShare = Object.prototype.hasOwnProperty.call(patch, "lacasShare");
-
-  // Sirf tab auto total banao jab Tutor Fee ya Lacas Share change ho
-  if (!hasTutorShare && !hasLacasShare) return patch;
-
-  const nextTutorShare = hasTutorShare ? patch.tutorShare : row?.tutorShare;
-  const nextLacasShare = hasLacasShare ? patch.lacasShare : row?.lacasShare;
-
-  return {
-    ...patch,
-    totalFees: calculateAutoTotalFees(nextTutorShare, nextLacasShare),
-  };
-}
+    return {
+      ...patch,
+      totalFees: calculateAutoTotalFees(nextTutorShare, nextLacasShare),
+    };
+  }
   const filteredItems = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return items;
@@ -2311,33 +2305,33 @@ function withAutoTotalFee(row, patch = {}) {
       cancelEdit({ rowIndex, colId });
     }
   };
-const getLiveTotalFeeValue = (row, rowIndex) => {
-  if (editingCell?.rowIndex !== rowIndex) {
-    return row?.totalFees ?? "";
-  }
+  const getLiveTotalFeeValue = (row, rowIndex) => {
+    if (editingCell?.rowIndex !== rowIndex) {
+      return row?.totalFees ?? "";
+    }
 
-  if (editingCell?.colId !== "tutorShare" && editingCell?.colId !== "lacasShare") {
-    return row?.totalFees ?? "";
-  }
+    if (editingCell?.colId !== "tutorShare" && editingCell?.colId !== "lacasShare") {
+      return row?.totalFees ?? "";
+    }
 
-  const tutorShare =
-    editingCell.colId === "tutorShare" ? editValue : row?.tutorShare;
+    const tutorShare =
+      editingCell.colId === "tutorShare" ? editValue : row?.tutorShare;
 
-  const lacasShare =
-    editingCell.colId === "lacasShare" ? editValue : row?.lacasShare;
+    const lacasShare =
+      editingCell.colId === "lacasShare" ? editValue : row?.lacasShare;
 
-  return calculateAutoTotalFees(tutorShare, lacasShare);
-};
+    return calculateAutoTotalFees(tutorShare, lacasShare);
+  };
   const renderGridCell = (row, rowIndex, col) => {
     const cellKey = getCellKey(rowIndex, col.id);
     const isSelected = selectedCells.has(cellKey);
     const isEditing =
       editingCell?.rowIndex === rowIndex && editingCell?.colId === col.id;
 
-   const rawValue = getCellValue(row, col);
-const value = col.id === "totalFees"   
-  ? getLiveTotalFeeValue(row, rowIndex)
-  : rawValue;
+    const rawValue = getCellValue(row, col);
+    const value = col.id === "totalFees"
+      ? getLiveTotalFeeValue(row, rowIndex)
+      : rawValue;
     const rowId = getRowId(row);
 
     const commonTdStyle = {
@@ -2381,7 +2375,7 @@ const value = col.id === "totalFees"
     if (isEditing && col.kind === "tuitionName") {
       return (
         <td key={cellKey} style={{ ...commonTdStyle, backgroundColor: row.tuitionNameColor || "#fff" }}>
-          <div style={{  height: "100%", gap: "8px" }}>
+          <div style={{ height: "100%", gap: "8px" }}>
             <input
               ref={inputRef}
               autoFocus
@@ -2393,7 +2387,7 @@ const value = col.id === "totalFees"
               }}
               onBlur={() => void commitEdit({ rowIndex, colId: col.id })}
               onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
-              style={{ ...styles.input,  }}
+              style={{ ...styles.input, }}
             />
             <div
               onClick={(e) => e.stopPropagation()}
@@ -2509,9 +2503,9 @@ const value = col.id === "totalFees"
       </td>
     );
   };
-const tableHeadTop = isHeaderPinned
-  ? `${STICKY_TOP + headerMetrics.height + 4}px`
-  : "8px";
+  const tableHeadTop = isHeaderPinned
+    ? `${STICKY_TOP + headerMetrics.height + 4}px`
+    : "8px";
   return (
     <div style={styles.page}>
       <style>{`
@@ -2522,28 +2516,28 @@ const tableHeadTop = isHeaderPinned
       `}</style>
 
       <div style={styles.card} ref={cardRef}>
-  {isHeaderPinned ? (
-    <div style={{ height: `${headerMetrics.height + 14}px` }} />
-  ) : null}
+        {isHeaderPinned ? (
+          <div style={{ height: `${headerMetrics.height + 14}px` }} />
+        ) : null}
 
-  <div
-    ref={headerRowRef}
-    style={{
-      ...styles.headerRow,
-      ...(isHeaderPinned
-        ? {
-            position: "fixed",
-            top: `${STICKY_TOP}px`,
-            left: `${headerMetrics.left}px`,
-            width: `${headerMetrics.width}px`,
-            zIndex: 2000,
-            marginBottom: 0,
-            borderRadius: "12px",
-            boxSizing: "border-box",
-          }
-        : {}),
-    }}
-  >
+        <div
+          ref={headerRowRef}
+          style={{
+            ...styles.headerRow,
+            ...(isHeaderPinned
+              ? {
+                position: "fixed",
+                top: `${STICKY_TOP}px`,
+                left: `${headerMetrics.left}px`,
+                width: `${headerMetrics.width}px`,
+                zIndex: 2000,
+                marginBottom: 0,
+                borderRadius: "12px",
+                boxSizing: "border-box",
+              }
+              : {}),
+          }}
+        >
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>Payment Sheet With Date</h2>
             <p style={styles.subtitle}>Excel-style sheet with live sync, multi-cell selection, and undo/redo</p>
@@ -2634,157 +2628,157 @@ const tableHeadTop = isHeaderPinned
           <div style={{ ...styles.tableZoomWrap, zoom: zoomLevel }}>
             <table style={styles.table}>
               <thead>
-              <tr>
-                <th style={{ ...styles.th,top: tableHeadTop, minWidth: "68px" }}>#</th>
-                <th style={{ ...styles.th,top: tableHeadTop, minWidth: "58px" }}>
-                  <input
-                    type="checkbox"
-                    checked={allVisibleRowsSelected}
-                    ref={(el) => {
-                      if (el) el.indeterminate = someVisibleRowsSelected;
-                    }}
-                    onChange={(e) => toggleAllVisibleRows(e.target.checked)}
-                    style={styles.checkbox}
-                    aria-label="Select all visible rows"
-                  />
-                </th>
-                <th style={{ ...styles.th,top: tableHeadTop, minWidth: "70px" }}>Sort</th>
-                <th style={{ ...styles.th,top: tableHeadTop, minWidth: "60px" }}>🎨</th>
-
-                {gridColumns.map((col) => (
-                  <th key={col.id} style={{ ...styles.th,top: tableHeadTop, minWidth: `${col.width}px` }}>
-                    {col.label}
+                <tr>
+                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "68px" }}>#</th>
+                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "58px" }}>
+                    <input
+                      type="checkbox"
+                      checked={allVisibleRowsSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = someVisibleRowsSelected;
+                      }}
+                      onChange={(e) => toggleAllVisibleRows(e.target.checked)}
+                      style={styles.checkbox}
+                      aria-label="Select all visible rows"
+                    />
                   </th>
-                ))}
+                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "70px" }}>Sort</th>
+                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "60px" }}>🎨</th>
 
-                <th style={{ ...styles.th,top: tableHeadTop, minWidth: "140px" }}>Action</th>
-              </tr>
-            </thead>
+                  {gridColumns.map((col) => (
+                    <th key={col.id} style={{ ...styles.th, top: tableHeadTop, minWidth: `${col.width}px` }}>
+                      {col.label}
+                    </th>
+                  ))}
 
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={visibleColumnCount} style={styles.loading}>
-                    Loading independent payment sheet...
-                  </td>
+                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "140px" }}>Action</th>
                 </tr>
-              ) : filteredItems.length === 0 ? (
-                <tr>
-                  <td colSpan={visibleColumnCount} style={styles.emptyState}>
-                    No records found.
-                  </td>
-                </tr>
-              ) : (
-                filteredItems.map((row, visibleIndex) => {
-                  const rowId = getRowId(row);
-                  const originalIndex = items.findIndex(
-                    (item) => getRowId(item) === rowId
-                  );
+              </thead>
 
-                  const canMoveUp = originalIndex > 0;
-                  const canMoveDown =
-                    originalIndex >= 0 && originalIndex < items.length - 1;
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={visibleColumnCount} style={styles.loading}>
+                      Loading independent payment sheet...
+                    </td>
+                  </tr>
+                ) : filteredItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={visibleColumnCount} style={styles.emptyState}>
+                      No records found.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredItems.map((row, visibleIndex) => {
+                    const rowId = getRowId(row);
+                    const originalIndex = items.findIndex(
+                      (item) => getRowId(item) === rowId
+                    );
 
-                  return (
-                    <tr
-                      key={rowId ?? visibleIndex}
-                      style={{ backgroundColor: row.rowColor || "#fff" }}
-                    >
-                      <td style={{ ...styles.td, textAlign: "center" }}>
-                        <div
-                          style={{
-                            ...styles.readCell,
-                            justifyContent: "center",
-                            fontWeight: "700",
-                            minWidth: "68px",
-                          }}
-                          aria-label={`Row number ${visibleIndex + 1}`}
-                        >
-                          {visibleIndex + 1}
-                        </div>
-                      </td>
+                    const canMoveUp = originalIndex > 0;
+                    const canMoveDown =
+                      originalIndex >= 0 && originalIndex < items.length - 1;
 
-                      <td style={{ ...styles.td, textAlign: "center" }}>
-                        <div style={styles.readCell}>
-                          <input
-                            type="checkbox"
-                            checked={selectedRowIds.has(rowId)}
-                            onChange={(e) => toggleRowSelection(rowId, e.target.checked)}
-                            style={styles.checkbox}
-                            aria-label={`Select row ${visibleIndex + 1}`}
-                          />
-                        </div>
-                      </td>
-
-                      <td style={{ ...styles.td, textAlign: "center" }}>
-                        <div
-                          style={{
-                          
-                           
-                            minHeight: "46px",
-                          }}
-                        >
-                          <button
-                            onClick={() => void moveRow(originalIndex, "up")}
-                            disabled={!canMoveUp}
+                    return (
+                      <tr
+                        key={rowId ?? visibleIndex}
+                        style={{ backgroundColor: row.rowColor || "#fff" }}
+                      >
+                        <td style={{ ...styles.td, textAlign: "center" }}>
+                          <div
                             style={{
-                              ...styles.moveBtn,
-                              opacity: canMoveUp ? 1 : 0.3,
+                              ...styles.readCell,
+                              justifyContent: "center",
+                              fontWeight: "700",
+                              minWidth: "68px",
+                            }}
+                            aria-label={`Row number ${visibleIndex + 1}`}
+                          >
+                            {visibleIndex + 1}
+                          </div>
+                        </td>
+
+                        <td style={{ ...styles.td, textAlign: "center" }}>
+                          <div style={styles.readCell}>
+                            <input
+                              type="checkbox"
+                              checked={selectedRowIds.has(rowId)}
+                              onChange={(e) => toggleRowSelection(rowId, e.target.checked)}
+                              style={styles.checkbox}
+                              aria-label={`Select row ${visibleIndex + 1}`}
+                            />
+                          </div>
+                        </td>
+
+                        <td style={{ ...styles.td, textAlign: "center" }}>
+                          <div
+                            style={{
+
+
+                              minHeight: "46px",
                             }}
                           >
-                            ▲
-                          </button>
-                          <button
-                            onClick={() => void moveRow(originalIndex, "down")}
-                            disabled={!canMoveDown}
-                            style={{
-                              ...styles.moveBtn,
-                              opacity: canMoveDown ? 1 : 0.3,
-                            }}
-                          >
-                            ▼
-                          </button>
-                        </div>
-                      </td>
+                            <button
+                              onClick={() => void moveRow(originalIndex, "up")}
+                              disabled={!canMoveUp}
+                              style={{
+                                ...styles.moveBtn,
+                                opacity: canMoveUp ? 1 : 0.3,
+                              }}
+                            >
+                              ▲
+                            </button>
+                            <button
+                              onClick={() => void moveRow(originalIndex, "down")}
+                              disabled={!canMoveDown}
+                              style={{
+                                ...styles.moveBtn,
+                                opacity: canMoveDown ? 1 : 0.3,
+                              }}
+                            >
+                              ▼
+                            </button>
+                          </div>
+                        </td>
 
-                      <td style={styles.td}>
-                        <div style={styles.readCell}>
-                          <ColorSwatch
-                            color={row.rowColor || "#ffffff"}
-                            onChange={(c) => void updateRow(row, "rowColor", c)}
-                            pickerId={`rowColor-${rowId}`}
-                            activeColorPicker={activeColorPicker}
-                            onOpen={setActiveColorPicker}
-                            onClose={() => setActiveColorPicker(null)}
-                          />
-                        </div>
-                      </td>
+                        <td style={styles.td}>
+                          <div style={styles.readCell}>
+                            <ColorSwatch
+                              color={row.rowColor || "#ffffff"}
+                              onChange={(c) => void updateRow(row, "rowColor", c)}
+                              pickerId={`rowColor-${rowId}`}
+                              activeColorPicker={activeColorPicker}
+                              onOpen={setActiveColorPicker}
+                              onClose={() => setActiveColorPicker(null)}
+                            />
+                          </div>
+                        </td>
 
-                      {gridColumns.map((col) => renderGridCell(row, visibleIndex, col))}
+                        {gridColumns.map((col) => renderGridCell(row, visibleIndex, col))}
 
-                      <td style={styles.td}>
-                        <div style={styles.actionGroup}>
-                          <button
-                            style={styles.copyBtn}
-                            onClick={() => void copyRowToClipboard(row, visibleIndex)}
-                            title="Copy full row"
-                          >
-                            Copy
-                          </button>
+                        <td style={styles.td}>
+                          <div style={styles.actionGroup}>
+                            <button
+                              style={styles.copyBtn}
+                              onClick={() => void copyRowToClipboard(row, visibleIndex)}
+                              title="Copy full row"
+                            >
+                              Copy
+                            </button>
 
-                          <button
-                            style={styles.deleteBtn}
-                            onClick={() => void deleteRow(row)}
-                          >
-                            Del
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
+                            <button
+                              style={styles.deleteBtn}
+                              onClick={() => void deleteRow(row)}
+                            >
+                              Del
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
             </table>
           </div>
         </div>
