@@ -37,6 +37,8 @@ export function makeTargetController({ TodayDemo, Tuition, Payment }) {
   rejectedTutor: "rejectedTutor",
    demoRating: "demoRating",
   // target-only editable fields
+   daysPerWeek: "daysPerWeek",
+  days_per_week: "daysPerWeek",
   tuitionName: "tuitionName",
   source: "source",
   country: "country",
@@ -79,6 +81,7 @@ export function makeTargetController({ TodayDemo, Tuition, Payment }) {
           "parentsContact",
           "className",
           "subjects",
+          "daysPerWeek",
           "tutorName",
           "tutorFee",
           "rejectedTutor",

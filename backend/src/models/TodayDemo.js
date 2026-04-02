@@ -34,6 +34,11 @@ export default (sequelize) => {
         allowNull: true,
         field: "time_hour",
       },
+      daysPerWeek: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: "days_per_week",
+      },
 
       tuitionName: {
         type: DataTypes.STRING(191),

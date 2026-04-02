@@ -2290,7 +2290,7 @@ const getLiveTotalFeeValue = (row, rowIndex) => {
       editingCell?.rowIndex === rowIndex && editingCell?.colId === col.id;
 
    const rawValue = getCellValue(row, col);
-const value = col.id === "totalFees"
+const value = col.id === "totalFees"   
   ? getLiveTotalFeeValue(row, rowIndex)
   : rawValue;
     const rowId = getRowId(row);

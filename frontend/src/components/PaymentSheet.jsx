@@ -2897,7 +2897,7 @@ async function applyColorToSelectedRows(field, colorValue) {
           </div>
         </div>
       </div>
-      <PaymentSheetWithDate/>
+      <PaymentSheetWithDate/> 
     </div>
   );
 }

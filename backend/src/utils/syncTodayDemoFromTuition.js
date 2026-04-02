@@ -7,13 +7,13 @@ export const REVERSE_SYNC_FIELDS = [
   "feedback",
   "demoRating",
   "tutorFee",
+  "daysPerWeek",
 ];
 
 // Monthly -> TodayDemo mein in fields ko overwrite nahi karna
+// status aur feedback yahan se hata diye gaye hain
 export const NO_SYNC_FROM_TUITION_FIELDS = [
   "tutorName",
-  "status",
-  "feedback",
   "demoRating",
   "tutorFee",
 ];
@@ -38,6 +38,12 @@ function normalizeHour(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+function normalizeText(v) {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  return s === "" ? null : s;
+}
+
 export function buildTodayDemoPayloadFromTuition(
   item,
   { skipFields = [] } = {}
@@ -46,7 +52,6 @@ export function buildTodayDemoPayloadFromTuition(
   const existingHour = normalizeHour(item.timeHour);
 
   // Demo time ko source of truth rakho
-  // Agar demoTime parse ho jaye to usi ko prefer karo
   const timeHour = parsedHour ?? existingHour ?? null;
 
   const payload = {
@@ -60,17 +65,20 @@ export function buildTodayDemoPayloadFromTuition(
     parentsContact: item.parentsContact || null,
     className: item.className || null,
     subjects: item.subjects || null,
+    daysPerWeek: item.daysPerWeek ?? item.days_per_week ?? null,
     tutorName: item.tutorName || null,
     tutorFee: item.tutorFee || null,
     rejectedTutor: item.rejectedTutor || null,
-    status: item.status || null,
-    feedback: item.feedback || null,
+
+    // ye dono ab sync honge
+    status: normalizeText(item.status),
+    feedback: normalizeText(item.feedback),
+
     demoDate: normalizeDate(item.demoDate),
     demoRating: item.demoRating || null,
     syncFlag: item.syncFlag || null,
   };
 
-  // Jo fields Monthly -> TodayDemo sync mein update nahi karni, unko payload se hata do
   for (const field of skipFields) {
     delete payload[field];
   }
@@ -89,7 +97,6 @@ export async function upsertTodayDemoFromTuition({
   });
 
   // Agar TodayDemo mein row exist nahi karti to create kar do
-  // Create ke waqt full payload ja sakta hai
   if (!existing) {
     const payload = buildTodayDemoPayloadFromTuition(item);
 
@@ -104,8 +111,8 @@ export async function upsertTodayDemoFromTuition({
     );
   }
 
-  // Agar row already exist karti hai to Monthly -> TodayDemo
-  // in 4 fields ko overwrite nahi karna
+  // Existing row par Monthly -> TodayDemo update
+  // Ab status aur feedback overwrite honge
   const payload = buildTodayDemoPayloadFromTuition(item, {
     skipFields: NO_SYNC_FROM_TUITION_FIELDS,
   });

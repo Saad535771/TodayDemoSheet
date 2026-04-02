@@ -332,6 +332,8 @@ const SEARCH_KEYS = [
   "class",
   "subjects",
   "subject",
+  "daysPerWeek",
+  "days_per_week",
   "tutorName",
   "tutorFees",
   "tutorFee",
@@ -551,6 +553,7 @@ const gridColumns = [
   { id: "parentsContact", label: "Parent Contact", width: 130, editable: true, field: "parentsContact" },
   { id: "className", label: "Class", width: 100, editable: true, field: "className" },
   { id: "subjects", label: "Subject", width: 120, editable: true, field: "subjects" },
+  { id: "daysPerWeek", label: "Days / Week", width: 110, editable: true, field: "daysPerWeek" },
   { id: "tutorName", label: "Tutor Name", width: 140, editable: true, field: "tutorName" },
   { id: "tutorFees", label: "Tutor Fees", width: 100, editable: true, field: "tutorFees" },
   { id: "rejectedTutor", label: "Rejected Tutor", width: 120, editable: true, field: "rejectedTutor" },
@@ -1614,8 +1617,11 @@ const effectiveZoom = useMemo(() => {
         return item.tutorFees ?? item.tutorFee ?? "";
       case "syncFlag":
         return item.syncFlag ?? item.sync ?? "";
+        case "daysPerWeek":
+  return item.daysPerWeek ?? item.days_per_week ?? "";
       default:
         return item[col.field] ?? "";
+        
     }
   };
 
@@ -1651,6 +1657,8 @@ const effectiveZoom = useMemo(() => {
         return { demoRating: value };
       case "syncFlag":
         return { syncFlag: value, sync: value };
+        case "daysPerWeek":
+  return { daysPerWeek: value, days_per_week: value };
       default:
         return {};
     }

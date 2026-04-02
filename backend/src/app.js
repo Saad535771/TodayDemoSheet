@@ -15,6 +15,7 @@ export function makeApp({
     cors({
       origin: [
         "http://172.16.3.133:5173",
+        "http://192.168.100.74:5173",
         "http://localhost:5173",
         "https://today-demo-sheet-feedback.vercel.app",
         "http://192.168.100.56:5173",

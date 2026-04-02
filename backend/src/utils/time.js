@@ -80,12 +80,10 @@ export function computeFilterStatus(demoDate, now = new Date(), tz = "Asia/Karac
     // Parts are YYYY-MM-DD in en-CA
     return new Date(`${parts.year}-${parts.month}-${parts.day}T00:00:00`);
   };
-
   const today = toMidnight(now);
   const dd = toMidnight(new Date(demoDate));
-
   const diffDays = Math.round((dd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   if (diffDays < 0) return { status: "Followup", color: "#000000", fontColor: "#ffffff" };
-  if (diffDays >= 0 && diffDays < 2) return { status: "Today Demo", color: "#34a853", fontColor: "#ffffff" };
-  return { status: "Future Demo", color: "#4285f4", fontColor: "#ffffff" };
+  if (diffDays >= 0 && diffDays < 2) return { status: "Today Demo", color: "#00a02b", fontColor: "#ffffff" };
+  return { status: "Future Demo", color: "#0654d2", fontColor: "#ffffff" };
 }
