@@ -7,30 +7,37 @@ const MAX_ZOOM = 1.5;
 const ZOOM_STEP = 0.1;
 const MAX_HISTORY = 100;
 const RECENT_MUTATION_PAUSE_MS = 1200;
-
+const PAGE_TOP_OFFSET = 78;
+const FIXED_TOOLBAR_HEIGHT = 118;
+const STICKY_TOP = 0;
 const styles = {
-  page: {
-    minHeight: "100vh",
-    padding: "10px",
-    overflowX: "hidden",
-  
-    background: "#ffffff",
-  },
-  card: {
-    padding: "10px",
-  },
+ page: {
+  minHeight: "100vh",
+  padding: "0px",
+  overflowX: "hidden",
+  background: "#ffffff",
+},
+ card: {
+  padding: "0px",
+  position: "relative",
+},
   headerRow: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: "10px",
-    marginBottom: "14px",
-    flexWrap: "wrap",
-  },
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  gap: "10px",
+  marginBottom: "0px",
+  flexWrap: "wrap",
+  position: "relative",
+  zIndex: 200,
+  background: "#ffffff",
+  padding: "0px 0 0px",
+  boxShadow: "0 6px 14px rgba(0,0,0,0.08)",
+},
   titleWrap: {
     display: "flex",
     flexDirection: "column",
-    gap: "4px",
+    gap: "0px",
   },
   title: {
     fontSize: "22px",
@@ -143,18 +150,18 @@ const styles = {
     background: "#ffffff",
   },
   th: {
-    background: "#000000",
-    color: "#ffffff",
-    fontWeight: "700",
-    textAlign: "center",
-    padding: "12px 10px",
-    borderBottom: "1.5px solid #000000",
-    borderRight: "1.5px solid #000000",
-    position: "sticky",
-    top: 0,
-    zIndex: 4,
-    whiteSpace: "nowrap",
-  },
+  background: "#000000",
+  color: "#ffffff",
+  fontWeight: "700",
+  textAlign: "center",
+  padding: "12px 10px",
+  borderBottom: "1.5px solid #000000",
+  borderRight: "1.5px solid #000000",
+  position: "sticky",
+  top: "0px",
+  zIndex: 4,
+  whiteSpace: "nowrap",
+},
   td: {
     borderBottom: "1.5px solid #000000",
     borderRight: "1.5px solid #000000",
@@ -729,12 +736,19 @@ export default function PaymentSheetWithDate({ me }) {
   const [editValue, setEditValue] = useState("");
   const [activeColorPicker, setActiveColorPicker] = useState(null);
   const [historyMeta, setHistoryMeta] = useState({ canUndo: false, canRedo: false });
-
+const [isHeaderPinned, setIsHeaderPinned] = useState(false);
+const [headerMetrics, setHeaderMetrics] = useState({
+  height: 0,
+  left: 0,
+  width: 0,
+});
   const mountedRef = useRef(true);
   const itemsRef = useRef([]);
   const filteredItemsRef = useRef([]);
   const pollingRef = useRef(null);
   const tableWrapperRef = useRef(null);
+  const cardRef = useRef(null);
+const headerRowRef = useRef(null);
   const inputRef = useRef(null);
   const editingCellRef = useRef(editingCell);
   const editValueRef = useRef(editValue);
@@ -969,7 +983,38 @@ export default function PaymentSheetWithDate({ me }) {
     wrapper.addEventListener("wheel", handleWheel, { passive: false });
     return () => wrapper.removeEventListener("wheel", handleWheel);
   }, []);
+useEffect(() => {
+  const updateStickyHeader = () => {
+    const cardEl = cardRef.current;
+    const headerEl = headerRowRef.current;
 
+    if (!cardEl || !headerEl) return;
+
+    const cardRect = cardEl.getBoundingClientRect();
+    const headerHeight = headerEl.offsetHeight || 0;
+
+    const shouldPin =
+      cardRect.top <= STICKY_TOP &&
+      cardRect.bottom > STICKY_TOP + headerHeight + 8;
+
+    setIsHeaderPinned(shouldPin);
+
+    setHeaderMetrics({
+      height: headerHeight,
+      left: cardRect.left + 10,
+      width: Math.max(cardEl.clientWidth - 20, 0),
+    });
+  };
+
+  updateStickyHeader();
+window.addEventListener("scroll", updateStickyHeader, { passive: true });
+  window.addEventListener("resize", updateStickyHeader);
+
+  return () => {
+    window.removeEventListener("scroll", updateStickyHeader);
+    window.removeEventListener("resize", updateStickyHeader);
+  };
+}, []);
   useEffect(() => {
     if (editingCell && inputRef.current) {
       const col = gridColumnMap[editingCell.colId];
@@ -2464,7 +2509,9 @@ const value = col.id === "totalFees"
       </td>
     );
   };
-
+const tableHeadTop = isHeaderPinned
+  ? `${STICKY_TOP + headerMetrics.height + 4}px`
+  : "8px";
   return (
     <div style={styles.page}>
       <style>{`
@@ -2474,8 +2521,29 @@ const value = col.id === "totalFees"
         }
       `}</style>
 
-      <div style={styles.card}>
-        <div style={styles.headerRow}>
+      <div style={styles.card} ref={cardRef}>
+  {isHeaderPinned ? (
+    <div style={{ height: `${headerMetrics.height + 14}px` }} />
+  ) : null}
+
+  <div
+    ref={headerRowRef}
+    style={{
+      ...styles.headerRow,
+      ...(isHeaderPinned
+        ? {
+            position: "fixed",
+            top: `${STICKY_TOP}px`,
+            left: `${headerMetrics.left}px`,
+            width: `${headerMetrics.width}px`,
+            zIndex: 2000,
+            marginBottom: 0,
+            borderRadius: "12px",
+            boxSizing: "border-box",
+          }
+        : {}),
+    }}
+  >
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>Payment Sheet With Date</h2>
             <p style={styles.subtitle}>Excel-style sheet with live sync, multi-cell selection, and undo/redo</p>
@@ -2567,8 +2635,8 @@ const value = col.id === "totalFees"
             <table style={styles.table}>
               <thead>
               <tr>
-                <th style={{ ...styles.th, minWidth: "68px" }}>#</th>
-                <th style={{ ...styles.th, minWidth: "58px" }}>
+                <th style={{ ...styles.th,top: tableHeadTop, minWidth: "68px" }}>#</th>
+                <th style={{ ...styles.th,top: tableHeadTop, minWidth: "58px" }}>
                   <input
                     type="checkbox"
                     checked={allVisibleRowsSelected}
@@ -2580,16 +2648,16 @@ const value = col.id === "totalFees"
                     aria-label="Select all visible rows"
                   />
                 </th>
-                <th style={{ ...styles.th, minWidth: "70px" }}>Sort</th>
-                <th style={{ ...styles.th, minWidth: "60px" }}>🎨</th>
+                <th style={{ ...styles.th,top: tableHeadTop, minWidth: "70px" }}>Sort</th>
+                <th style={{ ...styles.th,top: tableHeadTop, minWidth: "60px" }}>🎨</th>
 
                 {gridColumns.map((col) => (
-                  <th key={col.id} style={{ ...styles.th, minWidth: `${col.width}px` }}>
+                  <th key={col.id} style={{ ...styles.th,top: tableHeadTop, minWidth: `${col.width}px` }}>
                     {col.label}
                   </th>
                 ))}
 
-                <th style={{ ...styles.th, minWidth: "140px" }}>Action</th>
+                <th style={{ ...styles.th,top: tableHeadTop, minWidth: "140px" }}>Action</th>
               </tr>
             </thead>
 
