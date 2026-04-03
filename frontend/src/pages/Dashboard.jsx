@@ -337,7 +337,6 @@ export default function Dashboard() {
             <StaffManager />
           </div>
         ),
-
       },
       {
         key: "otm_management",
@@ -347,19 +346,15 @@ export default function Dashboard() {
         component: <OtmManagement />,
       },
     ];
-
     return base.map((item) => ({
       ...item,
       allowed: hasAccessByRoleOrFlag(me, item.permissionKey, item.rolesAllowed),
     }));
   }, [me]);
-
   const allowedTabs = useMemo(() => tabsConfig.filter((tabItem) => tabItem.allowed), [tabsConfig]);
-
   function getPreferredTab(userData) {
     const savedTab = sessionStorage.getItem(LAST_TAB_KEY);
     const roleNow = normalizeRole(userData?.role);
-
     const nextAllowedTabs = tabsConfig
       .map((t) => ({
         ...t,
