@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/api.js";
 
 const styles = {
@@ -28,10 +29,10 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "1200px",
+    minWidth: "1380px",
   },
   th: {
-    textalign: "center",
+    textAlign: "center",
     padding: "12px 16px",
     borderBottom: "2px solid #f0f2f5",
     color: "#888",
@@ -47,29 +48,29 @@ const styles = {
     color: "#333",
     verticalAlign: "middle",
   },
- roleBadge: (role) => ({
-  background:
-    role === "admin"
-      ? "#e6fffa"
-      : role === "hod"
-      ? "#ebf8ff"
-      : role === "otm"
-      ? "#f3e8ff"
-      : "#f8fafc",
-  color:
-    role === "admin"
-      ? "#2c7a7b"
-      : role === "hod"
-      ? "#2b6cb0"
-      : role === "otm"
-      ? "#7c3aed"
-      : "#475569",
-  padding: "4px 10px",
-  borderRadius: "20px",
-  fontSize: "11px",
-  fontWeight: "600",
-  textTransform: "uppercase",
-}),
+  roleBadge: (role) => ({
+    background:
+      role === "admin"
+        ? "#e6fffa"
+        : role === "hod"
+        ? "#ebf8ff"
+        : role === "otm"
+        ? "#f3e8ff"
+        : "#f8fafc",
+    color:
+      role === "admin"
+        ? "#2c7a7b"
+        : role === "hod"
+        ? "#2b6cb0"
+        : role === "otm"
+        ? "#7c3aed"
+        : "#475569",
+    padding: "4px 10px",
+    borderRadius: "20px",
+    fontSize: "11px",
+    fontWeight: "600",
+    textTransform: "uppercase",
+  }),
   toggleBtn: (active, disabled = false) => ({
     background: active ? "#48bb78" : "#cbd5e0",
     border: "none",
@@ -97,10 +98,21 @@ const styles = {
     color: "#c53030",
     border: "1px solid #feb2b2",
     padding: "6px 12px",
-    borderRadius: "6px",
+    borderRadius: "8px",
     cursor: "pointer",
     fontSize: "12px",
-    fontWeight: "600",
+    fontWeight: "700",
+  },
+  portalBtn: {
+    background: "#f3e8ff",
+    color: "#7c3aed",
+    border: "1px solid #d8b4fe",
+    padding: "6px 12px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "700",
+    marginRight: "8px",
   },
   mutedText: {
     fontSize: "12px",
@@ -110,9 +122,16 @@ const styles = {
   centerCell: {
     textAlign: "center",
   },
+  actionsWrap: {
+    display: "flex",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: "8px",
+  },
 };
 
 export default function StaffManager() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -123,7 +142,7 @@ export default function StaffManager() {
   async function fetchUsers() {
     try {
       const res = await api.get("/auth/users");
-      setUsers(res.data.users || []);
+      setUsers(res.data?.users || res.data?.data || []);
     } catch (err) {
       console.error("Failed to load users", err);
     } finally {
@@ -145,7 +164,6 @@ export default function StaffManager() {
         [field]: nextValue,
       };
 
-      // agar payment sheet off ki jaye to sub permissions bhi off ho jayein
       if (field === "access_payment_sheet" && nextValue === 0) {
         updatedUser.access_tutor_share = 0;
         updatedUser.access_lacas_share = 0;
@@ -235,7 +253,6 @@ export default function StaffManager() {
                       onClick={() =>
                         togglePermission(user.id, "access_monthly", user.access_monthly)
                       }
-                      title="Toggle Monthly Sheet Access"
                     >
                       <div style={styles.toggleCircle(user.access_monthly)} />
                     </button>
@@ -247,7 +264,6 @@ export default function StaffManager() {
                       onClick={() =>
                         togglePermission(user.id, "access_demo", user.access_demo)
                       }
-                      title="Toggle Demo Sheet Access"
                     >
                       <div style={styles.toggleCircle(user.access_demo)} />
                     </button>
@@ -259,7 +275,6 @@ export default function StaffManager() {
                       onClick={() =>
                         togglePermission(user.id, "access_trash", user.access_trash)
                       }
-                      title="Toggle Recycle Bin Access"
                     >
                       <div style={styles.toggleCircle(user.access_trash)} />
                     </button>
@@ -275,7 +290,6 @@ export default function StaffManager() {
                           user.access_payment_sheet
                         )
                       }
-                      title="Toggle Payment Sheet Access"
                     >
                       <div style={styles.toggleCircle(user.access_payment_sheet)} />
                     </button>
@@ -292,7 +306,6 @@ export default function StaffManager() {
                             user.access_tutor_share
                           )
                         }
-                        title="Toggle Tutor Share Column"
                       >
                         <div style={styles.toggleCircle(user.access_tutor_share)} />
                       </button>
@@ -312,7 +325,6 @@ export default function StaffManager() {
                             user.access_lacas_share
                           )
                         }
-                        title="Toggle Lacas Share Column"
                       >
                         <div style={styles.toggleCircle(user.access_lacas_share)} />
                       </button>
@@ -332,7 +344,6 @@ export default function StaffManager() {
                             user.access_total_fees
                           )
                         }
-                        title="Toggle Total Fees Column"
                       >
                         <div style={styles.toggleCircle(user.access_total_fees)} />
                       </button>
@@ -342,14 +353,25 @@ export default function StaffManager() {
                   </td>
 
                   <td style={{ ...styles.td, textAlign: "right" }}>
-                    {user.role !== "admin" && (
-                      <button
-                        style={styles.deleteBtn}
-                        onClick={() => handleDelete(user.id)}
-                      >
-                        Delete
-                      </button>
-                    )}
+                    <div style={styles.actionsWrap}>
+                      {user.role === "otm" && (
+                        <button
+                          style={styles.portalBtn}
+                          onClick={() => navigate(`/admin/otm/${user.id}`)}
+                        >
+                          Open Portal
+                        </button>
+                      )}
+
+                      {user.role !== "admin" && (
+                        <button
+                          style={styles.deleteBtn}
+                          onClick={() => handleDelete(user.id)}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );

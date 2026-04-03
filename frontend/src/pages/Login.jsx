@@ -68,9 +68,12 @@ const styles = {
     borderRadius: "12px",
     marginBottom: "30px",
     cursor: "pointer",
+    flexWrap: "wrap",
+    gap: "6px",
   },
   roleBtn: (isActive, color) => ({
     flex: 1,
+    minWidth: "120px",
     padding: "10px",
     borderRadius: "8px",
     border: "none",
@@ -156,6 +159,8 @@ export default function Login() {
       ? "#1e3c72"
       : role === "hod"
       ? "#0f9b8e"
+      : role === "otm"
+      ? "#ff8c00"
       : "#7b4397";
 
   const bgGradient =
@@ -163,6 +168,8 @@ export default function Login() {
       ? "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)"
       : role === "hod"
       ? "linear-gradient(135deg, #0f9b8e 0%, #38ef7d 100%)"
+      : role === "otm"
+      ? "linear-gradient(135deg, #ff8c00 0%, #ff5e62 100%)"
       : "linear-gradient(135deg, #7b4397 0%, #dc2430 100%)";
 
   const handleRoleChange = (newRole) => {
@@ -252,6 +259,14 @@ export default function Login() {
               onClick={() => handleRoleChange("staff")}
             >
               Staff Login
+            </button>
+
+            <button
+              type="button"
+              style={styles.roleBtn(role === "otm", "#ff8c00")}
+              onClick={() => handleRoleChange("otm")}
+            >
+              OTM Login
             </button>
           </div>
 
