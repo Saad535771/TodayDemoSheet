@@ -12,10 +12,8 @@ const permissionValueValidator = (fieldName) =>
       }
       return true;
     });
-
 export function makeAuthRoutes(authController) {
   const router = Router();
-
   // --- LOGIN ---
   router.post(
     "/login",
@@ -33,7 +31,7 @@ export function makeAuthRoutes(authController) {
 
       body("role")
         .trim()
-        .isIn(["admin", "staff", "hod"])
+        .isIn(["admin", "staff", "hod","otm"])
         .withMessage("Invalid role selected"),
 
       body("session_id")
@@ -50,6 +48,11 @@ export function makeAuthRoutes(authController) {
     "/register",
     requireAuth,
     [
+      body("name")
+        .optional()
+        .trim()
+        .isLength({ min: 2, max: 120 })
+        .withMessage("Name must be 2 to 120 characters"),
       body("email")
         .trim()
         .toLowerCase()
@@ -63,7 +66,7 @@ export function makeAuthRoutes(authController) {
 
       body("role")
         .trim()
-        .isIn(["admin", "staff", "hod"])
+        .isIn(["admin", "staff", "hod","otm"])
         .withMessage("Invalid role")
     ],
     authController.register

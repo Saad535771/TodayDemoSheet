@@ -5,6 +5,10 @@ import { Op } from "sequelize";
 
 export function makeAuthController({ User, UserPresence }) {
   const normalizeEmail = (email) => email?.trim().toLowerCase();
+  const normalizeName = (name) => {
+    const value = name?.trim();
+    return value ? value : null;
+  };
 
   const toBoolInt = (value) => {
     return value === true || value === 1 || value === "1" || value === "true" ? 1 : 0;
@@ -53,6 +57,7 @@ export function makeAuthController({ User, UserPresence }) {
 
   const formatUser = (user) => ({
     id: user.id,
+    name: user.name || null,
     email: user.email,
     role: user.role,
     access_monthly: user.accessMonthly,
@@ -105,41 +110,23 @@ export function makeAuthController({ User, UserPresence }) {
   }
 
   return {
-    // --- 1. LOGIN ---
     async login(req, res) {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-          console.log("LOGIN VALIDATION ERRORS:", errors.array());
           return res.status(400).json({ errors: errors.array() });
         }
 
         const { email, password, role, session_id } = req.body;
         const normalizedEmail = normalizeEmail(email);
 
-        console.log("LOGIN REQUEST:", {
-          email: normalizedEmail,
-          role,
-          session_id
-        });
-
         const user = await User.findOne({ where: { email: normalizedEmail } });
-
-        console.log("USER FOUND:", !!user);
 
         if (!user) {
           return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        console.log("DB USER:", {
-          id: user.id,
-          email: user.email,
-          role: user.role
-        });
-
         const ok = await bcrypt.compare(password, user.passwordHash);
-
-        console.log("PASSWORD MATCH:", ok);
 
         if (!ok) {
           return res.status(401).json({ message: "Invalid credentials" });
@@ -147,14 +134,13 @@ export function makeAuthController({ User, UserPresence }) {
 
         if (user.role !== role) {
           return res.status(403).json({
-            message: `Aapka account as a ${user.role} register hai. Baraye meherbani ${user.role} login form use karein.`
+            message: `Your Account Already Register ${user.role}. Please Use ${user.role} Login`
           });
         }
 
         const token = jwt.sign(
-          { id: user.id, email: user.email, role: user.role },
-          process.env.JWT_SECRET,
-
+          { id: user.id, email: user.email, role: user.role, name: user.name || null },
+          process.env.JWT_SECRET
         );
 
         if (session_id) {
@@ -177,7 +163,6 @@ export function makeAuthController({ User, UserPresence }) {
       }
     },
 
-    // --- 2. REGISTER ---
     async register(req, res) {
       if (req.user.role !== "admin") {
         return res
@@ -190,7 +175,8 @@ export function makeAuthController({ User, UserPresence }) {
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { email, password, role } = req.body;
+      const { name, email, password, role } = req.body;
+      const normalizedName = normalizeName(name);
       const normalizedEmail = normalizeEmail(email);
       const finalRole = role || "staff";
 
@@ -211,6 +197,7 @@ export function makeAuthController({ User, UserPresence }) {
         });
 
         const newUser = await User.create({
+          name: normalizedName,
           email: normalizedEmail,
           passwordHash,
           role: finalRole,
@@ -233,7 +220,6 @@ export function makeAuthController({ User, UserPresence }) {
       }
     },
 
-    // --- 3. ME ---
     async me(req, res) {
       try {
         const user = await User.findByPk(req.user.id);
@@ -251,7 +237,6 @@ export function makeAuthController({ User, UserPresence }) {
       }
     },
 
-    // --- 4. LIST ALL USERS ---
     async listUsers(req, res) {
       if (req.user.role !== "admin") {
         return res.status(403).json({ message: "Access denied" });
@@ -274,7 +259,25 @@ export function makeAuthController({ User, UserPresence }) {
       }
     },
 
-    // --- 5. UPDATE PERMISSIONS ---
+    async getUserDetails(req, res) {
+      if (req.user.role !== "admin") {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      try {
+        const user = await User.findByPk(req.params.userId);
+
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        return res.json({ user: formatUser(user) });
+      } catch (e) {
+        console.error("GET USER DETAILS ERROR:", e);
+        return res.status(500).json({ message: "Error fetching user details" });
+      }
+    },
+
     async updatePermissions(req, res) {
       if (req.user.role !== "admin") {
         return res.status(403).json({ message: "Access denied" });
@@ -331,7 +334,6 @@ export function makeAuthController({ User, UserPresence }) {
       }
     },
 
-    // --- 6. DELETE USER ---
     async deleteUser(req, res) {
       if (req.user.role !== "admin") {
         return res.status(403).json({ message: "Access denied" });
@@ -360,7 +362,6 @@ export function makeAuthController({ User, UserPresence }) {
       }
     },
 
-    // --- 7. PRESENCE HEARTBEAT ---
     async presenceHeartbeat(req, res) {
       try {
         const { session_id, current_sheet } = req.body;
@@ -387,7 +388,6 @@ export function makeAuthController({ User, UserPresence }) {
       }
     },
 
-    // --- 8. PRESENCE LOGOUT ---
     async presenceLogout(req, res) {
       try {
         const { session_id } = req.body;
@@ -419,7 +419,6 @@ export function makeAuthController({ User, UserPresence }) {
       }
     },
 
-    // --- 9. ACTIVE USERS (ADMIN) ---
     async activeUsers(req, res) {
       if (req.user.role !== "admin") {
         return res.status(403).json({ message: "Access denied" });
@@ -439,7 +438,7 @@ export function makeAuthController({ User, UserPresence }) {
             {
               model: User,
               as: "user",
-              attributes: ["id", "email", "role"]
+              attributes: ["id", "name", "email", "role"]
             }
           ],
           order: [["lastSeenAt", "DESC"]]
@@ -448,6 +447,7 @@ export function makeAuthController({ User, UserPresence }) {
         const users = rows.map((row) => ({
           id: row.id,
           user_id: row.userId,
+          name: row.user?.name || "",
           email: row.user?.email || "",
           role: row.user?.role || "",
           current_sheet: row.currentSheet,

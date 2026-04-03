@@ -15,7 +15,8 @@ import { makeTuitionRoutes } from "./routes/tuitionRoutes.js";
 import { makeTargetRoutes } from "./routes/targetRoutes.js";
 import { makePaymentRoutes } from "./routes/paymentRoutes.js";
 import { makePaymentCloneRoutes } from "./routes/paymentCloneRoutes.js";
-
+import { makeOtmManagementController } from "./controllers/otmManagementController.js";
+import { makeOtmManagementRoutes } from "./routes/otmManagementRoutes.js";
 import { requireAuth } from "./middleware/auth.js";
 import { makeApp } from "./app.js";
 import { startDailyJob } from "./jobs/dailyJob.js";
@@ -28,7 +29,7 @@ async function main() {
     await sequelize.authenticate();
     console.log("✅ DB connected");
 
-    const { PaymentClone,PaymentCloneTrash } = models;
+    const { PaymentClone, PaymentCloneTrash, User, OtmTuitionEntry } = models;
 
     if (!PaymentClone) {
       throw new Error("PaymentClone model not found in initModels(sequelize)");
@@ -38,7 +39,8 @@ async function main() {
     const targetController = makeTargetController(models);
     const paymentController = makePaymentController(models);
     const paymentCloneController = makePaymentCloneController({ PaymentClone,PaymentCloneTrash });
-
+    const otmManagementController = makeOtmManagementController({ User, OtmTuitionEntry });
+    const otmManagementRoutes = makeOtmManagementRoutes(otmManagementController);
     const authRoutes = makeAuthRoutes(authController);
     const tuitionRoutes = makeTuitionRoutes(tuitionController, requireAuth);
     const targetRoutes = makeTargetRoutes(targetController, requireAuth);
@@ -51,6 +53,7 @@ async function main() {
       targetRoutes,
       paymentRoutes,
       paymentCloneRoutes,
+      otmManagementRoutes,
     });
 
     const port = process.env.PORT ? Number(process.env.PORT) : 5000;

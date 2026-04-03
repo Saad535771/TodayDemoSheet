@@ -5,6 +5,8 @@ import Dashboard from "./pages/Dashboard.jsx";
 import { getStoredToken, setAuthToken } from "./api/api.js";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
+import AdminOtmUserDetail from "./components/AdminOtmUserDetail.jsx";
+
 function PrivateRoute({ children }) {
   const token = getStoredToken();
   if (!token) {
@@ -31,6 +33,14 @@ export default function App() {
             <Dashboard />
           </PrivateRoute>
         }/>
+       <Route
+        path="/admin/otm/:userId"
+        element={
+          <PrivateRoute>
+            <AdminOtmUserDetail />
+          </PrivateRoute>
+        }
+      />
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

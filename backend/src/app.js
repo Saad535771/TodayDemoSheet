@@ -8,6 +8,7 @@ export function makeApp({
   targetRoutes,
   paymentRoutes,
   paymentCloneRoutes,
+  otmManagementRoutes,
 }) {
   const app = express();
 
@@ -25,19 +26,18 @@ export function makeApp({
     })
   );
 
-  app.use(express.json({ limit: "2mb" }));
+  app.use(express.json({ limit: "5mb" }));
   app.use(morgan("dev"));
 
   app.get("/api/health", (req, res) => {
     res.json({ ok: true });
   });
-
   app.use("/api/auth", authRoutes);
   app.use("/api/tuitions", tuitionRoutes);
   app.use("/api/target", targetRoutes);
   app.use("/api/payments", paymentRoutes);
   app.use("/api/payments-clone", paymentCloneRoutes);
-
+   app.use("/api/otm-management", otmManagementRoutes);
   app.use((err, req, res, next) => {
     console.error("APP ERROR:", err);
     res.status(500).json({
@@ -46,6 +46,5 @@ export function makeApp({
         process.env.NODE_ENV === "development" ? String(err?.message || err) : undefined,
     });
   });
-
   return app;
 }

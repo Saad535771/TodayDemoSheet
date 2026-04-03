@@ -8,6 +8,7 @@ import HodApprovals from "../components/HodApprovals.jsx";
 import ActiveUsersPanel from "../components/ActiveUsersPanel.jsx";
 import { api, clearToken, getStoredToken, setAuthToken } from "../api/api.js";
 import Logo from "../assets/Logo-1-Blue.png";
+import OtmManagement from "../components/OtmManagement.jsx";
 
 // Agar ye components project me already mojood hain to uncomment kar den:
 // import TutorShare from "../components/TutorShare.jsx";
@@ -273,6 +274,7 @@ export default function Dashboard() {
     lacas_share: 0,
     total_fees: 0,
     staff: 0,
+    otm_management: 0,
   });
 
   const [showRegModal, setShowRegModal] = useState(false);
@@ -328,13 +330,21 @@ export default function Dashboard() {
         key: "staff",
         label: "👥 Staff",
         permissionKey: "access_staff",
-        rolesAllowed: ["admin"],
+        rolesAllowed: ["admin", "hod"],
         component: (
           <div style={{ padding: "24px" }}>
             <ActiveUsersPanel />
             <StaffManager />
           </div>
         ),
+
+      },
+      {
+        key: "otm_management",
+        label: "📘 Otm Management",
+        permissionKey: "access_otm_management",
+        rolesAllowed: ["otm","admin"],
+        component: <OtmManagement />,
       },
     ];
 
@@ -771,14 +781,13 @@ export default function Dashboard() {
                 <select
                   style={styles.input}
                   value={regData.role}
-                  onChange={(e) => setRegData({ ...regData, role: e.target.value })}
-                >
+                  onChange={(e) => setRegData({ ...regData, role: e.target.value })}>
                   <option value="staff">Staff</option>
                   <option value="admin">Admin</option>
                   <option value="hod">Hod</option>
+                  <option value="otm">OTM Manager</option>
                 </select>
               </div>
-
               {regMsg && (
                 <div
                   style={{

@@ -4,9 +4,10 @@ export function defineUser(sequelize) {
   const User = sequelize.define("User", {
     id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
     email: { type: DataTypes.STRING(191), allowNull: false, unique: true },
+    name: { type: DataTypes.STRING(120), allowNull: true },
     passwordHash: { type: DataTypes.STRING(191), allowNull: false },
     role: {
-      type: DataTypes.ENUM("admin", "staff", "hod"),
+      type: DataTypes.ENUM("admin", "staff", "hod","otm"),
       allowNull: false,
       defaultValue: "admin"
     },

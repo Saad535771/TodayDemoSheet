@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/api.js";
 
 const styles = {
@@ -149,6 +150,15 @@ const styles = {
     whiteSpace: "nowrap",
   },
 
+  nameText: {
+    fontSize: "12px",
+    color: "#64748b",
+    marginTop: "2px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+
   sessionText: {
     fontSize: "11px",
     color: "#64748b",
@@ -204,19 +214,25 @@ const styles = {
         ? "#dcfce7"
         : role === "hod"
         ? "#e0f2fe"
-        : "#f3e8ff",
+        : role === "otm"
+        ? "#f3e8ff"
+        : "#f8fafc",
     color:
       role === "admin"
         ? "#166534"
         : role === "hod"
         ? "#075985"
-        : "#6d28d9",
+        : role === "otm"
+        ? "#7c3aed"
+        : "#475569",
     border: `1px solid ${
       role === "admin"
         ? "#bbf7d0"
         : role === "hod"
         ? "#bae6fd"
-        : "#ddd6fe"
+        : role === "otm"
+        ? "#ddd6fe"
+        : "#e2e8f0"
     }`,
   }),
 
@@ -236,6 +252,13 @@ const styles = {
     background: "#fefce8",
     color: "#a16207",
     border: "1px solid #fde68a",
+  },
+
+  clickHint: {
+    marginTop: "10px",
+    fontSize: "12px",
+    color: "#7c3aed",
+    fontWeight: "800",
   },
 
   empty: {
@@ -262,6 +285,8 @@ function formatSheetName(sheet) {
       return "Staff";
     case "dashboard":
       return "Dashboard";
+    case "otm-management":
+      return "OTM Management";
     default:
       return sheet || "--";
   }
@@ -280,12 +305,14 @@ function formatDateTimeShort(value) {
   });
 }
 
-function getInitial(email) {
+function getInitial(email, name) {
+  if (name) return name.trim().charAt(0).toUpperCase();
   if (!email) return "U";
   return email.trim().charAt(0).toUpperCase();
 }
 
 export default function ActiveUsersPanel() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -340,7 +367,15 @@ export default function ActiveUsersPanel() {
           {users.map((user) => (
             <div
               key={`${user.session_id}-${user.user_id}`}
-              style={styles.userCard}
+              style={{
+                ...styles.userCard,
+                cursor: user.role === "otm" ? "pointer" : "default",
+              }}
+              onClick={() => {
+                if (user.role === "otm") {
+                  navigate(`/admin/otm/${user.user_id}`);
+                }
+              }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = "translateY(-4px)";
                 e.currentTarget.style.boxShadow =
@@ -355,10 +390,11 @@ export default function ActiveUsersPanel() {
               <div style={styles.topLine} />
 
               <div style={styles.topRow}>
-                <div style={styles.avatar}>{getInitial(user.email)}</div>
+                <div style={styles.avatar}>{getInitial(user.email, user.name)}</div>
 
                 <div style={styles.infoWrap}>
                   <p style={styles.email}>{user.email || "--"}</p>
+                  <div style={styles.nameText}>{user.name || "--"}</div>
                   <div style={styles.sessionText}>
                     Session: {user.session_id || "--"}
                   </div>
@@ -407,6 +443,10 @@ export default function ActiveUsersPanel() {
                   👁 Last Seen: {formatDateTimeShort(user.last_seen_at)}
                 </span>
               </div>
+
+              {user.role === "otm" && (
+                <div style={styles.clickHint}>Click to view OTM details</div>
+              )}
             </div>
           ))}
         </div>

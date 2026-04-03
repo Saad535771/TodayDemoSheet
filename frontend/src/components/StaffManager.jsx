@@ -47,15 +47,29 @@ const styles = {
     color: "#333",
     verticalAlign: "middle",
   },
-  roleBadge: (role) => ({
-    background: role === "admin" ? "#e6fffa" : "#ebf8ff",
-    color: role === "admin" ? "#2c7a7b" : "#2b6cb0",
-    padding: "4px 10px",
-    borderRadius: "20px",
-    fontSize: "11px",
-    fontWeight: "600",
-    textTransform: "uppercase",
-  }),
+ roleBadge: (role) => ({
+  background:
+    role === "admin"
+      ? "#e6fffa"
+      : role === "hod"
+      ? "#ebf8ff"
+      : role === "otm"
+      ? "#f3e8ff"
+      : "#f8fafc",
+  color:
+    role === "admin"
+      ? "#2c7a7b"
+      : role === "hod"
+      ? "#2b6cb0"
+      : role === "otm"
+      ? "#7c3aed"
+      : "#475569",
+  padding: "4px 10px",
+  borderRadius: "20px",
+  fontSize: "11px",
+  fontWeight: "600",
+  textTransform: "uppercase",
+}),
   toggleBtn: (active, disabled = false) => ({
     background: active ? "#48bb78" : "#cbd5e0",
     border: "none",

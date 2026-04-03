@@ -57,4 +57,3 @@ export function defineUserPresence(sequelize) {
 
   return UserPresence;
 }
-
