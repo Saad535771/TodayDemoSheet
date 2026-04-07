@@ -2343,7 +2343,6 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                 <TH style={{ width: "42px", textAlign: "center" }}>✓</TH>
                 <TH style={{ width: "40px", textAlign: "center" }}>Sort</TH>
                 <TH style={{ width: "36px", textAlign: "center" }}>🎨</TH>
-
                 {gridColumns.map((col) => (
                   <TH
                     key={col.id}
@@ -2351,8 +2350,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                       position: "sticky",
                       minWidth: `${col.width}px`,
                       width: `${col.width}px`,
-                    }}
-                  >
+                    }}>
                     {col.label}
                     <div
                       onMouseDown={handleResizeStart}
@@ -2364,11 +2362,9 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                         height: "100%",
                         cursor: "col-resize",
                         zIndex: 20,
-                      }}
-                    />
+                      }} />
                   </TH>
                 ))}
-
                 <TH style={{ textAlign: "center", minWidth: "80px", position: "relative" }}>
                   Action
                   <div
@@ -2381,19 +2377,16 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                       height: "100%",
                       cursor: "col-resize",
                       zIndex: 20,
-                    }}
-                  />
+                    }}/>
                 </TH>
               </tr>
             </thead>
-
             <tbody>
               {localItems.length === 0 ? (
                 <tr>
                   <td
                     colSpan={gridColumns.length + 5}
-                    style={{ padding: 20, textAlign: "center", color: "#888" }}
-                  >
+                    style={{ padding: 20, textAlign: "center", color: "#888" }}>
                     No records found
                   </td>
                 </tr>
@@ -2404,8 +2397,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                     style={{
                       backgroundColor: it.rowColor || "inherit",
                       transition: "background 0.2s",
-                    }}
-                  >
+                    }}>
                     <td
                       style={{
                         ...styles.td,
@@ -2413,46 +2405,38 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                         backgroundColor: "inherit",
                         fontWeight: selectedRows.has(it.tuitionId) ? "700" : "600",
                         color: selectedRows.has(it.tuitionId) ? "#107c41" : "#444",
-                      }}
-                    >
+                      }}>
                       {index + 1}
                     </td>
-
                     <td
                       style={{
                         ...styles.td,
                         textAlign: "center",
                         backgroundColor: "inherit",
-                      }}
-                    >
+                      }}>
                       <input
                         type="checkbox"
                         checked={selectedRows.has(it.tuitionId)}
                         onChange={() => toggleRowSelection(it.tuitionId)}
-                        style={{ cursor: "pointer", width: "18px", height: "18px" }}
-                      />
+                        style={{ cursor: "pointer", width: "18px", height: "18px" }}/>
                     </td>
-
                     <td
                       style={{
                         ...styles.td,
                         textAlign: "center",
                         backgroundColor: "inherit",
-                      }}
-                    >
+                      }}>
                       <div
                         style={{
                           display: "flex",
                           flexDirection: "column",
                           alignItems: "center",
                           justifyContent: "center",
-                        }}
-                      >
+                        }}>
                         <button
                           onClick={() => moveRow(index, "up")}
                           disabled={index === 0}
-                          style={{ ...styles.moveBtn, opacity: index === 0 ? 0.3 : 1 }}
-                        >
+                          style={{ ...styles.moveBtn, opacity: index === 0 ? 0.3 : 1 }}>
                           ▲
                         </button>
                         <button
@@ -2461,20 +2445,17 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                           style={{
                             ...styles.moveBtn,
                             opacity: index === localItems.length - 1 ? 0.3 : 1,
-                          }}
-                        >
+                          }}>
                           ▼
                         </button>
                       </div>
                     </td>
-
                     <td
                       style={{
                         ...styles.td,
                         textAlign: "center",
                         backgroundColor: "inherit",
-                      }}
-                    >
+                      }}>
                       <ColorSwatch
                         color={it.rowColor || "#ffffff"}
                         onChange={(c) => updateRecordFields(it, { rowColor: c })}
@@ -2484,20 +2465,16 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                         onClose={() => setActiveColorPicker(null)}
                       />
                     </td>
-
                     {gridColumns.map((col) => renderGridCell(it, index, col))}
-
                     <td
                       style={{
                         ...styles.td,
                         textAlign: "center",
                         backgroundColor: "inherit",
-                      }}
-                    >
+                      }}>
                       <button
                         style={styles.actionBtn}
-                        onClick={() => removeItem(it.tuitionId)}
-                      >
+                        onClick={() => removeItem(it.tuitionId)}>
                         Del
                       </button>
                     </td>
