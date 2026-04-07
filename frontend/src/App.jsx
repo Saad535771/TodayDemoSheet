@@ -6,6 +6,7 @@ import { getStoredToken, setAuthToken } from "./api/api.js";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import AdminOtmUserDetail from "./components/AdminOtmUserDetail.jsx";
+import PaymentChangeRequestsPanel from "./pages/PaymentChangeRequestsPanel.jsx";
 
 function PrivateRoute({ children }) {
   const token = getStoredToken();
@@ -39,6 +40,14 @@ export default function App() {
           <PrivateRoute>
             <AdminOtmUserDetail />
           </PrivateRoute>
+        }
+      />
+      <Route
+        path="/admin/paymentsheet-date-request"
+        element={
+         
+            <PaymentChangeRequestsPanel />
+          
         }
       />
       {/* Fallback */}

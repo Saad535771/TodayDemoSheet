@@ -1,8 +1,6 @@
-import React, { useState } from "react";
+import  { useState } from "react";
 import SlotTable from "./SlotTable";
-
 const pageSearchStyles = {
-
   inner: {
     width: "100%",
     background: "#fff",

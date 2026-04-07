@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
-
+import { requireAuth } from "./middleware/auth.js";
 export function makeApp({
   authRoutes,
   tuitionRoutes,
@@ -9,6 +9,7 @@ export function makeApp({
   paymentRoutes,
   paymentCloneRoutes,
   otmManagementRoutes,
+   paymentChangeRequestRoutes,
 }) {
   const app = express();
 
@@ -38,6 +39,7 @@ export function makeApp({
   app.use("/api/payments", paymentRoutes);
   app.use("/api/payments-clone", paymentCloneRoutes);
    app.use("/api/otm-management", otmManagementRoutes);
+    app.use("/api/payment-change-requests", requireAuth, paymentChangeRequestRoutes);
   app.use((err, req, res, next) => {
     console.error("APP ERROR:", err);
     res.status(500).json({

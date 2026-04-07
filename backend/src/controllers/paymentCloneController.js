@@ -1,8 +1,21 @@
 import { movePaymentCloneWithDateToTrash } from "../utils/syncPaymentClonewithdateToTrash.js";
 
+function toPlain(instanceOrObject) {
+  if (!instanceOrObject) return null;
+  if (typeof instanceOrObject.get === "function") {
+    return instanceOrObject.get({ plain: true });
+  }
+  return JSON.parse(JSON.stringify(instanceOrObject));
+}
+
+function valuesAreSame(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 export function makePaymentCloneController({
   PaymentClone,
   PaymentCloneTrash,
+  PaymentChangeRequest,
 }) {
   const allowedFields = [
     "tuitionId",
@@ -86,6 +99,38 @@ export function makePaymentCloneController({
     return data;
   }
 
+  async function createAuditLog({
+    req,
+    actionType,
+    paymentCloneId = null,
+    changedColumns = [],
+    beforeData = null,
+    afterData = null,
+    metadata = null,
+  }) {
+    if (!PaymentChangeRequest) return;
+
+    try {
+      await PaymentChangeRequest.create({
+        moduleName: "payment_sheet_with_date",
+        paymentCloneId,
+        actionType,
+        actorUserId: req.user?.id || null,
+        actorRole: req.user?.role || null,
+        actorName: req.user?.name || null,
+        actorEmail: req.user?.email || null,
+        requestStatus: "approved",
+        changedColumns,
+        beforeData,
+        afterData,
+        metadata,
+        expiresAt: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+      });
+    } catch (err) {
+      console.error("PAYMENT AUDIT LOG ERROR:", err);
+    }
+  }
+
   return {
     async list(req, res) {
       try {
@@ -124,6 +169,20 @@ export function makePaymentCloneController({
         }
 
         const item = await PaymentClone.create(payload);
+        const afterData = toPlain(item);
+
+        await createAuditLog({
+          req,
+          actionType: "create",
+          paymentCloneId: item.id,
+          changedColumns: Object.keys(payload),
+          beforeData: null,
+          afterData,
+          metadata: {
+            message: "Row created directly in payment sheet",
+          },
+        });
+
         res.json({ item });
       } catch (err) {
         console.error("PAYMENT CLONE CREATE ERROR:", err);
@@ -142,8 +201,29 @@ export function makePaymentCloneController({
           return res.status(404).json({ message: "Payment clone row not found" });
         }
 
+        const beforeData = toPlain(row);
         const payload = normalizePayload(pickAllowed(req.body));
+
         await row.update(payload);
+
+        const afterData = toPlain(row);
+        const changedColumns = Object.keys(payload).filter(
+          (key) => !valuesAreSame(beforeData?.[key], afterData?.[key])
+        );
+
+        if (changedColumns.length) {
+          await createAuditLog({
+            req,
+            actionType: "update",
+            paymentCloneId: row.id,
+            changedColumns,
+            beforeData,
+            afterData,
+            metadata: {
+              message: "Row updated directly in payment sheet",
+            },
+          });
+        }
 
         res.json({ success: true, item: row });
       } catch (err) {
@@ -160,6 +240,14 @@ export function makePaymentCloneController({
       try {
         const { id } = req.params;
 
+        const row = await PaymentClone.findByPk(id, { transaction });
+        if (!row) {
+          await transaction.rollback();
+          return res.status(404).json({ message: "Payment clone row not found" });
+        }
+
+        const beforeData = toPlain(row);
+
         const moved = await movePaymentCloneWithDateToTrash({
           PaymentClone,
           PaymentCloneTrash,
@@ -173,6 +261,18 @@ export function makePaymentCloneController({
         }
 
         await transaction.commit();
+
+        await createAuditLog({
+          req,
+          actionType: "delete",
+          paymentCloneId: row.id,
+          changedColumns: Object.keys(beforeData || {}),
+          beforeData,
+          afterData: null,
+          metadata: {
+            message: "Row deleted from payment sheet and moved to trash",
+          },
+        });
 
         res.json({
           success: true,
@@ -194,6 +294,16 @@ export function makePaymentCloneController({
       try {
         const items = Array.isArray(req.body?.items) ? req.body.items : [];
 
+        const currentRows = await PaymentClone.findAll({
+          attributes: ["id", "orderIndex"],
+          order: [["orderIndex", "ASC"]],
+        });
+
+        const beforeOrder = currentRows.map((row) => ({
+          id: row.id,
+          orderIndex: Number(row.orderIndex) || 0,
+        }));
+
         for (const entry of items) {
           const id = entry.id ?? entry.paymentId ?? entry.rowId;
           if (id === undefined || id === null) continue;
@@ -202,6 +312,32 @@ export function makePaymentCloneController({
             { orderIndex: Number(entry.orderIndex) || 0 },
             { where: { id } }
           );
+        }
+
+        const updatedRows = await PaymentClone.findAll({
+          attributes: ["id", "orderIndex"],
+          order: [["orderIndex", "ASC"]],
+        });
+
+        const afterOrder = updatedRows.map((row) => ({
+          id: row.id,
+          orderIndex: Number(row.orderIndex) || 0,
+        }));
+
+        if (!valuesAreSame(beforeOrder, afterOrder)) {
+          await createAuditLog({
+            req,
+            actionType: "reorder",
+            paymentCloneId: null,
+            changedColumns: ["orderIndex"],
+            beforeData: null,
+            afterData: null,
+            metadata: {
+              beforeOrder,
+              afterOrder,
+              message: "Rows reordered in payment sheet",
+            },
+          });
         }
 
         res.json({ success: true, message: "Reordered successfully" });
@@ -262,10 +398,23 @@ export function makePaymentCloneController({
           tuitionNameColor: trashRow.tuitionNameColor,
         };
 
-        await PaymentClone.create(payload, { transaction });
+        const restored = await PaymentClone.create(payload, { transaction });
         await trashRow.destroy({ transaction });
 
         await transaction.commit();
+
+        await createAuditLog({
+          req,
+          actionType: "create",
+          paymentCloneId: restored.id,
+          changedColumns: Object.keys(payload),
+          beforeData: null,
+          afterData: toPlain(restored),
+          metadata: {
+            message: "Row restored from trash to payment sheet",
+            restoredFromTrashId: id,
+          },
+        });
 
         res.json({ success: true, message: "Payment clone row restored" });
       } catch (err) {

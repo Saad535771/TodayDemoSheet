@@ -6,6 +6,7 @@ import { definePaymentCloneTrash } from "./PaymentCloneTrash.js";
 import defineTodayDemo from "./TodayDemo.js";
 import { defineUserPresence } from "./UserPresence.js";
 import { defineOtmTuitionEntry } from "./OtmTuitionEntry.js";
+import { definePaymentChangeRequest } from "./PaymentChangeRequest.js";
 export function initModels(sequelize) {
   const User = defineUser(sequelize);
   const Tuition = defineTuition(sequelize);
@@ -15,6 +16,7 @@ export function initModels(sequelize) {
   const TodayDemo = defineTodayDemo(sequelize);
   const UserPresence = defineUserPresence(sequelize);
   const OtmTuitionEntry = defineOtmTuitionEntry(sequelize);
+  const PaymentChangeRequest = definePaymentChangeRequest(sequelize);
 
   UserPresence.belongsTo(User, {
     foreignKey: "userId",
@@ -35,6 +37,26 @@ export function initModels(sequelize) {
     as: "otmEntries",
   });
 
+  PaymentChangeRequest.belongsTo(User, {
+  foreignKey: "actorUserId",
+  as: "actorUser",
+});
+
+PaymentChangeRequest.belongsTo(User, {
+  foreignKey: "approvedBy",
+  as: "approvedByUser",
+});
+
+PaymentChangeRequest.belongsTo(User, {
+  foreignKey: "rejectedBy",
+  as: "rejectedByUser",
+});
+
+PaymentChangeRequest.belongsTo(PaymentClone, {
+  foreignKey: "paymentCloneId",
+  as: "paymentClone",
+});
+
   return {
     User,
     Tuition,
@@ -45,5 +67,6 @@ export function initModels(sequelize) {
     Target: TodayDemo,
     UserPresence,
     OtmTuitionEntry,
+    PaymentChangeRequest,
   };
 }

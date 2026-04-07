@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/api.js";
+import PaymentChangeRequestsPanel from "../pages/PaymentChangeRequestsPanel.jsx";
 
 const LIVE_REFRESH_MS = 13000;
 const MIN_ZOOM = 0.7;
@@ -224,6 +225,16 @@ const styles = {
     border: "1.5px solid #000000",
     borderRadius: "8px",
     padding: "6px 10px",
+    cursor: "pointer",
+    fontWeight: "700",
+    fontSize: "12px",
+  },
+  historyBtn: {
+   
+    color: "#8d8d8d",
+    borderStyle:'none',
+    borderRadius: "8px",
+  
     cursor: "pointer",
     fontWeight: "700",
     fontSize: "12px",
@@ -720,7 +731,55 @@ const ColorSwatch = ({
   );
 };
 
+function parseJwtPayload(token) {
+  try {
+    if (!token || typeof token !== "string") return null;
 
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+    const json = atob(padded);
+    return JSON.parse(json);
+  } catch (err) {
+    console.error("JWT parse failed:", err);
+    return null;
+  }
+}
+
+function resolveCurrentUserRole(me) {
+  try {
+    const meRole = String(me?.role || me?.user?.role || "").trim().toLowerCase();
+    if (meRole) return meRole;
+
+    const storedUserRaw = localStorage.getItem("user");
+    if (storedUserRaw) {
+      const storedUser = JSON.parse(storedUserRaw);
+      const storedUserRole = String(
+        storedUser?.role || storedUser?.user?.role || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (storedUserRole) return storedUserRole;
+    }
+
+    const token =
+      localStorage.getItem("token") ||
+      localStorage.getItem("tp_token") ||
+      "";
+
+    const payload = parseJwtPayload(token);
+    const tokenRole = String(payload?.role || "").trim().toLowerCase();
+    if (tokenRole) return tokenRole;
+
+    return "";
+  } catch (err) {
+    console.error("Role resolve failed:", err);
+    return "";
+  }
+}
 export default function PaymentSheetWithDate({ me }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -742,6 +801,8 @@ export default function PaymentSheetWithDate({ me }) {
     left: 0,
     width: 0,
   });
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [auditRow, setAuditRow] = useState(null);
   const mountedRef = useRef(true);
   const itemsRef = useRef([]);
   const filteredItemsRef = useRef([]);
@@ -771,7 +832,8 @@ export default function PaymentSheetWithDate({ me }) {
 
   const canSeeTotalFees =
     me?.role === "admin" || me?.role === "hod" || !!me?.access_total_fees;
-
+  const currentRole = resolveCurrentUserRole(me);
+  const canSeeAuditTrail = currentRole === "admin";
   const zoomPercent = `${Math.round(zoomLevel * 100)}%`;
 
   const changeZoom = (direction) => {
@@ -1042,6 +1104,12 @@ export default function PaymentSheetWithDate({ me }) {
     }
   }, [editingCell, gridColumnMap]);
 
+
+  const openAuditForRow = (row) => {
+    if (!canSeeAuditTrail) return;
+    setAuditRow(row || null);
+    setAuditOpen(true);
+  };
 
   const syncHistoryMeta = () => {
     setHistoryMeta({
@@ -2313,13 +2381,10 @@ export default function PaymentSheetWithDate({ me }) {
     if (editingCell?.colId !== "tutorShare" && editingCell?.colId !== "lacasShare") {
       return row?.totalFees ?? "";
     }
-
     const tutorShare =
       editingCell.colId === "tutorShare" ? editValue : row?.tutorShare;
-
     const lacasShare =
       editingCell.colId === "lacasShare" ? editValue : row?.lacasShare;
-
     return calculateAutoTotalFees(tutorShare, lacasShare);
   };
   const renderGridCell = (row, rowIndex, col) => {
@@ -2758,19 +2823,33 @@ export default function PaymentSheetWithDate({ me }) {
 
                         <td style={styles.td}>
                           <div style={styles.actionGroup}>
+                            {canSeeAuditTrail ? (
+                              <button
+                                type="button"
+                                style={styles.historyBtn}
+                                onClick={() => openAuditForRow(row)}
+                                title="View row audit"
+                              >
+                                👁
+                              </button>
+                            ) : null}
+
                             <button
+                              type="button"
                               style={styles.copyBtn}
                               onClick={() => void copyRowToClipboard(row, visibleIndex)}
-                              title="Copy full row"
+                              title="Copy row"
                             >
                               Copy
                             </button>
 
                             <button
+                              type="button"
                               style={styles.deleteBtn}
                               onClick={() => void deleteRow(row)}
+                              title="Delete row"
                             >
-                              Del
+                              Delete
                             </button>
                           </div>
                         </td>
@@ -2783,6 +2862,15 @@ export default function PaymentSheetWithDate({ me }) {
           </div>
         </div>
       </div>
+      <PaymentChangeRequestsPanel
+        open={auditOpen}
+        onClose={() => {
+          setAuditOpen(false);
+          setAuditRow(null);
+        }}
+        paymentCloneId={getRowId(auditRow)}
+        rowData={auditRow}
+      />
     </div>
   );
 }
