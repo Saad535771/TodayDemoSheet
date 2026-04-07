@@ -134,7 +134,9 @@ const styles = {
     whiteSpace: "nowrap",
   },
   tableWrapper: {
-    overflow: "auto",
+    overflowX: "auto",
+    overflowY: "visible",
+    position: "relative",
     borderRadius: "12px",
     border: "2px solid #000000",
     maxWidth: "100%",
@@ -159,9 +161,11 @@ const styles = {
     borderBottom: "1.5px solid #000000",
     borderRight: "1.5px solid #000000",
     position: "sticky",
+    width:'100%',
     top: "0px",
-    zIndex: 4,
+    zIndex: 1200,
     whiteSpace: "nowrap",
+    boxShadow: "0 3px 0 rgba(0,0,0,0.08)",
   },
   td: {
     borderBottom: "1.5px solid #000000",
@@ -230,12 +234,15 @@ const styles = {
     fontSize: "12px",
   },
   historyBtn: {
-    color: "#8d8d8d",
-    borderStyle:'none',
+    background: "#dcfce7",
+    color: "#166534",
+    border: "1.5px solid #166534",
     borderRadius: "8px",
     cursor: "pointer",
-    fontWeight: "700",
+    fontWeight: "800",
     fontSize: "12px",
+    padding: "6px 10px",
+    minWidth: "42px",
   },
   actionGroup: {
     display: "flex",
@@ -1056,8 +1063,8 @@ export default function PaymentSheetWithDate({ me }) {
       setIsHeaderPinned(shouldPin);
       setHeaderMetrics({
         height: headerHeight,
-        left: cardRect.left + 10,
-        width: Math.max(cardEl.clientWidth - 20, 0),
+        left: Math.max(cardRect.left, 0),
+        width: Math.max(cardRect.width, 0),
       });
     };
 
@@ -2567,8 +2574,8 @@ export default function PaymentSheetWithDate({ me }) {
     );
   };
   const tableHeadTop = isHeaderPinned
-    ? `${STICKY_TOP + headerMetrics.height + 4}px`
-    : "8px";
+    ? `${STICKY_TOP + headerMetrics.height + 8}px`
+    : "0px";
   return (
     <div style={styles.page}>
       <style>{`
@@ -2597,13 +2604,15 @@ export default function PaymentSheetWithDate({ me }) {
                 marginBottom: 0,
                 borderRadius: "12px",
                 boxSizing: "border-box",
+                padding: "10px 14px",
+                border: "2px solid #000000",
               }
               : {}),
           }}
         >
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>Payment Sheet With Date</h2>
-            <p style={styles.subtitle}>Excel-style sheet with live sync, multi-cell selection, and undo/redo</p>
+            <p style={styles.subtitle}>Excel-style sheet with live sync, audit trail, sticky toolbar, and sticky header</p>
           </div>
 
           <div style={styles.actions}>
