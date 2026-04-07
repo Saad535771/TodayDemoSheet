@@ -230,11 +230,9 @@ const styles = {
     fontSize: "12px",
   },
   historyBtn: {
-   
     color: "#8d8d8d",
     borderStyle:'none',
     borderRadius: "8px",
-  
     cursor: "pointer",
     fontWeight: "700",
     fontSize: "12px",
