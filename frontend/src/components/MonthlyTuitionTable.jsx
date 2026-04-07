@@ -243,7 +243,7 @@ const normalizeMultiValue = (value) => {
           ...new Set(parsed.map((entry) => String(entry || "").trim()).filter(Boolean)),
         ];
       }
-    } catch (err) {}
+    } catch (err) { }
   }
 
   return [...new Set(raw.split(",").map((entry) => entry.trim()).filter(Boolean))];
@@ -742,7 +742,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   }, [localItems.length, selectedCell]);
   useEffect(() => {
     if (!editingCell || !inputRef.current) return;
-    
+
     const node = inputRef.current;
     const col = gridColumnMap[editingCell.colId];
     const tagName = String(node.tagName || "").toLowerCase();
@@ -758,29 +758,29 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       (tagName === "input" &&
         ["text", "search", "url", "tel", "password"].includes(inputType || "text"));
 
-   if (
-  editingCell.colId === "feedback" &&
-  supportsSelectionRange &&
-  typeof node.setSelectionRange === "function"
-) {
-  requestAnimationFrame(() => {
-    const len = String(node.value || "").length;
-    node.setSelectionRange(len, len);
-  });
-} else if (
-  moveCaretToEndOnFocusRef.current &&
-  supportsSelectionRange &&
-  typeof node.setSelectionRange === "function"
-) {
-  const len = String(node.value || "").length;
-  node.setSelectionRange(len, len);
-} else if (
-  shouldSelectAllOnFocusRef.current &&
-  supportsSelectAll &&
-  typeof node.select === "function"
-) {
-  node.select();
-}
+    if (
+      editingCell.colId === "feedback" &&
+      supportsSelectionRange &&
+      typeof node.setSelectionRange === "function"
+    ) {
+      requestAnimationFrame(() => {
+        const len = String(node.value || "").length;
+        node.setSelectionRange(len, len);
+      });
+    } else if (
+      moveCaretToEndOnFocusRef.current &&
+      supportsSelectionRange &&
+      typeof node.setSelectionRange === "function"
+    ) {
+      const len = String(node.value || "").length;
+      node.setSelectionRange(len, len);
+    } else if (
+      shouldSelectAllOnFocusRef.current &&
+      supportsSelectAll &&
+      typeof node.select === "function"
+    ) {
+      node.select();
+    }
 
     if (col?.kind === "select" || col?.type === "date") {
       requestAnimationFrame(() => {
@@ -789,11 +789,11 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
             node.showPicker();
             return;
           }
-        } catch (err) {}
+        } catch (err) { }
 
         try {
           node.click();
-        } catch (err) {}
+        } catch (err) { }
       });
     }
   }, [editingCell]);
@@ -1136,9 +1136,9 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
         prev.map((x) =>
           x.tuitionId === item.tuitionId
             ? {
-                ...x,
-                ...patchFields,
-              }
+              ...x,
+              ...patchFields,
+            }
             : x
         )
       );
@@ -1169,7 +1169,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     const previousTask = recordSaveQueueRef.current.get(tuitionId) || Promise.resolve();
 
     const currentTask = previousTask
-      .catch(() => {})
+      .catch(() => { })
       .then(async () => {
         const latestItem =
           localItemsRef.current.find((x) => x.tuitionId === tuitionId) || item;
@@ -1220,26 +1220,26 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     }
   };
 
- const startEditingCell = (rowIndex, colId, forcedValue = null, options = {}) => {
-  const col = gridColumnMap[colId];
-  const item = localItemsRef.current[rowIndex];
+  const startEditingCell = (rowIndex, colId, forcedValue = null, options = {}) => {
+    const col = gridColumnMap[colId];
+    const item = localItemsRef.current[rowIndex];
 
-  if (!col?.editable || !item) return;
+    if (!col?.editable || !item) return;
 
-  const currentVal = getCellValue(item, col);
-  const nextValue = forcedValue !== null ? forcedValue : String(currentVal ?? "");
+    const currentVal = getCellValue(item, col);
+    const nextValue = forcedValue !== null ? forcedValue : String(currentVal ?? "");
 
-  setSelectedCell({ rowIndex, colId });
-  setAnchorCell({ rowIndex, colId });
-  setSelectedCells(new Set([getCellKey(rowIndex, colId)]));
+    setSelectedCell({ rowIndex, colId });
+    setAnchorCell({ rowIndex, colId });
+    setSelectedCells(new Set([getCellKey(rowIndex, colId)]));
 
-  const finalOptions =
-    colId === "feedback"
-      ? { selectAll: false, moveCaretToEnd: true, ...options }
-      : options;
+    const finalOptions =
+      colId === "feedback"
+        ? { selectAll: false, moveCaretToEnd: true, ...options }
+        : options;
 
-  setEditingState({ rowIndex, colId }, nextValue, finalOptions);
-};
+    setEditingState({ rowIndex, colId }, nextValue, finalOptions);
+  };
 
   const cancelEdit = (focusTarget = null) => {
     clearEditingState();
@@ -1755,10 +1755,10 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
         normalized === "pending"
           ? "Pending Approval"
           : normalized === "approved"
-          ? "Approved"
-          : normalized === "rejected"
-          ? "Rejected"
-          : val;
+            ? "Approved"
+            : normalized === "rejected"
+              ? "Rejected"
+              : val;
       return renderPill(label, getPaymentApprovalStyle);
     }
     if (col.type === "time" && val) return format12Hour(val);
@@ -1766,25 +1766,25 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   };
 
 
-const hasSatisfiedFeedback = (feedback) => {
-  return /\bsatisfied\b/i.test(String(feedback || "").trim());
-};
-const getCellBaseBackground = (item, col) => {
-  if (col.id === "tuitionName") return item.tuitionNameColor || "inherit";
-  if (col.id === "rejectedTutor") return columnColors["Rejected Tutor"];
-  if (col.id === "feedback" && hasSatisfiedFeedback(item.feedback)) {
-    return "#16a34a";
-  }
-  return "inherit";
-};
+  const hasSatisfiedFeedback = (feedback) => {
+    return /\bsatisfied\b/i.test(String(feedback || "").trim());
+  };
+  const getCellBaseBackground = (item, col) => {
+    if (col.id === "tuitionName") return item.tuitionNameColor || "inherit";
+    if (col.id === "rejectedTutor") return columnColors["Rejected Tutor"];
+    if (col.id === "feedback" && hasSatisfiedFeedback(item.feedback)) {
+      return "#16a34a";
+    }
+    return "inherit";
+  };
 
-const getCellTextColor = (item, col) => {
-  if (col.id === "rejectedTutor") return "#ffffff";
-  if (col.id === "feedback" && hasSatisfiedFeedback(item.feedback)) {
-    return "#ffffff";
-  }
-  return "inherit";
-};
+  const getCellTextColor = (item, col) => {
+    if (col.id === "rejectedTutor") return "#ffffff";
+    if (col.id === "feedback" && hasSatisfiedFeedback(item.feedback)) {
+      return "#ffffff";
+    }
+    return "inherit";
+  };
   const renderGridCell = (item, rowIndex, col) => {
     const cellKey = getCellKey(rowIndex, col.id);
     const isSelected = selectedCells.has(cellKey);
@@ -1794,31 +1794,33 @@ const getCellTextColor = (item, col) => {
     const baseBackground = getCellBaseBackground(item, col);
     const cellTextColor = getCellTextColor(item, col);
     const isSatisfiedFeedback = col.id === "feedback" && hasSatisfiedFeedback(item.feedback);
-   const commonTdStyle = {
-  ...styles.td,
-  minWidth: col.width,
-  width: col.width,
-  padding: col.kind === "tuitionName" ? "0 10px" : col.pill ? "0 5px" : "0 10px",
-  height: "35px",
-  cursor: col.editable ? "cell" : "default",
-  backgroundColor: isEditing
-    ? col.id === "rejectedTutor"
-      ? columnColors["Rejected Tutor"]
-      : isSatisfiedFeedback
-        ? "#16a34a"
-        : "#ffffff"
-    : baseBackground,
-  color: isEditing
-    ? col.id === "rejectedTutor"
-      ? "#ffffff"
-      : isSatisfiedFeedback
-        ? "#ffffff"
-        : cellTextColor
-    : cellTextColor,
-  border: "1px solid #000000",
-  boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
-  position: "relative",
-};
+    const commonTdStyle = {
+      ...styles.td,
+      minWidth: col.width,
+      width: col.width,
+      padding: col.kind === "tuitionName" ? "0 10px" : col.pill ? "0 5px" : "0 10px",
+      height: "35px",
+      cursor: col.editable ? "cell" : "default",
+      backgroundColor: isEditing
+        ? col.id === "rejectedTutor"
+          ? columnColors["Rejected Tutor"]
+          : isSatisfiedFeedback
+            ? "#16a34a"
+            : "#ffffff"
+        : baseBackground,
+      color: isEditing
+        ? col.id === "rejectedTutor"
+          ? "#ffffff"
+          : isSatisfiedFeedback
+            ? "#ffffff"
+            : cellTextColor
+        : cellTextColor,
+      border: "1px solid #000000",
+      boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
+      position: "relative",
+      overflow: col.id === "status" ? "visible" : "hidden",
+      zIndex: isEditing && col.id === "status" ? 2000 : 1,
+    };
     if (isEditing && col.id === "status") {
       const selectedStatuses = normalizeMultiValue(editValue);
       const filteredOptions = statusList
@@ -1828,7 +1830,7 @@ const getCellTextColor = (item, col) => {
         );
 
       return (
-        <td style={{ ...commonTdStyle, overflow: "auto" }}>
+        <td style={{ ...commonTdStyle, overflow: "visible", zIndex: 2000 }}>
           <div
             style={{
               display: "flex",
@@ -1838,7 +1840,7 @@ const getCellTextColor = (item, col) => {
               padding: "4px 8px",
               flexWrap: "wrap",
               position: "relative",
-          
+
               background: "#ffffff",
             }}
             onMouseDown={(e) => e.stopPropagation()}
@@ -1911,17 +1913,20 @@ const getCellTextColor = (item, col) => {
                 ...styles.inlineInput,
                 minWidth: "90px",
                 width: "auto",
+                height: "28px",
                 flex: 1,
-                padding: "0",
-               
+                padding: "0 6px",
+                position: "relative",
+                zIndex: 1,
                 fontSize: "12px",
+                background: "transparent",
               }}
             />
 
             <div
               style={{
                 position: "absolute",
-                top: "calc(100% + 4px)",
+                top: "calc(100% + 6px)",
                 left: 0,
                 minWidth: "220px",
                 maxHeight: "220px",
@@ -1930,7 +1935,7 @@ const getCellTextColor = (item, col) => {
                 border: "1px solid #d1d5db",
                 borderRadius: "10px",
                 boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
-                zIndex: 50,
+                zIndex: 3000,
                 padding: "6px",
               }}
             >
@@ -2001,7 +2006,7 @@ const getCellTextColor = (item, col) => {
               } catch (err) {
                 try {
                   e.currentTarget.click();
-                } catch (err2) {}
+                } catch (err2) { }
               }
             }}
             onChange={(e) => {
@@ -2059,40 +2064,40 @@ const getCellTextColor = (item, col) => {
         </td>
       );
     }
-if (isEditing && col.id === "feedback") {
-  return (
-    <td
-      style={{
-        ...commonTdStyle,
-        height: "auto",
-        verticalAlign: "top",
-      }}
-    >
-      <textarea
-        ref={inputRef}
-        autoFocus
-        value={editValue}
-        onChange={(e) => {
-          editValueRef.current = e.target.value;
-          setEditValue(e.target.value);
-        }}
-        onBlur={() => commitEdit({ rowIndex, colId: col.id })}
-        onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
-        style={{
-          ...styles.inlineInput,
-          minHeight: "72px",
-          height: "72px",
-          resize: "vertical",
-          overflow: "auto",
-          whiteSpace: "pre-wrap",
-          overflowWrap: "anywhere",
-          lineHeight: "1.4",
-          textalign: "center",
-        }}
-      />
-    </td>
-  );
-}
+    if (isEditing && col.id === "feedback") {
+      return (
+        <td
+          style={{
+            ...commonTdStyle,
+            height: "auto",
+            verticalAlign: "top",
+          }}
+        >
+          <textarea
+            ref={inputRef}
+            autoFocus
+            value={editValue}
+            onChange={(e) => {
+              editValueRef.current = e.target.value;
+              setEditValue(e.target.value);
+            }}
+            onBlur={() => commitEdit({ rowIndex, colId: col.id })}
+            onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
+            style={{
+              ...styles.inlineInput,
+              minHeight: "72px",
+              height: "72px",
+              resize: "vertical",
+              overflow: "auto",
+              whiteSpace: "pre-wrap",
+              overflowWrap: "anywhere",
+              lineHeight: "1.4",
+              textalign: "center",
+            }}
+          />
+        </td>
+      );
+    }
     if (isEditing) {
       return (
         <td style={commonTdStyle}>
@@ -2108,7 +2113,7 @@ if (isEditing && col.id === "feedback") {
                   if (typeof e.currentTarget.showPicker === "function") {
                     e.currentTarget.showPicker();
                   }
-                } catch (err) {}
+                } catch (err) { }
               }
             }}
             onChange={(e) => {

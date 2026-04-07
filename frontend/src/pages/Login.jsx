@@ -45,7 +45,6 @@ const styles = {
   },
   card: {
     width: "100%",
-    maxWidth: "420px",
   },
   header: {
     marginBottom: "30px",
@@ -306,7 +305,6 @@ export default function Login() {
                 {showPassword ? "👁️" : "🔒"}
               </span>
             </div>
-
             <button
               className="hover-effect"
               style={styles.button(themeColor, loading)}
@@ -318,7 +316,6 @@ export default function Login() {
           </form>
         </div>
       </div>
-
       <style>{`
         @media (max-width: 768px) {
           .hidden-mobile { display: none !important; }
