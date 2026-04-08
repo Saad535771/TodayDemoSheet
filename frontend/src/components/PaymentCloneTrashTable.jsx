@@ -17,6 +17,8 @@ const styles = {
     background: "#1f2937",
     color: "#fff",
     borderBottom: "1px solid #2f3747",
+    gap: "12px",
+    flexWrap: "wrap",
   },
   title: {
     margin: 0,
@@ -50,7 +52,7 @@ const styles = {
   },
   table: {
     width: "100%",
-    minWidth: "1500px",
+    minWidth: "1700px",
     borderCollapse: "collapse",
     tableLayout: "fixed",
   },
@@ -130,6 +132,10 @@ function formatDateTime(value) {
   })}`;
 }
 
+function renderValue(value) {
+  return value === null || value === undefined || value === "" ? "-" : value;
+}
+
 export default function PaymentCloneTrashTable() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -201,19 +207,18 @@ export default function PaymentCloneTrashTable() {
             <thead>
               <tr>
                 <th style={styles.th}>ID</th>
-                <th style={styles.th}>Tuition ID</th>
-                <th style={styles.th}>Payment Date</th>
-                <th style={styles.th}>Date With Month</th>
+                <th style={styles.th}>Date</th>
                 <th style={styles.th}>Tuition Name</th>
+                <th style={styles.th}>Total Students</th>
                 <th style={styles.th}>Country</th>
-                <th style={styles.th}>Class</th>
-                <th style={styles.th}>Tutor</th>
+                <th style={styles.th}>Subjects</th>
+                <th style={styles.th}>Tutor Name</th>
                 <th style={styles.th}>Tutor Fee</th>
                 <th style={styles.th}>Lacas Share</th>
-                <th style={styles.th}>Total Fees</th>
+                <th style={styles.th}>Total Fee</th>
                 <th style={styles.th}>Status</th>
                 <th style={styles.th}>Feedback</th>
-                <th style={styles.th}>OTM Name</th>
+                <th style={styles.th}>Notes</th>
                 <th style={styles.th}>Deleted At</th>
                 <th style={styles.th}>Actions</th>
               </tr>
@@ -222,19 +227,18 @@ export default function PaymentCloneTrashTable() {
               {items.map((item) => (
                 <tr key={item.id}>
                   <td style={styles.td}>{item.id}</td>
-                  <td style={styles.td}>{item.tuitionId || "-"}</td>
-                  <td style={styles.td}>{formatDate(item.paymentDate)}</td>
-                  <td style={styles.td}>{item.dateWithMonth || "-"}</td>
-                  <td style={styles.td}>{item.tuitionName || "-"}</td>
-                  <td style={styles.td}>{item.country || "-"}</td>
-                  <td style={styles.td}>{item.className || "-"}</td>
-                  <td style={styles.td}>{item.tutorName || "-"}</td>
-                  <td style={styles.td}>{item.tutorShare || "-"}</td>
-                  <td style={styles.td}>{item.lacasShare || "-"}</td>
-                  <td style={styles.td}>{item.totalFees || "-"}</td>
-                  <td style={styles.td}>{item.status || "-"}</td>
-                  <td style={styles.td}>{item.feedback || "-"}</td>
-                  <td style={styles.td}>{item.otmName || "-"}</td>
+                  <td style={styles.td}>{formatDate(item.date || item.paymentDate)}</td>
+                  <td style={styles.td}>{renderValue(item.tuitionName)}</td>
+                  <td style={styles.td}>{renderValue(item.totalStudents)}</td>
+                  <td style={styles.td}>{renderValue(item.country)}</td>
+                  <td style={styles.td}>{renderValue(item.subjects || item.className)}</td>
+                  <td style={styles.td}>{renderValue(item.tutorName)}</td>
+                  <td style={styles.td}>{renderValue(item.tutorFee ?? item.tutorShare)}</td>
+                  <td style={styles.td}>{renderValue(item.lacasShare)}</td>
+                  <td style={styles.td}>{renderValue(item.totalFees)}</td>
+                  <td style={styles.td}>{renderValue(item.status)}</td>
+                  <td style={styles.td}>{renderValue(item.feedback)}</td>
+                  <td style={styles.td}>{renderValue(item.notes)}</td>
                   <td style={styles.td}>
                     {formatDateTime(item.createdAt || item.created_at)}
                   </td>

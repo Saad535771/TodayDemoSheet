@@ -149,7 +149,7 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "1900px",
+    minWidth: "2150px",
     fontSize: "12px",
     background: "#ffffff",
   },
@@ -306,12 +306,33 @@ const styles = {
 };
 
 const statusOptions = [
-  "",
-  "Fees Receive",
-  "Fee Pending",
-  "Tuition Close",
+  "Invoice Share",
+  "Fee Receive",
+  "Half Fee Receive",
   "Tuition Pending",
+  "Tuition Cancelled",
 ];
+
+function parseStatusValue(value) {
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((item) => String(item || "").trim()).filter(Boolean))];
+  }
+
+  return [...new Set(
+    String(value || "")
+      .split(/[|,]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  )];
+}
+
+function serializeStatusValue(value) {
+  return parseStatusValue(value).join(", ");
+}
+
+function isSelectLikeColumn(col) {
+  return col?.kind === "select" || col?.kind === "multiSelect";
+}
 
 function getRowId(row) {
   return row?.id ?? row?.paymentId ?? row?._id ?? row?.rowId;
@@ -440,7 +461,7 @@ function isTextLikeSelectionInput(el) {
 }
 
 function isPickerLikeColumn(col) {
-  return col?.kind === "select" || col?.type === "date";
+  return isSelectLikeColumn(col) || col?.type === "date";
 }
 
 function tryOpenPicker(el, col) {
@@ -455,6 +476,10 @@ function tryOpenPicker(el, col) {
 
     if (!isPickerLikeColumn(col)) return;
 
+    if (col.kind === "multiSelect") {
+      return;
+    }
+
     try {
       if (typeof el.showPicker === "function") {
         el.showPicker();
@@ -464,7 +489,7 @@ function tryOpenPicker(el, col) {
       console.warn("showPicker not available:", err);
     }
 
-    if (col.kind === "select") {
+    if (isSelectLikeColumn(col)) {
       try {
         el.click();
       } catch (err) {
@@ -482,23 +507,23 @@ function tryOpenPicker(el, col) {
 
 function getStatusStyle(status) {
   switch ((status || "").trim()) {
-    case "Fees Receive":
+    case "Invoice Share":
+      return {
+        background: "#7c3aed",
+        color: "#ffffff",
+        border: "1px solid #6d28d9",
+      };
+    case "Fee Receive":
       return {
         background: "#166534",
         color: "#ffffff",
         border: "1px solid #14532d",
       };
-    case "Fee Pending":
+    case "Half Fee Receive":
       return {
-        background: "#92400e",
+        background: "#b45309",
         color: "#ffffff",
-        border: "1px solid #78350f",
-      };
-    case "Tuition Close":
-      return {
-        background: "#1d4ed8",
-        color: "#ffffff",
-        border: "1px solid #1e40af",
+        border: "1px solid #92400e",
       };
     case "Tuition Pending":
       return {
@@ -506,31 +531,74 @@ function getStatusStyle(status) {
         color: "#ffffff",
         border: "1px solid #991b1b",
       };
-    default:
+    case "Tuition Cancelled":
       return {
         background: "#475569",
         color: "#ffffff",
         border: "1px solid #334155",
       };
+    default:
+      return {
+        background: "#0f172a",
+        color: "#ffffff",
+        border: "1px solid #1e293b",
+      };
   }
 }
 
 function StatusPill({ value }) {
-  const style = getStatusStyle(value);
+  const statuses = parseStatusValue(value);
+
+  if (!statuses.length) {
+    return (
+      <span
+        style={{
+          background: "#475569",
+          color: "#ffffff",
+          border: "1px solid #334155",
+          padding: "6px 10px",
+          borderRadius: "999px",
+          fontSize: "12px",
+          fontWeight: "700",
+          display: "inline-block",
+          whiteSpace: "nowrap",
+        }}
+      >
+        --
+      </span>
+    );
+  }
+
   return (
-    <span
+    <div
       style={{
-        ...style,
-        padding: "6px 10px",
-        borderRadius: "999px",
-        fontSize: "12px",
-        fontWeight: "700",
-        display: "inline-block",
-        whiteSpace: "nowrap",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "6px",
+        flexWrap: "wrap",
       }}
     >
-      {value || "--"}
-    </span>
+      {statuses.map((status) => {
+        const style = getStatusStyle(status);
+        return (
+          <span
+            key={status}
+            style={{
+              ...style,
+              padding: "6px 10px",
+              borderRadius: "999px",
+              fontSize: "12px",
+              fontWeight: "700",
+              display: "inline-block",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {status}
+          </span>
+        );
+      })}
+    </div>
   );
 }
 
@@ -852,11 +920,12 @@ export default function PaymentSheetWithDate({ me }) {
   const gridColumns = useMemo(() => {
     const cols = [
       {
-        id: "dateWithMonth",
-        label: "Date With Month",
-        field: "dateWithMonth",
+        id: "date",
+        label: "Date",
+        field: "date",
         editable: true,
-        width: 160,
+        width: 140,
+        type: "date",
         align: "left",
       },
       {
@@ -864,24 +933,33 @@ export default function PaymentSheetWithDate({ me }) {
         label: "Tuition Name",
         field: "tuitionName",
         editable: true,
-        width: 180,
+        width: 220,
         align: "left",
         kind: "tuitionName",
+      },
+      {
+        id: "totalStudents",
+        label: "Total Students",
+        field: "totalStudents",
+        editable: true,
+        width: 140,
+        type: "number",
+        align: "left",
       },
       {
         id: "country",
         label: "Country",
         field: "country",
         editable: true,
-        width: 120,
+        width: 130,
         align: "left",
       },
       {
-        id: "className",
-        label: "Class Name",
-        field: "className",
+        id: "subjects",
+        label: "Subjects",
+        field: "subjects",
         editable: true,
-        width: 120,
+        width: 180,
         align: "left",
       },
       {
@@ -889,18 +967,18 @@ export default function PaymentSheetWithDate({ me }) {
         label: "Tutor Name",
         field: "tutorName",
         editable: true,
-        width: 150,
+        width: 180,
         align: "left",
       },
     ];
 
     if (canSeeTutorShare) {
       cols.push({
-        id: "tutorShare",
+        id: "tutorFee",
         label: "Tutor Fee",
-        field: "tutorShare",
+        field: "tutorFee",
         editable: true,
-        width: 120,
+        width: 130,
         type: "number",
         align: "left",
       });
@@ -912,7 +990,7 @@ export default function PaymentSheetWithDate({ me }) {
         label: "Lacas Share",
         field: "lacasShare",
         editable: true,
-        width: 120,
+        width: 130,
         type: "number",
         align: "left",
       });
@@ -924,7 +1002,7 @@ export default function PaymentSheetWithDate({ me }) {
         label: "Total Fee",
         field: "totalFees",
         editable: true,
-        width: 120,
+        width: 130,
         type: "number",
         align: "left",
       });
@@ -936,8 +1014,8 @@ export default function PaymentSheetWithDate({ me }) {
         label: "Status",
         field: "status",
         editable: true,
-        width: 150,
-        kind: "select",
+        width: 240,
+        kind: "multiSelect",
         options: statusOptions,
         align: "center",
       },
@@ -950,15 +1028,13 @@ export default function PaymentSheetWithDate({ me }) {
         align: "left",
       },
       {
-        id: "otmName",
-        label: "OTM Name",
-        field: "otmName",
+        id: "notes",
+        label: "Notes",
+        field: "notes",
         editable: true,
-        width: 150,
+        width: 220,
         align: "left",
-      },
-
-
+      }
     );
 
     return cols;
@@ -1380,16 +1456,21 @@ export default function PaymentSheetWithDate({ me }) {
       const newRow = {
         tuitionId: `manual-${Date.now()}`,
         paymentDate: "",
+        date: "",
         dateWithMonth: "",
         tuitionName: "",
+        totalStudents: "",
         country: "",
+        subjects: "",
         className: "",
         tutorName: "",
+        tutorFee: "",
         tutorShare: "",
         lacasShare: "",
         totalFees: "",
-        status: "Tuition Pending",
+        status: "",
         feedback: "",
+        notes: "",
         otmName: "",
         syncFlag: "",
         assignedStaffId: null,
@@ -1567,8 +1648,8 @@ export default function PaymentSheetWithDate({ me }) {
     return Number.isFinite(num) ? num : null;
   }
 
-  function calculateAutoTotalFees(tutorShare, lacasShare) {
-    const tutor = parseFeeInput(tutorShare);
+  function calculateAutoTotalFees(tutorFee, lacasShare) {
+    const tutor = parseFeeInput(tutorFee);
     const lacas = parseFeeInput(lacasShare);
 
     if (tutor === null && lacas === null) return "";
@@ -1576,18 +1657,25 @@ export default function PaymentSheetWithDate({ me }) {
   }
 
   function withAutoTotalFee(row, patch = {}) {
+    const hasTutorFee = Object.prototype.hasOwnProperty.call(patch, "tutorFee");
     const hasTutorShare = Object.prototype.hasOwnProperty.call(patch, "tutorShare");
     const hasLacasShare = Object.prototype.hasOwnProperty.call(patch, "lacasShare");
 
-    // Sirf tab auto total banao jab Tutor Fee ya Lacas Share change ho
-    if (!hasTutorShare && !hasLacasShare) return patch;
+    if (!hasTutorFee && !hasTutorShare && !hasLacasShare) return patch;
 
-    const nextTutorShare = hasTutorShare ? patch.tutorShare : row?.tutorShare;
+    const nextTutorFee = hasTutorFee
+      ? patch.tutorFee
+      : hasTutorShare
+        ? patch.tutorShare
+        : (row?.tutorFee ?? row?.tutorShare);
     const nextLacasShare = hasLacasShare ? patch.lacasShare : row?.lacasShare;
+
+    const totalFees = calculateAutoTotalFees(nextTutorFee, nextLacasShare);
 
     return {
       ...patch,
-      totalFees: calculateAutoTotalFees(nextTutorShare, nextLacasShare),
+      totalFees,
+      ...(hasTutorShare && !hasTutorFee ? { tutorFee: nextTutorFee } : {}),
     };
   }
   const filteredItems = useMemo(() => {
@@ -1597,18 +1685,21 @@ export default function PaymentSheetWithDate({ me }) {
     return items.filter((item) => {
       const haystack = [
         item.tuitionId,
+        item.date,
         item.paymentDate,
-        item.dateWithMonth,
         item.tuitionName,
+        item.totalStudents,
         item.country,
+        item.subjects,
         item.className,
         item.tutorName,
+        item.tutorFee,
         item.tutorShare,
         item.lacasShare,
         item.totalFees,
         item.status,
         item.feedback,
-        item.otmName,
+        item.notes,
       ]
         .map((v) => String(v ?? "").toLowerCase())
         .join(" ");
@@ -1919,7 +2010,7 @@ export default function PaymentSheetWithDate({ me }) {
 
           let nextValue = matrix[r][c] ?? "";
 
-          if (col.kind === "select") {
+          if (isSelectLikeColumn(col)) {
             nextValue = nextValue.trim();
             if (!statusOptions.includes(nextValue)) continue;
           }
@@ -2337,7 +2428,7 @@ export default function PaymentSheetWithDate({ me }) {
       return;
     }
 
-    if (col?.kind !== "select" && e.key === "ArrowUp") {
+    if (!isSelectLikeColumn(col) && e.key === "ArrowUp") {
       e.preventDefault();
       const nextRow = Math.max(0, rowIndex - 1);
       void commitEdit({ rowIndex: nextRow, colId });
@@ -2345,7 +2436,7 @@ export default function PaymentSheetWithDate({ me }) {
       return;
     }
 
-    if (col?.kind !== "select" && e.key === "ArrowDown") {
+    if (!isSelectLikeColumn(col) && e.key === "ArrowDown") {
       e.preventDefault();
       const nextRow = Math.min(filteredItems.length - 1, rowIndex + 1);
       void commitEdit({ rowIndex: nextRow, colId });
@@ -2353,7 +2444,7 @@ export default function PaymentSheetWithDate({ me }) {
       return;
     }
 
-    if (col?.kind !== "select" && e.key === "ArrowLeft") {
+    if (!isSelectLikeColumn(col) && e.key === "ArrowLeft") {
       e.preventDefault();
       const currentColIndex = getColumnIndex(colId);
       const nextColIndex = Math.max(0, currentColIndex - 1);
@@ -2363,7 +2454,7 @@ export default function PaymentSheetWithDate({ me }) {
       return;
     }
 
-    if (col?.kind !== "select" && e.key === "ArrowRight") {
+    if (!isSelectLikeColumn(col) && e.key === "ArrowRight") {
       e.preventDefault();
       const currentColIndex = getColumnIndex(colId);
       const nextColIndex = Math.min(gridColumns.length - 1, currentColIndex + 1);
@@ -2383,14 +2474,22 @@ export default function PaymentSheetWithDate({ me }) {
       return row?.totalFees ?? "";
     }
 
-    if (editingCell?.colId !== "tutorShare" && editingCell?.colId !== "lacasShare") {
+    if (
+      editingCell?.colId !== "tutorFee" &&
+      editingCell?.colId !== "tutorShare" &&
+      editingCell?.colId !== "lacasShare"
+    ) {
       return row?.totalFees ?? "";
     }
-    const tutorShare =
-      editingCell.colId === "tutorShare" ? editValue : row?.tutorShare;
+
+    const tutorFee =
+      editingCell.colId === "tutorFee" || editingCell.colId === "tutorShare"
+        ? editValue
+        : (row?.tutorFee ?? row?.tutorShare);
     const lacasShare =
       editingCell.colId === "lacasShare" ? editValue : row?.lacasShare;
-    return calculateAutoTotalFees(tutorShare, lacasShare);
+
+    return calculateAutoTotalFees(tutorFee, lacasShare);
   };
   const renderGridCell = (row, rowIndex, col) => {
     const cellKey = getCellKey(rowIndex, col.id);
@@ -2417,24 +2516,34 @@ export default function PaymentSheetWithDate({ me }) {
       cursor: col.editable ? "cell" : "default",
     };
 
-    if (isEditing && col.kind === "select") {
+    if (isEditing && col.kind === "multiSelect") {
       return (
         <td key={cellKey} style={{ ...commonTdStyle, backgroundColor: "#fff" }}>
           <select
             ref={inputRef}
             autoFocus
-            value={editValue}
+            multiple
+            size={Math.min(col.options.length, 5)}
+            value={parseStatusValue(editValue)}
             onChange={(e) => {
-              editValueRef.current = e.target.value;
-              setEditValue(e.target.value);
+              const nextValues = [...e.target.selectedOptions].map((opt) => opt.value);
+              const serialized = serializeStatusValue(nextValues);
+              editValueRef.current = serialized;
+              setEditValue(serialized);
             }}
             onBlur={() => void commitEdit({ rowIndex, colId: col.id })}
             onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
-            style={styles.select}
+            style={{
+              ...styles.select,
+              height: "132px",
+              padding: "8px",
+              textAlign: "left",
+              background: "#ffffff",
+            }}
           >
             {col.options.map((opt) => (
               <option key={opt} value={opt}>
-                {opt || "--"}
+                {opt}
               </option>
             ))}
           </select>
@@ -2612,7 +2721,7 @@ export default function PaymentSheetWithDate({ me }) {
         >
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>Payment Sheet With Date</h2>
-            <p style={styles.subtitle}>Excel-style sheet with live sync, audit trail, sticky toolbar, and sticky header</p>
+            <p style={styles.subtitle}>Excel-style sheet with sticky toolbar, sticky header, color controls, and audit trail</p>
           </div>
 
           <div style={styles.actions}>
@@ -2646,7 +2755,7 @@ export default function PaymentSheetWithDate({ me }) {
 
             <input
               type="text"
-              placeholder="Search by date, tuition name, country, tutor, status..."
+              placeholder="Search by date, tuition name, country, subject, tutor, status..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={styles.searchInput}
