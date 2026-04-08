@@ -57,6 +57,7 @@ async function main() {
       PaymentClone,
       PaymentCloneTrash,
       PaymentChangeRequest,
+      User,
     });
 
     const otmManagementController = makeOtmManagementController({
@@ -73,6 +74,7 @@ async function main() {
       PaymentClone,
       PaymentCloneTrash,
       PaymentChangeRequest,
+      User,
     });
     const app = makeApp({
       authRoutes,

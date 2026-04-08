@@ -1,103 +1,67 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api/api.js";
 
-const FIELD_LABELS = {
-  dateWithMonth: "Date With Month",
-  tuitionName: "Tuition Name",
-  country: "Country",
-  className: "Class Name",
-  tutorName: "Tutor Name",
-  tutorShare: "Tutor Fee",
-  lacasShare: "Lacas Share",
-  totalFees: "Total Fee",
-  status: "Status",
-  feedback: "Feedback",
-  otmName: "OTM Name",
-  rowColor: "Row Color",
-  tuitionNameColor: "Tuition Name Color",
-  paymentDate: "Payment Date",
-  assignedTo: "Assigned To",
-  assignedStaffId: "Assigned Staff",
-  syncFlag: "Sync Flag",
-};
-
-const SUMMARY_FIELDS = [
-  "dateWithMonth",
-  "tuitionName",
-  "country",
-  "className",
-  "tutorName",
-  "tutorShare",
-  "lacasShare",
-  "totalFees",
-  "status",
-  "feedback",
-  "otmName",
+const FIELD_COLUMNS = [
+  { key: "paymentDate", label: "Payment Date" },
+  { key: "dateWithMonth", label: "Date With Month" },
+  { key: "tuitionName", label: "Tuition Name" },
+  { key: "country", label: "Country" },
+  { key: "className", label: "Class Name" },
+  { key: "tutorName", label: "Tutor Name" },
+  { key: "tutorShare", label: "Tutor Fee" },
+  { key: "lacasShare", label: "Lacas Share" },
+  { key: "totalFees", label: "Total Fee" },
+  { key: "status", label: "Status" },
+  { key: "feedback", label: "Feedback" },
+  { key: "otmName", label: "OTM Name" },
+  { key: "daysPerWeek", label: "Days / Week" },
+  { key: "date", label: "Date" },
+  { key: "notes", label: "Notes" },
 ];
 
-const HIDDEN_AUDIT_KEYS = new Set([
-  "id",
-  "tuitionId",
-  "createdAt",
-  "updatedAt",
-  "created_at",
-  "updated_at",
-  "deletedFromTodayDemo",
-  "isDeleted",
-  "orderIndex",
-]);
-
 const styles = {
-  backdrop: {
+  overlay: {
     position: "fixed",
     inset: 0,
     background: "rgba(0,0,0,0.45)",
-    zIndex: 4000,
+    zIndex: 5000,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "18px",
+    padding: "16px",
   },
-  card: {
-    width: "min(1550px, 97vw)",
+  modal: {
+    width: "96vw",
+    maxWidth: "1800px",
     maxHeight: "92vh",
     background: "#ffffff",
-    borderRadius: "18px",
-    overflow: "hidden",
+    borderRadius: "16px",
     border: "2px solid #000000",
-    boxShadow: "0 18px 40px rgba(0,0,0,0.24)",
+    overflow: "hidden",
     display: "flex",
     flexDirection: "column",
+    boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
   },
   header: {
-    padding: "16px 18px",
+    padding: "16px",
     borderBottom: "2px solid #000000",
-    display: "flex",
-    gap: "12px",
-    alignItems: "center",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
     background: "#ffffff",
-    position: "sticky",
-    top: 0,
-    zIndex: 5,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "12px",
+    flexWrap: "wrap",
   },
   title: {
     margin: 0,
-    fontSize: "20px",
+    fontSize: "22px",
     fontWeight: 800,
     color: "#111111",
   },
   subtitle: {
-    margin: "4px 0 0 0",
+    margin: "6px 0 0 0",
     fontSize: "13px",
-    color: "#555555",
-  },
-  headerActions: {
-    display: "flex",
-    gap: "10px",
-    alignItems: "center",
-    flexWrap: "wrap",
+    color: "#475569",
   },
   btn: {
     border: "1.5px solid #000000",
@@ -110,301 +74,189 @@ const styles = {
     fontSize: "13px",
   },
   body: {
-    overflow: "auto",
     padding: "16px",
+    overflow: "auto",
     background: "#f8fafc",
     display: "grid",
     gap: "14px",
   },
-  summaryCard: {
+  badgeWrap: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+  },
+  badge: {
+    borderRadius: "999px",
+    padding: "8px 12px",
+    fontSize: "12px",
+    fontWeight: 800,
+    color: "#ffffff",
+    border: "1px solid rgba(0,0,0,0.18)",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.08)",
+  },
+  block: {
     background: "#ffffff",
     border: "1.5px solid #000000",
     borderRadius: "14px",
-    padding: "14px",
-    display: "grid",
-    gap: "10px",
+    overflow: "hidden",
   },
-  summaryGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-    gap: "10px",
-  },
-  cellLabel: {
-    fontSize: "11px",
-    fontWeight: 700,
-    color: "#475569",
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-  },
-  cellValue: {
-    minHeight: "38px",
-    borderRadius: "8px",
-    border: "1px solid #cbd5e1",
+  blockTitle: {
+    padding: "12px 14px",
+    borderBottom: "1.5px solid #000000",
+    fontWeight: 800,
+    fontSize: "14px",
+    color: "#111111",
     background: "#ffffff",
+  },
+  tableWrap: {
+    overflowX: "auto",
+    background: "#ffffff",
+  },
+  table: {
+    borderCollapse: "collapse",
+    width: "100%",
+    minWidth: "2100px",
+    background: "#ffffff",
+  },
+  th: {
+    position: "sticky",
+    top: 0,
+    zIndex: 2,
+    background: "#000000",
+    color: "#ffffff",
+    padding: "10px 8px",
+    fontSize: "12px",
+    fontWeight: 800,
+    borderRight: "1px solid #333",
+    borderBottom: "1px solid #333",
+    whiteSpace: "nowrap",
+    textAlign: "center",
+  },
+  td: {
     padding: "8px",
     fontSize: "12px",
     color: "#111111",
-    wordBreak: "break-word",
+    borderRight: "1px solid #d1d5db",
+    borderBottom: "1px solid #d1d5db",
+    verticalAlign: "top",
+    minWidth: "120px",
+    background: "#ffffff",
     whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
   },
-  badge: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: "999px",
-    padding: "6px 10px",
-    fontSize: "12px",
-    fontWeight: 700,
-    border: "1.5px solid #111111",
-    background: "#f1f5f9",
-    color: "#111111",
-    whiteSpace: "nowrap",
+  smallCell: {
+    minWidth: "80px",
+  },
+  metaCell: {
+    minWidth: "150px",
+  },
+  currentRowCell: {
+    fontWeight: 600,
   },
   empty: {
-    padding: "38px 20px",
+    padding: "28px",
     textAlign: "center",
     color: "#475569",
     fontWeight: 700,
-    background: "#ffffff",
-    border: "1.5px solid #cbd5e1",
-    borderRadius: "14px",
-  },
-  logCard: {
-    background: "#ffffff",
-    border: "1.5px solid #000000",
-    borderRadius: "16px",
-    padding: "14px",
-    display: "grid",
-    gap: "12px",
-  },
-  logHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: "10px",
-    flexWrap: "wrap",
-  },
-  logTitle: {
-    margin: 0,
-    fontSize: "15px",
-    fontWeight: 800,
-    color: "#111111",
-  },
-  logMeta: {
-    margin: "5px 0 0 0",
-    color: "#475569",
-    fontSize: "12px",
-    lineHeight: 1.5,
-  },
-  logMetaStrong: {
-    color: "#111111",
-    fontWeight: 800,
-  },
-  badgeRow: {
-    display: "flex",
-    gap: "8px",
-    flexWrap: "wrap",
-    alignItems: "center",
-  },
-  chipsWrap: {
-    display: "flex",
-    gap: "8px",
-    flexWrap: "wrap",
-  },
-  chip: {
-    padding: "6px 10px",
-    borderRadius: "999px",
-    background: "#dcfce7",
-    color: "#166534",
-    border: "1px solid #16a34a",
-    fontSize: "12px",
-    fontWeight: 700,
-  },
-  changesGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-    gap: "10px",
-  },
-  changeCard: {
-    borderRadius: "12px",
-    padding: "12px",
-    border: "1.5px solid #16a34a",
-    background: "#ecfdf5",
-    display: "grid",
-    gap: "8px",
-    minHeight: "120px",
-  },
-  changeCardDelete: {
-    border: "1.5px solid #ef4444",
-    background: "#fef2f2",
-  },
-  changeFieldTitle: {
-    margin: 0,
-    fontSize: "13px",
-    fontWeight: 800,
-    color: "#14532d",
-  },
-  beforeAfterWrap: {
-    display: "grid",
-    gap: "8px",
-  },
-  valueBox: {
-    borderRadius: "8px",
-    padding: "8px",
-    border: "1px solid #bbf7d0",
-    background: "#ffffff",
-    color: "#111111",
-    fontSize: "12px",
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-    minHeight: "40px",
-  },
-  valueBoxMuted: {
-    border: "1px solid #fecaca",
-    background: "#fff7f7",
-  },
-  valueLabel: {
-    fontSize: "10px",
-    fontWeight: 800,
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
-    color: "#64748b",
   },
 };
 
-function prettyDate(value) {
+function safeText(value) {
+  if (value === null || value === undefined || value === "") return "--";
+  return String(value);
+}
+
+function formatDateTime(value) {
   if (!value) return "--";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleString();
 }
 
-function safeString(value) {
-  if (value === null || value === undefined || value === "") return "--";
-  if (typeof value === "object") {
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return String(value);
-    }
-  }
-  return String(value);
+function getActorSeed(actor) {
+  return `${actor?.id ?? "x"}-${actor?.name ?? "user"}-${actor?.email ?? ""}`;
 }
 
-function getActionBadgeStyle(actionType) {
-  switch (actionType) {
+function colorFromSeed(seed) {
+  const palette = [
+    "#166534",
+    "#1d4ed8",
+    "#92400e",
+    "#7c3aed",
+    "#be123c",
+    "#0f766e",
+    "#4338ca",
+    "#15803d",
+    "#b45309",
+    "#0369a1",
+  ];
+
+  let hash = 0;
+  const value = String(seed || "user");
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+
+  return palette[Math.abs(hash) % palette.length];
+}
+
+function actionLabel(action) {
+  switch (action) {
     case "create":
-      return { ...styles.badge, background: "#dcfce7", color: "#166534" };
+      return "Create";
     case "update":
-      return { ...styles.badge, background: "#dbeafe", color: "#1d4ed8" };
+      return "Update";
     case "delete":
-      return { ...styles.badge, background: "#fee2e2", color: "#b91c1c" };
+      return "Delete";
     case "reorder":
-      return { ...styles.badge, background: "#fef3c7", color: "#92400e" };
+      return "Reorder";
     default:
-      return styles.badge;
+      return safeText(action);
   }
 }
 
-function getRowId(item, rowData) {
-  return (
-    item?.paymentCloneId ??
-    item?.payment_clone_id ??
-    item?.beforeData?.id ??
-    item?.afterData?.id ??
-    rowData?.id ??
-    "--"
-  );
+function getChangedSet(item) {
+  const cols = Array.isArray(item?.changedColumns) ? item.changedColumns : [];
+  return new Set(cols);
 }
 
-function renderFieldCard(label, value) {
-  return (
-    <div key={label}>
-      <div style={styles.cellLabel}>{label}</div>
-      <div style={styles.cellValue}>{safeString(value)}</div>
-    </div>
-  );
+function getCellDisplayValue(item, fieldKey) {
+  const actionType = item?.actionType;
+  const changed = getChangedSet(item).has(fieldKey);
+
+  if (!changed && actionType !== "delete" && actionType !== "create") {
+    return "";
+  }
+
+  if (actionType === "create") {
+    return safeText(item?.afterData?.[fieldKey]);
+  }
+
+  if (actionType === "delete") {
+    return safeText(item?.beforeData?.[fieldKey]);
+  }
+
+  if (changed) {
+    return safeText(item?.afterData?.[fieldKey]);
+  }
+
+  return "";
 }
 
-function humanizeKey(key) {
-  const source = FIELD_LABELS[key];
-  if (source) return source;
-  return String(key || "")
-    .replace(/([A-Z])/g, " $1")
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^./, (char) => char.toUpperCase());
-}
+function isHighlighted(item, fieldKey) {
+  const actionType = item?.actionType;
+  const changed = getChangedSet(item).has(fieldKey);
 
-function uniqueColumns(item = {}) {
-  const direct = Array.isArray(item.changedColumns)
-    ? item.changedColumns.map((col) => String(col || "").trim()).filter(Boolean)
-    : [];
+  if (actionType === "create") {
+    return (item?.afterData?.[fieldKey] ?? null) !== null;
+  }
 
-  const filteredDirect = direct.filter((key) => !HIDDEN_AUDIT_KEYS.has(key));
-  if (filteredDirect.length) return [...new Set(filteredDirect)];
+  if (actionType === "delete") {
+    return (item?.beforeData?.[fieldKey] ?? null) !== null;
+  }
 
-  const beforeData = item?.beforeData && typeof item.beforeData === "object" ? item.beforeData : {};
-  const afterData = item?.afterData && typeof item.afterData === "object" ? item.afterData : {};
-  const allKeys = [...new Set([...Object.keys(beforeData), ...Object.keys(afterData)])];
-
-  return allKeys.filter((key) => {
-    if (HIDDEN_AUDIT_KEYS.has(key)) return false;
-    return JSON.stringify(beforeData?.[key]) !== JSON.stringify(afterData?.[key]);
-  });
-}
-
-function buildChangeEntries(item) {
-  const beforeData = item?.beforeData && typeof item.beforeData === "object" ? item.beforeData : {};
-  const afterData = item?.afterData && typeof item.afterData === "object" ? item.afterData : {};
-  const keys = uniqueColumns(item);
-
-  return keys.map((key) => ({
-    key,
-    label: humanizeKey(key),
-    beforeValue: beforeData?.[key],
-    afterValue: afterData?.[key],
-  }));
-}
-
-function ChangeValue({ label, value, muted = false }) {
-  return (
-    <div>
-      <div style={styles.valueLabel}>{label}</div>
-      <div style={{ ...styles.valueBox, ...(muted ? styles.valueBoxMuted : {}) }}>
-        {safeString(value)}
-      </div>
-    </div>
-  );
-}
-
-function ChangeCard({ entry, actionType }) {
-  const isDelete = actionType === "delete";
-  const cardStyle = isDelete
-    ? { ...styles.changeCard, ...styles.changeCardDelete }
-    : styles.changeCard;
-
-  return (
-    <div key={entry.key} style={cardStyle}>
-      <h4 style={styles.changeFieldTitle}>{entry.label}</h4>
-
-      {actionType === "create" ? (
-        <div style={styles.beforeAfterWrap}>
-          <ChangeValue label="Added Value" value={entry.afterValue} />
-        </div>
-      ) : actionType === "delete" ? (
-        <div style={styles.beforeAfterWrap}>
-          <ChangeValue label="Deleted Value" value={entry.beforeValue} muted />
-        </div>
-      ) : (
-        <div style={styles.beforeAfterWrap}>
-          <ChangeValue label="Previous" value={entry.beforeValue} muted />
-          <ChangeValue label="Updated" value={entry.afterValue} />
-        </div>
-      )}
-    </div>
-  );
+  return changed;
 }
 
 export default function PaymentChangeRequestsPanel({
@@ -414,19 +266,41 @@ export default function PaymentChangeRequestsPanel({
   rowData,
 }) {
   const [items, setItems] = useState([]);
+  const [actors, setActors] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const totalCount = useMemo(() => items.length, [items]);
+  const actorColors = useMemo(() => {
+    const map = new Map();
+    actors.forEach((actor) => {
+      map.set(getActorSeed(actor), colorFromSeed(getActorSeed(actor)));
+    });
+
+    items.forEach((item) => {
+      const actor = item?.actor || {
+        id: item?.actorUserId,
+        name: item?.actorName,
+        email: item?.actorEmail,
+      };
+      const seed = getActorSeed(actor);
+      if (!map.has(seed)) {
+        map.set(seed, colorFromSeed(seed));
+      }
+    });
+
+    return map;
+  }, [actors, items]);
 
   async function loadLogs() {
-    if (!open) return;
+    if (!open || !paymentCloneId) return;
 
     try {
       setLoading(true);
       const res = await api.get("/payment-change-requests/logs", {
-        params: paymentCloneId ? { paymentCloneId } : {},
+        params: { paymentCloneId },
       });
+
       setItems(Array.isArray(res.data?.items) ? res.data.items : []);
+      setActors(Array.isArray(res.data?.actors) ? res.data.actors : []);
     } catch (err) {
       console.error("Failed to load payment audit logs:", err);
       alert(err?.response?.data?.message || "Failed to load payment audit logs.");
@@ -444,19 +318,17 @@ export default function PaymentChangeRequestsPanel({
   if (!open) return null;
 
   return (
-    <div style={styles.backdrop} onClick={onClose}>
-      <div style={styles.card} onClick={(e) => e.stopPropagation()}>
+    <div style={styles.overlay} onClick={onClose}>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.header}>
           <div>
-            <h3 style={styles.title}>Payment Sheet Audit</h3>
+            <h3 style={styles.title}>Payment Sheet Row Audit</h3>
             <p style={styles.subtitle}>
-              Admin ko yahan user ka naam aur sirf woh fields nazar aayengi jo add ya update hui hain.
+              Row ID: {safeText(paymentCloneId)} — jis user ne jo field edit ki hai, usi user ke color me woh box highlight hoga.
             </p>
           </div>
 
-          <div style={styles.headerActions}>
-            <span style={styles.badge}>Row ID: {safeString(paymentCloneId)}</span>
-            <span style={styles.badge}>Logs: {totalCount}</span>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             <button type="button" style={styles.btn} onClick={() => void loadLogs()}>
               Refresh
             </button>
@@ -467,83 +339,123 @@ export default function PaymentChangeRequestsPanel({
         </div>
 
         <div style={styles.body}>
-          <div style={styles.summaryCard}>
-            <div style={{ fontWeight: 800, fontSize: "15px", color: "#111111" }}>
-              Current Row Details
-            </div>
-            <div style={styles.summaryGrid}>
-              {SUMMARY_FIELDS.map((field) => renderFieldCard(humanizeKey(field), rowData?.[field]))}
+          <div style={styles.block}>
+            <div style={styles.blockTitle}>Users who edited this row</div>
+            <div style={{ padding: "12px" }}>
+              <div style={styles.badgeWrap}>
+                {actors.length ? (
+                  actors.map((actor, idx) => {
+                    const seed = getActorSeed(actor);
+                    const color = actorColors.get(seed) || "#166534";
+
+                    return (
+                      <span key={`${seed}-${idx}`} style={{ ...styles.badge, background: color }}>
+                        {safeText(actor?.name)}{actor?.role ? ` (${actor.role})` : ""}
+                      </span>
+                    );
+                  })
+                ) : (
+                  <span style={{ color: "#475569", fontWeight: 700 }}>
+                    No users found for this row yet.
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-          {loading ? (
-            <div style={styles.empty}>Loading audit logs...</div>
-          ) : items.length === 0 ? (
-            <div style={styles.empty}>No audit logs found for this row.</div>
-          ) : (
-            items.map((item) => {
-              const changeEntries = buildChangeEntries(item);
-              const changedColumns = uniqueColumns(item);
-              const createdAt = item.createdAt || item.created_at;
+          <div style={styles.block}>
+            <div style={styles.blockTitle}>Current Row Snapshot</div>
+            <div style={styles.tableWrap}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    {FIELD_COLUMNS.map((col) => (
+                      <th key={col.key} style={styles.th}>{col.label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    {FIELD_COLUMNS.map((col) => (
+                      <td key={col.key} style={{ ...styles.td, ...styles.currentRowCell }}>
+                        {safeText(rowData?.[col.key])}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-              return (
-                <div key={item.id} style={styles.logCard}>
-                  <div style={styles.logHeader}>
-                    <div>
-                      <h4 style={styles.logTitle}>
-                        <span style={styles.logMetaStrong}>{safeString(item.actorName)}</span>
-                        {" "}
-                        ne row par activity ki hai
-                      </h4>
-                      <p style={styles.logMeta}>
-                        Email: <span style={styles.logMetaStrong}>{safeString(item.actorEmail)}</span>
-                        {" • "}
-                        Role: <span style={styles.logMetaStrong}>{safeString(item.actorRole)}</span>
-                        {" • "}
-                        Time: <span style={styles.logMetaStrong}>{prettyDate(createdAt)}</span>
-                      </p>
-                    </div>
+          <div style={styles.block}>
+            <div style={styles.blockTitle}>Audit Timeline (table format)</div>
 
-                    <div style={styles.badgeRow}>
-                      <span style={getActionBadgeStyle(item.actionType)}>
-                        {safeString(item.actionType)}
-                      </span>
-                      <span style={styles.badge}>Row: {safeString(getRowId(item, rowData))}</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ ...styles.cellLabel, marginBottom: "8px" }}>
-                      Changed Fields
-                    </div>
-                    <div style={styles.chipsWrap}>
-                      {changedColumns.length ? (
-                        changedColumns.map((key) => (
-                          <span key={`${item.id}-${key}`} style={styles.chip}>
-                            {humanizeKey(key)}
-                          </span>
-                        ))
-                      ) : (
-                        <span style={styles.badge}>No field-level diff available</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {changeEntries.length ? (
-                    <div style={styles.changesGrid}>
-                      {changeEntries.map((entry) => (
-                        <ChangeCard
-                          key={`${item.id}-${entry.key}`}
-                          entry={entry}
-                          actionType={item.actionType}
-                        />
+            {loading ? (
+              <div style={styles.empty}>Loading audit logs...</div>
+            ) : !items.length ? (
+              <div style={styles.empty}>No audit log found for this row.</div>
+            ) : (
+              <div style={styles.tableWrap}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...styles.th, ...styles.metaCell }}>User</th>
+                      <th style={{ ...styles.th, ...styles.smallCell }}>Action</th>
+                      <th style={{ ...styles.th, ...styles.metaCell }}>Time</th>
+                      {FIELD_COLUMNS.map((col) => (
+                        <th key={col.key} style={styles.th}>{col.label}</th>
                       ))}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })
-          )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item) => {
+                      const actor = item?.actor || {
+                        id: item?.actorUserId,
+                        name: item?.actorName,
+                        email: item?.actorEmail,
+                        role: item?.actorRole,
+                      };
+
+                      const seed = getActorSeed(actor);
+                      const color = actorColors.get(seed) || "#166534";
+
+                      return (
+                        <tr key={item.id}>
+                          <td style={styles.td}>
+                            <span style={{ ...styles.badge, background: color }}>
+                              {safeText(item.actorName)}
+                            </span>
+                          </td>
+
+                          <td style={styles.td}>{actionLabel(item.actionType)}</td>
+                          <td style={styles.td}>{formatDateTime(item.createdAt)}</td>
+
+                          {FIELD_COLUMNS.map((col) => {
+                            const highlighted = isHighlighted(item, col.key);
+                            const value = getCellDisplayValue(item, col.key);
+
+                            return (
+                              <td
+                                key={`${item.id}-${col.key}`}
+                                style={{
+                                  ...styles.td,
+                                  background: highlighted ? color : "#ffffff",
+                                  color: highlighted ? "#ffffff" : "#111111",
+                                  fontWeight: highlighted ? 800 : 500,
+                                }}
+                              >
+                                {value || "--"}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

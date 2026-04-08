@@ -5,13 +5,9 @@ export function createPaymentChangeRequestRoutes(deps) {
   const router = Router();
   const controller = makePaymentChangeRequestController(deps);
 
+  // audit only
   router.get("/summary", controller.summary);
-  router.get("/pending", controller.listPending);
-  router.get("/history", controller.listHistory);
-  router.post("/", controller.createRequest);
-  router.post("/cleanup-expired", controller.cleanupExpired);
-  router.post("/:id/approve", controller.approveRequest);
-  router.post("/:id/reject", controller.rejectRequest);
+  router.get("/logs", controller.listLogs);
 
   return router;
 }

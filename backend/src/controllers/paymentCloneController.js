@@ -9,13 +9,14 @@ function toPlain(instanceOrObject) {
 }
 
 function valuesAreSame(a, b) {
-  return JSON.stringify(a) === JSON.stringify(b);
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }
 
 export function makePaymentCloneController({
   PaymentClone,
   PaymentCloneTrash,
   PaymentChangeRequest,
+  User,
 }) {
   const allowedFields = [
     "tuitionId",
@@ -39,6 +40,9 @@ export function makePaymentCloneController({
     "orderIndex",
     "rowColor",
     "tuitionNameColor",
+    "daysPerWeek",
+    "date",
+    "notes",
   ];
 
   function pickAllowed(body = {}) {
@@ -67,6 +71,8 @@ export function makePaymentCloneController({
       "assignedTo",
       "rowColor",
       "tuitionNameColor",
+      "date",
+      "notes",
     ];
 
     const numberNullIfEmpty = [
@@ -75,6 +81,7 @@ export function makePaymentCloneController({
       "totalFees",
       "assignedStaffId",
       "orderIndex",
+      "daysPerWeek",
     ];
 
     for (const key of nullIfEmpty) {
@@ -99,6 +106,79 @@ export function makePaymentCloneController({
     return data;
   }
 
+  function serializeRow(row) {
+    const raw = toPlain(row);
+    if (!raw) return null;
+
+    return {
+      id: raw.id ?? null,
+      tuitionId: raw.tuitionId ?? null,
+      paymentDate: raw.paymentDate ?? null,
+      dateWithMonth: raw.dateWithMonth ?? null,
+      tuitionName: raw.tuitionName ?? null,
+      country: raw.country ?? null,
+      className: raw.className ?? null,
+      tutorName: raw.tutorName ?? null,
+      tutorShare: raw.tutorShare ?? null,
+      lacasShare: raw.lacasShare ?? null,
+      totalFees: raw.totalFees ?? null,
+      status: raw.status ?? null,
+      feedback: raw.feedback ?? null,
+      otmName: raw.otmName ?? null,
+      syncFlag: raw.syncFlag ?? null,
+      assignedStaffId: raw.assignedStaffId ?? null,
+      isDeleted: !!raw.isDeleted,
+      deletedFromTodayDemo: !!raw.deletedFromTodayDemo,
+      assignedTo: raw.assignedTo ?? null,
+      orderIndex: raw.orderIndex ?? 0,
+      rowColor: raw.rowColor ?? null,
+      tuitionNameColor: raw.tuitionNameColor ?? null,
+      daysPerWeek: raw.daysPerWeek ?? null,
+      date: raw.date ?? null,
+      notes: raw.notes ?? null,
+    };
+  }
+
+  function getChangedColumns(beforeData = null, afterData = null, explicitKeys = []) {
+    const keys = new Set([
+      ...allowedFields,
+      ...Object.keys(beforeData || {}),
+      ...Object.keys(afterData || {}),
+      ...explicitKeys,
+    ]);
+
+    return [...keys].filter((key) => {
+      if (key === "id") return false;
+      return !valuesAreSame(beforeData?.[key], afterData?.[key]);
+    });
+  }
+
+  async function resolveActor(req) {
+    const actor = {
+      id: req.user?.id ?? null,
+      role: req.user?.role ?? null,
+      name: req.user?.name ?? null,
+      email: req.user?.email ?? null,
+    };
+
+    if (!actor.id) return actor;
+    if (actor.name && actor.email) return actor;
+    if (!User) return actor;
+
+    try {
+      const dbUser = await User.findByPk(actor.id);
+      if (dbUser) {
+        actor.name = actor.name || dbUser.name || null;
+        actor.email = actor.email || dbUser.email || null;
+        actor.role = actor.role || dbUser.role || null;
+      }
+    } catch (err) {
+      console.error("AUDIT ACTOR RESOLVE ERROR:", err);
+    }
+
+    return actor;
+  }
+
   async function createAuditLog({
     req,
     actionType,
@@ -110,21 +190,24 @@ export function makePaymentCloneController({
   }) {
     if (!PaymentChangeRequest) return;
 
+    const actor = await resolveActor(req);
+    if (!actor.id) return;
+
     try {
       await PaymentChangeRequest.create({
         moduleName: "payment_sheet_with_date",
         paymentCloneId,
         actionType,
-        actorUserId: req.user?.id || null,
-        actorRole: req.user?.role || null,
-        actorName: req.user?.name || null,
-        actorEmail: req.user?.email || null,
+        actorUserId: actor.id,
+        actorRole: actor.role || "staff",
+        actorName: actor.name || actor.email || `User-${actor.id}`,
+        actorEmail: actor.email || null,
         requestStatus: "approved",
         changedColumns,
         beforeData,
         afterData,
         metadata,
-        expiresAt: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date("2099-12-31T23:59:59.000Z"),
       });
     } catch (err) {
       console.error("PAYMENT AUDIT LOG ERROR:", err);
@@ -141,10 +224,10 @@ export function makePaymentCloneController({
           ],
         });
 
-        res.json({ items });
+        return res.json({ items });
       } catch (err) {
         console.error("PAYMENT CLONE LIST ERROR:", err);
-        res.status(500).json({
+        return res.status(500).json({
           message: err?.message || "Error fetching payment clone rows",
         });
       }
@@ -169,24 +252,25 @@ export function makePaymentCloneController({
         }
 
         const item = await PaymentClone.create(payload);
-        const afterData = toPlain(item);
+        const afterData = serializeRow(item);
 
         await createAuditLog({
           req,
           actionType: "create",
           paymentCloneId: item.id,
-          changedColumns: Object.keys(payload),
+          changedColumns: getChangedColumns(null, afterData, Object.keys(payload)),
           beforeData: null,
           afterData,
           metadata: {
+            historyLabel: "Create Row",
             message: "Row created directly in payment sheet",
           },
         });
 
-        res.json({ item });
+        return res.json({ item });
       } catch (err) {
         console.error("PAYMENT CLONE CREATE ERROR:", err);
-        res.status(500).json({
+        return res.status(500).json({
           message: err?.message || "Error creating payment clone row",
         });
       }
@@ -201,15 +285,13 @@ export function makePaymentCloneController({
           return res.status(404).json({ message: "Payment clone row not found" });
         }
 
-        const beforeData = toPlain(row);
+        const beforeData = serializeRow(row);
         const payload = normalizePayload(pickAllowed(req.body));
 
         await row.update(payload);
 
-        const afterData = toPlain(row);
-        const changedColumns = Object.keys(payload).filter(
-          (key) => !valuesAreSame(beforeData?.[key], afterData?.[key])
-        );
+        const afterData = serializeRow(row);
+        const changedColumns = getChangedColumns(beforeData, afterData, Object.keys(payload));
 
         if (changedColumns.length) {
           await createAuditLog({
@@ -220,15 +302,16 @@ export function makePaymentCloneController({
             beforeData,
             afterData,
             metadata: {
+              historyLabel: "Update Row",
               message: "Row updated directly in payment sheet",
             },
           });
         }
 
-        res.json({ success: true, item: row });
+        return res.json({ success: true, item: row });
       } catch (err) {
         console.error("PAYMENT CLONE UPDATE ERROR:", err);
-        res.status(500).json({
+        return res.status(500).json({
           message: err?.message || "Error updating payment clone row",
         });
       }
@@ -246,7 +329,7 @@ export function makePaymentCloneController({
           return res.status(404).json({ message: "Payment clone row not found" });
         }
 
-        const beforeData = toPlain(row);
+        const beforeData = serializeRow(row);
 
         const moved = await movePaymentCloneWithDateToTrash({
           PaymentClone,
@@ -266,15 +349,16 @@ export function makePaymentCloneController({
           req,
           actionType: "delete",
           paymentCloneId: row.id,
-          changedColumns: Object.keys(beforeData || {}),
+          changedColumns: getChangedColumns(beforeData, null, Object.keys(beforeData || {})),
           beforeData,
           afterData: null,
           metadata: {
+            historyLabel: "Delete Row",
             message: "Row deleted from payment sheet and moved to trash",
           },
         });
 
-        res.json({
+        return res.json({
           success: true,
           message: "Payment clone row moved to trash",
         });
@@ -284,7 +368,7 @@ export function makePaymentCloneController({
         }
 
         console.error("PAYMENT CLONE DELETE ERROR:", err);
-        res.status(500).json({
+        return res.status(500).json({
           message: err?.message || "Error deleting payment clone row",
         });
       }
@@ -333,6 +417,7 @@ export function makePaymentCloneController({
             beforeData: null,
             afterData: null,
             metadata: {
+              historyLabel: "Reorder Rows",
               beforeOrder,
               afterOrder,
               message: "Rows reordered in payment sheet",
@@ -340,10 +425,10 @@ export function makePaymentCloneController({
           });
         }
 
-        res.json({ success: true, message: "Reordered successfully" });
+        return res.json({ success: true, message: "Reordered successfully" });
       } catch (err) {
         console.error("PAYMENT CLONE REORDER ERROR:", err);
-        res.status(500).json({
+        return res.status(500).json({
           message: err?.message || "Error reordering payment clone rows",
         });
       }
@@ -352,13 +437,15 @@ export function makePaymentCloneController({
     async listTrash(req, res) {
       try {
         const items = await PaymentCloneTrash.findAll({
-          order: [["created_at", "DESC"]],
+          order: [["updated_at", "DESC"]],
         });
 
-        res.json({ items });
+        return res.json({ items });
       } catch (err) {
         console.error("PAYMENT CLONE TRASH LIST ERROR:", err);
-        res.status(500).json({ message: "Error fetching payment clone trash" });
+        return res.status(500).json({
+          message: err?.message || "Error fetching payment clone trash rows",
+        });
       }
     },
 
@@ -375,8 +462,7 @@ export function makePaymentCloneController({
         }
 
         const payload = {
-          tuitionId:
-            trashRow.tuitionId || `restored-${Date.now()}-${trashRow.id}`,
+          tuitionId: trashRow.tuitionId || `restored-${Date.now()}-${trashRow.id}`,
           paymentDate: trashRow.paymentDate,
           dateWithMonth: trashRow.dateWithMonth,
           tuitionName: trashRow.tuitionName,
@@ -396,6 +482,9 @@ export function makePaymentCloneController({
           orderIndex: trashRow.orderIndex ?? 0,
           rowColor: trashRow.rowColor,
           tuitionNameColor: trashRow.tuitionNameColor,
+          daysPerWeek: trashRow.daysPerWeek ?? 0,
+          date: trashRow.date ?? null,
+          notes: trashRow.notes ?? null,
         };
 
         const restored = await PaymentClone.create(payload, { transaction });
@@ -407,23 +496,24 @@ export function makePaymentCloneController({
           req,
           actionType: "create",
           paymentCloneId: restored.id,
-          changedColumns: Object.keys(payload),
+          changedColumns: getChangedColumns(null, serializeRow(restored), Object.keys(payload)),
           beforeData: null,
-          afterData: toPlain(restored),
+          afterData: serializeRow(restored),
           metadata: {
+            historyLabel: "Restore Row",
             message: "Row restored from trash to payment sheet",
             restoredFromTrashId: id,
           },
         });
 
-        res.json({ success: true, message: "Payment clone row restored" });
+        return res.json({ success: true, message: "Payment clone row restored" });
       } catch (err) {
         if (transaction && !transaction.finished) {
           await transaction.rollback();
         }
 
         console.error("PAYMENT CLONE TRASH RESTORE ERROR:", err);
-        res.status(500).json({
+        return res.status(500).json({
           message: err?.message || "Error restoring payment clone row",
         });
       }
@@ -438,13 +528,13 @@ export function makePaymentCloneController({
           return res.status(404).json({ message: "Trash row not found" });
         }
 
-        res.json({
+        return res.json({
           success: true,
           message: "Payment clone trash row permanently deleted",
         });
       } catch (err) {
         console.error("PAYMENT CLONE FORCE DELETE ERROR:", err);
-        res.status(500).json({
+        return res.status(500).json({
           message: err?.message || "Error deleting trash row permanently",
         });
       }

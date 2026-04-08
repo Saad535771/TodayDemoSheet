@@ -145,6 +145,25 @@ export function definePaymentClone(sequelize) {
         allowNull: true,
         field: "tuition_name_color",
       },
+
+      daysPerWeek: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: 0,
+        field: "days_per_week",
+      },
+
+      date: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+        field: "date",
+      },
+
+      notes: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: "notes",
+      },
     },
     {
       tableName: "payments_clone",
