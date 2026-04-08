@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api/api.js";
-
 const FIELD_COLUMNS = [
   { key: "paymentDate", label: "Payment Date" },
   { key: "dateWithMonth", label: "Date With Month" },

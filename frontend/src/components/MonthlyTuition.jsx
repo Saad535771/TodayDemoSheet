@@ -394,46 +394,39 @@ export default function MonthlyTuition({ onLoad }) {
     const valueLength = e.target.value?.length ?? 0;
     const start = e.target.selectionStart ?? valueLength;
     const end = e.target.selectionEnd ?? valueLength;
-
     if (e.key === "Enter") {
       e.preventDefault();
       moveFocus(fieldName, 1);
       return;
     }
-
     if (e.key === "ArrowRight") {
       if (isTextInput && end !== valueLength) return;
       e.preventDefault();
       moveFocus(fieldName, 1);
       return;
     }
-
     if (e.key === "ArrowLeft") {
       if (isTextInput && start !== 0) return;
       e.preventDefault();
       moveFocus(fieldName, -1);
     }
   }
-
   function handleDateKeyDown(fieldName, e) {
     if (e.key === "Enter") {
       e.preventDefault();
       moveFocus(fieldName, 1);
       return;
     }
-
     if (e.key === "ArrowRight") {
       e.preventDefault();
       moveFocus(fieldName, 1);
       return;
     }
-
     if (e.key === "ArrowLeft") {
       e.preventDefault();
       moveFocus(fieldName, -1);
     }
   }
-
   function handleDropdownFocus(fieldName) {
     setFocusedField(fieldName);
     const options = getOptionsByField(fieldName);

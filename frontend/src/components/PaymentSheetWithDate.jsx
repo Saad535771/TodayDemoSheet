@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/api.js";
-import PaymentChangeRequestsPanel from "../pages/PaymentChangeRequestsPanel.jsx";
+import PaymentSheetHistoryPanel from "../pages/PaymentSheetHistoryPanel.jsx";
 
-const LIVE_REFRESH_MS = 13000;
 const MIN_ZOOM = 0.7;
 const MAX_ZOOM = 1.5;
 const ZOOM_STEP = 0.1;
@@ -233,6 +232,17 @@ const styles = {
     fontWeight: "700",
     fontSize: "12px",
   },
+  inlineAddBtn: {
+    background: "#111111",
+    color: "#ffffff",
+    border: "1.5px solid #000000",
+    borderRadius: "8px",
+    padding: "6px 10px",
+    cursor: "pointer",
+    fontWeight: "700",
+    fontSize: "12px",
+    whiteSpace: "nowrap",
+  },
   historyBtn: {
     background: "#dcfce7",
     color: "#166534",
@@ -349,6 +359,36 @@ function cloneRow(row) {
 
 function cloneRows(rows = []) {
   return rows.map((row) => cloneRow(row));
+}
+
+function getDateGroupDay(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return Number.MAX_SAFE_INTEGER;
+
+  const match = raw.match(/^(\d{1,2})/);
+  if (!match) return Number.MAX_SAFE_INTEGER;
+
+  const day = Number(match[1]);
+  if (!Number.isFinite(day)) return Number.MAX_SAFE_INTEGER;
+  return Math.max(1, Math.min(31, day));
+}
+
+function sortRowsByDateGroup(rows = []) {
+  return cloneRows(rows).sort((a, b) => {
+    const aDay = getDateGroupDay(a?.dateWithMonth);
+    const bDay = getDateGroupDay(b?.dateWithMonth);
+
+    if (aDay !== bDay) return aDay - bDay;
+
+    const aOrder =
+      typeof a?.orderIndex === "number" ? a.orderIndex : Number.MAX_SAFE_INTEGER;
+    const bOrder =
+      typeof b?.orderIndex === "number" ? b.orderIndex : Number.MAX_SAFE_INTEGER;
+
+    if (aOrder !== bOrder) return aOrder - bOrder;
+
+    return String(a?.tuitionName || "").localeCompare(String(b?.tuitionName || ""));
+  });
 }
 
 function buildMergedPatchEntries(updates = []) {
@@ -879,7 +919,6 @@ export default function PaymentSheetWithDate({ me }) {
   const mountedRef = useRef(true);
   const itemsRef = useRef([]);
   const filteredItemsRef = useRef([]);
-  const pollingRef = useRef(null);
   const tableWrapperRef = useRef(null);
   const cardRef = useRef(null);
   const headerRowRef = useRef(null);
@@ -920,12 +959,11 @@ export default function PaymentSheetWithDate({ me }) {
   const gridColumns = useMemo(() => {
     const cols = [
       {
-        id: "date",
+        id: "dateWithMonth",
         label: "Date",
-        field: "date",
+        field: "dateWithMonth",
         editable: true,
         width: 140,
-        type: "date",
         align: "left",
       },
       {
@@ -973,15 +1011,26 @@ export default function PaymentSheetWithDate({ me }) {
     ];
 
     if (canSeeTutorShare) {
-      cols.push({
-        id: "tutorFee",
-        label: "Tutor Fee",
-        field: "tutorFee",
-        editable: true,
-        width: 130,
-        type: "number",
-        align: "left",
-      });
+      cols.push(
+        {
+          id: "tutorFee",
+          label: "Tutor Fee",
+          field: "tutorFee",
+          editable: true,
+          width: 130,
+          type: "number",
+          align: "left",
+        },
+        {
+          id: "tutorShare",
+          label: "Tutor Share",
+          field: "tutorShare",
+          editable: true,
+          width: 130,
+          type: "number",
+          align: "left",
+        }
+      );
     }
 
     if (canSeeLacasShare) {
@@ -1048,24 +1097,14 @@ export default function PaymentSheetWithDate({ me }) {
   );
 
   const firstEditableColumnId = gridColumns[0]?.id || "tuitionId";
-  const visibleColumnCount = gridColumns.length + 5;
+  const visibleColumnCount = gridColumns.length + 6;
 
   useEffect(() => {
     mountedRef.current = true;
-
     loadRows({ initial: true });
-
-    pollingRef.current = setInterval(() => {
-      if (document.hidden) return;
-      if (editingCellRef.current) return;
-      if (mutationInFlightRef.current || isApplyingHistoryRef.current) return;
-      if (Date.now() < skipNextPollUntilRef.current) return;
-      loadRows({ silent: true });
-    }, LIVE_REFRESH_MS);
 
     return () => {
       mountedRef.current = false;
-      if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, []);
 
@@ -1442,7 +1481,7 @@ export default function PaymentSheetWithDate({ me }) {
       if (mountedRef.current && initial) setLoading(false);
     }
   }
-  async function addRow() {
+  async function addRow(referenceRow = null) {
     try {
       setAdding(true);
       mutationInFlightRef.current = true;
@@ -1453,11 +1492,16 @@ export default function PaymentSheetWithDate({ me }) {
             typeof item?.orderIndex === "number" ? item.orderIndex : index;
           return Math.max(max, currentOrder);
         }, -1) + 1;
+
+      const inheritedDateText = String(
+        referenceRow?.dateWithMonth || referenceRow?.date || referenceRow?.paymentDate || ""
+      ).trim();
+
       const newRow = {
         tuitionId: `manual-${Date.now()}`,
         paymentDate: "",
         date: "",
-        dateWithMonth: "",
+        dateWithMonth: inheritedDateText,
         tuitionName: "",
         totalStudents: "",
         country: "",
@@ -1471,18 +1515,19 @@ export default function PaymentSheetWithDate({ me }) {
         status: "",
         feedback: "",
         notes: "",
-        otmName: "",
         syncFlag: "",
         assignedStaffId: null,
         isDeleted: false,
         deletedFromTodayDemo: false,
         assignedTo: "",
         orderIndex: nextOrderIndex,
-        rowColor: "",
+        rowColor: referenceRow?.rowColor || "",
         tuitionNameColor: "",
       };
+
       const res = await api.post("/payments-clone", newRow);
       const created = res.data?.item || res.data;
+
       if (created && getRowId(created) !== undefined && getRowId(created) !== null) {
         const createdRow = {
           ...created,
@@ -1491,12 +1536,40 @@ export default function PaymentSheetWithDate({ me }) {
               ? created.orderIndex
               : nextOrderIndex,
         };
-        setItemsImmediate([...itemsRef.current, createdRow]);
+
+        let nextItems = [...itemsRef.current, createdRow];
+
+        if (referenceRow) {
+          const referenceId = getRowId(referenceRow);
+          const referenceIndex = itemsRef.current.findIndex(
+            (item) => String(getRowId(item)) === String(referenceId)
+          );
+
+          if (referenceIndex >= 0) {
+            nextItems = cloneRows(itemsRef.current);
+            nextItems.splice(referenceIndex + 1, 0, createdRow);
+
+            nextItems = nextItems.map((item, idx) => ({
+              ...item,
+              orderIndex: idx,
+            }));
+
+            setItemsImmediate(nextItems);
+
+            await api.post(`/payments-clone/reorder`, { items: buildReorderPayload(nextItems) });
+          } else {
+            setItemsImmediate(nextItems);
+          }
+        } else {
+          setItemsImmediate(nextItems);
+        }
+
         rememberHistoryEntry({
           type: "addRow",
-          label: "Add Row",
+          label: referenceRow ? "Add Row After" : "Add Row",
           row: cloneRow(createdRow),
         });
+
         markMutationSettled();
         await loadRows({ silent: true });
       } else {
@@ -1680,32 +1753,36 @@ export default function PaymentSheetWithDate({ me }) {
   }
   const filteredItems = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return items;
 
-    return items.filter((item) => {
-      const haystack = [
-        item.tuitionId,
-        item.date,
-        item.paymentDate,
-        item.tuitionName,
-        item.totalStudents,
-        item.country,
-        item.subjects,
-        item.className,
-        item.tutorName,
-        item.tutorFee,
-        item.tutorShare,
-        item.lacasShare,
-        item.totalFees,
-        item.status,
-        item.feedback,
-        item.notes,
-      ]
-        .map((v) => String(v ?? "").toLowerCase())
-        .join(" ");
+    const baseRows = !q
+      ? items
+      : items.filter((item) => {
+          const haystack = [
+            item.tuitionId,
+            item.dateWithMonth,
+            item.date,
+            item.paymentDate,
+            item.tuitionName,
+            item.totalStudents,
+            item.country,
+            item.subjects,
+            item.className,
+            item.tutorName,
+            item.tutorFee,
+            item.tutorShare,
+            item.lacasShare,
+            item.totalFees,
+            item.status,
+            item.feedback,
+            item.notes,
+          ]
+            .map((v) => String(v ?? "").toLowerCase())
+            .join(" ");
 
-      return haystack.includes(q);
-    });
+          return haystack.includes(q);
+        });
+
+    return sortRowsByDateGroup(baseRows);
   }, [items, search]);
 
   const visibleRowIds = useMemo(
@@ -2500,7 +2577,9 @@ export default function PaymentSheetWithDate({ me }) {
     const rawValue = getCellValue(row, col);
     const value = col.id === "totalFees"
       ? getLiveTotalFeeValue(row, rowIndex)
-      : rawValue;
+      : col.id === "dateWithMonth"
+        ? (String(rawValue || "").trim() === "0000-00-00" ? "" : rawValue)
+        : rawValue;
     const rowId = getRowId(row);
 
     const commonTdStyle = {
@@ -2721,11 +2800,11 @@ export default function PaymentSheetWithDate({ me }) {
         >
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>Payment Sheet With Date</h2>
-            <p style={styles.subtitle}>Excel-style sheet with sticky toolbar, sticky header, color controls, and audit trail</p>
+            <p style={styles.subtitle}>Excel-style sheet with sticky toolbar, sticky header, color controls, totals columns, and history panel</p>
           </div>
 
           <div style={styles.actions}>
-            <div style={styles.liveBadge}>● Excel-style Live Sheet</div>
+            <div style={styles.liveBadge}>● Excel-style Manual Sheet</div>
 
             <div style={styles.zoomControls}>
               <button
@@ -2755,7 +2834,7 @@ export default function PaymentSheetWithDate({ me }) {
 
             <input
               type="text"
-              placeholder="Search by date, tuition name, country, subject, tutor, status..."
+              placeholder="Search by date text, tuition name, tutor fee/share, lacas share, total fee, status..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={styles.searchInput}
@@ -2764,6 +2843,17 @@ export default function PaymentSheetWithDate({ me }) {
             <button onClick={() => void loadRows({ initial: true })} style={styles.refreshBtn}>
               Refresh
             </button>
+
+            {canSeeAuditTrail ? (
+              <button
+                onClick={() => openAuditForRow(filteredItems.find((row) => selectedRowIds.has(getRowId(row))) || items[0] || null)}
+                style={styles.refreshBtn}
+                disabled={!items.length}
+                title="Open history panel"
+              >
+                History Panel
+              </button>
+            ) : null}
 
             <button
               onClick={() => void undoLastAction()}
@@ -2832,6 +2922,7 @@ export default function PaymentSheetWithDate({ me }) {
                     </th>
                   ))}
 
+                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "110px" }}>Add Row</th>
                   <th style={{ ...styles.th, top: tableHeadTop, minWidth: "100px" }}>Action</th>
                 </tr>
               </thead>
@@ -2939,14 +3030,27 @@ export default function PaymentSheetWithDate({ me }) {
 
                         <td style={styles.td}>
                           <div style={styles.actionGroup}>
+                            <button
+                              type="button"
+                              style={styles.inlineAddBtn}
+                              onClick={() => void addRow(row)}
+                              title="Add a new row after this row"
+                            >
+                              + Row
+                            </button>
+                          </div>
+                        </td>
+
+                        <td style={styles.td}>
+                          <div style={styles.actionGroup}>
                             {canSeeAuditTrail ? (
                               <button
                                 type="button"
                                 style={styles.historyBtn}
                                 onClick={() => openAuditForRow(row)}
-                                title="View row audit"
+                                title="View row history"
                               >
-                                👁
+                                History
                               </button>
                             ) : null}
 
@@ -2978,7 +3082,7 @@ export default function PaymentSheetWithDate({ me }) {
           </div>
         </div>
       </div>
-      <PaymentChangeRequestsPanel
+      <PaymentSheetHistoryPanel
         open={auditOpen}
         onClose={() => {
           setAuditOpen(false);
