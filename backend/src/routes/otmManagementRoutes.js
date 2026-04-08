@@ -6,24 +6,37 @@ export function makeOtmManagementRoutes(otmManagementController) {
   const router = Router();
 
   const entryValidators = [
-    body("day").trim().notEmpty().withMessage("Day is required"),
+    body("day").optional().isString(),
+    body("days").optional().isArray(),
     body("time").optional().isString(),
+    body("timeSlots").optional().isArray(),
+    body("durationLabel").optional().isString(),
+    body("durationMinutes").optional().isInt({ min: 1 }),
     body("tuitionName").trim().notEmpty().withMessage("Tuition Name is required"),
+    body("tutorName").optional().isString(),
     body("groupName").optional().isString(),
+    body("studentName").optional().isString(),
     body("classStartTime").optional().isString(),
     body("classEndTime").optional().isString(),
     body("status").optional().isString(),
+    body("reportStatus").optional().isString(),
     body("notes").optional().isString(),
+    body("userId").optional().isInt({ min: 1 }),
   ];
+
+  router.get("/meta", requireAuth, otmManagementController.meta);
+  router.get("/users", requireAuth, otmManagementController.listUsers);
 
   router.get("/entries", requireAuth, otmManagementController.listEntries);
   router.post("/entries", requireAuth, entryValidators, otmManagementController.createEntry);
+
   router.put(
     "/entries/:entryId",
     requireAuth,
     [param("entryId").isInt({ min: 1 }), ...entryValidators],
     otmManagementController.updateEntry
   );
+
   router.delete(
     "/entries/:entryId",
     requireAuth,
@@ -33,6 +46,7 @@ export function makeOtmManagementRoutes(otmManagementController) {
 
   router.get("/reports", requireAuth, otmManagementController.reports);
   router.get("/total-class", requireAuth, otmManagementController.totalClass);
+
   router.get(
     "/admin/:userId",
     requireAuth,

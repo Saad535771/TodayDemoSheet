@@ -340,9 +340,9 @@ export default function Dashboard() {
       },
       {
         key: "otm_management",
-        label: "📘 Otm Management",
+        label: "📘 Management Portal",
         permissionKey: "access_otm_management",
-        rolesAllowed: ["otm","admin"],
+        rolesAllowed: ["otm","admin","hod"],
         component: <OtmManagement />,
       },
     ];
@@ -780,7 +780,7 @@ export default function Dashboard() {
                   <option value="staff">Staff</option>
                   <option value="admin">Admin</option>
                   <option value="hod">Hod</option>
-                  <option value="otm">OTM Manager</option>
+                  <option value="otm">Management Portal</option>
                 </select>
               </div>
               {regMsg && (
