@@ -33,7 +33,7 @@ const styles = {
   modal: {
     width: "96vw",
     maxWidth: "1800px",
-    maxHeight: "92vh",
+    height: "92vh",
     background: "#ffffff",
     borderRadius: "16px",
     border: "2px solid #000000",
@@ -51,6 +51,7 @@ const styles = {
     alignItems: "flex-start",
     gap: "12px",
     flexWrap: "wrap",
+    flexShrink: 0,
   },
   title: {
     margin: 0,
@@ -74,11 +75,14 @@ const styles = {
     fontSize: "13px",
   },
   body: {
-    padding: "16px",
+    flex: 1,
+    minHeight: 0,
     overflow: "auto",
+    padding: "16px",
     background: "#f8fafc",
     display: "grid",
     gap: "14px",
+    alignContent: "start",
   },
   badgeWrap: {
     display: "flex",
@@ -93,12 +97,26 @@ const styles = {
     color: "#ffffff",
     border: "1px solid rgba(0,0,0,0.18)",
     boxShadow: "0 4px 10px rgba(0,0,0,0.08)",
+    whiteSpace: "nowrap",
+  },
+  smallInlineBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "999px",
+    padding: "4px 9px",
+    fontSize: "11px",
+    fontWeight: 800,
+    color: "#ffffff",
+    whiteSpace: "nowrap",
+    marginTop: "6px",
   },
   block: {
     background: "#ffffff",
     border: "1.5px solid #000000",
     borderRadius: "14px",
     overflow: "hidden",
+    flexShrink: 0,
   },
   blockTitle: {
     padding: "12px 14px",
@@ -108,14 +126,27 @@ const styles = {
     color: "#111111",
     background: "#ffffff",
   },
+  blockSubText: {
+    padding: "10px 14px 0 14px",
+    fontSize: "12px",
+    color: "#64748b",
+    fontWeight: 600,
+  },
+  legendNote: {
+    padding: "0 14px 12px 14px",
+    fontSize: "12px",
+    color: "#475569",
+    fontWeight: 700,
+  },
   tableWrap: {
     overflowX: "auto",
+    overflowY: "hidden",
     background: "#ffffff",
   },
   table: {
     borderCollapse: "collapse",
     width: "100%",
-    minWidth: "2100px",
+    minWidth: "2000px",
     background: "#ffffff",
   },
   th: {
@@ -144,11 +175,11 @@ const styles = {
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
   },
-  smallCell: {
-    minWidth: "80px",
+  actionCell: {
+    minWidth: "170px",
   },
-  metaCell: {
-    minWidth: "150px",
+  timeCell: {
+    minWidth: "170px",
   },
   currentRowCell: {
     fontWeight: 600,
@@ -173,8 +204,92 @@ function formatDateTime(value) {
   return d.toLocaleString();
 }
 
+function parseMaybeObject(value) {
+  if (!value) return {};
+  if (typeof value === "object") return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+function parseMaybeArray(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function camelToSnake(value) {
+  return String(value || "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .toLowerCase();
+}
+
+function getFieldValue(obj, key) {
+  const source = parseMaybeObject(obj);
+  const snakeKey = camelToSnake(key);
+
+  if (Object.prototype.hasOwnProperty.call(source, key)) {
+    return source[key];
+  }
+  if (Object.prototype.hasOwnProperty.call(source, snakeKey)) {
+    return source[snakeKey];
+  }
+
+  if (key === "daysPerWeek" && Object.prototype.hasOwnProperty.call(source, "days_per_week")) {
+    return source.days_per_week;
+  }
+  if (key === "dateWithMonth" && Object.prototype.hasOwnProperty.call(source, "date_with_month")) {
+    return source.date_with_month;
+  }
+  if (key === "tuitionName" && Object.prototype.hasOwnProperty.call(source, "tuition_name")) {
+    return source.tuition_name;
+  }
+  if (key === "className" && Object.prototype.hasOwnProperty.call(source, "class_name")) {
+    return source.class_name;
+  }
+  if (key === "tutorName" && Object.prototype.hasOwnProperty.call(source, "tutor_name")) {
+    return source.tutor_name;
+  }
+  if (key === "tutorShare" && Object.prototype.hasOwnProperty.call(source, "tutor_share")) {
+    return source.tutor_share;
+  }
+  if (key === "lacasShare" && Object.prototype.hasOwnProperty.call(source, "lacas_share")) {
+    return source.lacas_share;
+  }
+  if (key === "totalFees" && Object.prototype.hasOwnProperty.call(source, "total_fees")) {
+    return source.total_fees;
+  }
+  if (key === "otmName" && Object.prototype.hasOwnProperty.call(source, "otm_name")) {
+    return source.otm_name;
+  }
+
+  return undefined;
+}
+
 function getActorSeed(actor) {
   return `${actor?.id ?? "x"}-${actor?.name ?? "user"}-${actor?.email ?? ""}`;
+}
+
+function getActorFromItem(item) {
+  return item?.actor || {
+    id: item?.actorUserId ?? item?.actor_user_id ?? null,
+    name: item?.actorName ?? item?.actor_name ?? null,
+    email: item?.actorEmail ?? item?.actor_email ?? null,
+    role: item?.actorRole ?? item?.actor_role ?? null,
+  };
 }
 
 function colorFromSeed(seed) {
@@ -216,47 +331,165 @@ function actionLabel(action) {
   }
 }
 
-function getChangedSet(item) {
-  const cols = Array.isArray(item?.changedColumns) ? item.changedColumns : [];
-  return new Set(cols);
-}
+function getNormalizedChangedColumns(item) {
+  const direct = parseMaybeArray(item?.changedColumns ?? item?.changed_columns)
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
 
-function getCellDisplayValue(item, fieldKey) {
-  const actionType = item?.actionType;
-  const changed = getChangedSet(item).has(fieldKey);
+  if (direct.length) return [...new Set(direct)];
 
-  if (!changed && actionType !== "delete" && actionType !== "create") {
-    return "";
-  }
+  const beforeData = parseMaybeObject(item?.beforeData ?? item?.before_data);
+  const afterData = parseMaybeObject(item?.afterData ?? item?.after_data);
+  const changed = [];
 
-  if (actionType === "create") {
-    return safeText(item?.afterData?.[fieldKey]);
-  }
-
-  if (actionType === "delete") {
-    return safeText(item?.beforeData?.[fieldKey]);
-  }
-
-  if (changed) {
-    return safeText(item?.afterData?.[fieldKey]);
-  }
-
-  return "";
-}
-
-function isHighlighted(item, fieldKey) {
-  const actionType = item?.actionType;
-  const changed = getChangedSet(item).has(fieldKey);
-
-  if (actionType === "create") {
-    return (item?.afterData?.[fieldKey] ?? null) !== null;
-  }
-
-  if (actionType === "delete") {
-    return (item?.beforeData?.[fieldKey] ?? null) !== null;
+  for (const field of FIELD_COLUMNS) {
+    const beforeValue = getFieldValue(beforeData, field.key);
+    const afterValue = getFieldValue(afterData, field.key);
+    if (JSON.stringify(beforeValue ?? null) !== JSON.stringify(afterValue ?? null)) {
+      changed.push(field.key);
+    }
   }
 
   return changed;
+}
+
+function getChangedValueMap(item) {
+  const changedColumns = new Set(getNormalizedChangedColumns(item));
+  const beforeData = parseMaybeObject(item?.beforeData ?? item?.before_data);
+  const afterData = parseMaybeObject(item?.afterData ?? item?.after_data);
+  const actionType = item?.actionType ?? item?.action_type;
+  const map = {};
+
+  for (const field of FIELD_COLUMNS) {
+    const key = field.key;
+
+    if (actionType === "create") {
+      const value = getFieldValue(afterData, key);
+      if (value !== undefined) {
+        map[key] = value;
+      }
+      continue;
+    }
+
+    if (actionType === "delete") {
+      const value = getFieldValue(beforeData, key);
+      if (value !== undefined) {
+        map[key] = value;
+      }
+      continue;
+    }
+
+    if (changedColumns.has(key)) {
+      map[key] = getFieldValue(afterData, key);
+      continue;
+    }
+
+    const snakeKey = camelToSnake(key);
+    if (changedColumns.has(snakeKey)) {
+      map[key] = getFieldValue(afterData, key);
+    }
+  }
+
+  return map;
+}
+
+function sameActor(a, b) {
+  const actorA = getActorFromItem(a);
+  const actorB = getActorFromItem(b);
+
+  const idA = actorA?.id ?? null;
+  const idB = actorB?.id ?? null;
+
+  if (idA !== null && idB !== null) {
+    return String(idA) === String(idB);
+  }
+
+  const nameA = String(actorA?.name || "").trim().toLowerCase();
+  const nameB = String(actorB?.name || "").trim().toLowerCase();
+
+  return nameA && nameB && nameA === nameB;
+}
+
+function buildUniqueActors(items = [], actors = []) {
+  const map = new Map();
+
+  actors.forEach((actor) => {
+    const seed = getActorSeed(actor);
+    if (!map.has(seed)) map.set(seed, actor);
+  });
+
+  items.forEach((item) => {
+    const actor = getActorFromItem(item);
+    const seed = getActorSeed(actor);
+    if (!map.has(seed)) map.set(seed, actor);
+  });
+
+  return [...map.values()];
+}
+
+function mergeConsecutiveLogs(items = []) {
+  const merged = [];
+
+  for (const rawItem of items) {
+    const item = {
+      ...rawItem,
+      actionType: rawItem?.actionType ?? rawItem?.action_type,
+      createdAt:
+        rawItem?.createdAt ??
+        rawItem?.created_at ??
+        rawItem?.updatedAt ??
+        rawItem?.updated_at ??
+        null,
+    };
+
+    const actor = getActorFromItem(item);
+    const changedMap = getChangedValueMap(item);
+
+    const current = {
+      ...item,
+      actor,
+      mergedValues: { ...changedMap },
+      mergedCount: 1,
+      mergedActionTypes: [item.actionType],
+      firstCreatedAt: item.createdAt,
+      lastCreatedAt: item.createdAt,
+    };
+
+    const last = merged[merged.length - 1];
+
+    if (!last || !sameActor(last, current)) {
+      merged.push(current);
+      continue;
+    }
+
+    last.mergedCount += 1;
+    last.mergedActionTypes.push(item.actionType);
+    last.lastCreatedAt = item.createdAt || last.lastCreatedAt;
+    last.mergedValues = {
+      ...(last.mergedValues || {}),
+      ...changedMap,
+    };
+  }
+
+  return merged.map((row, index) => {
+    const uniqueActions = [...new Set(row.mergedActionTypes)];
+    let displayAction = actionLabel(uniqueActions[0]);
+
+    if (uniqueActions.length > 1) {
+      displayAction = uniqueActions.map(actionLabel).join(" + ");
+    }
+
+    if (row.mergedCount > 1) {
+      displayAction = `${displayAction} (${row.mergedCount} changes)`;
+    }
+
+    return {
+      ...row,
+      rowKey: `${row.id || "audit"}-${index}`,
+      displayAction,
+      displayTime: formatDateTime(row.lastCreatedAt),
+    };
+  });
 }
 
 export default function PaymentChangeRequestsPanel({
@@ -269,26 +502,20 @@ export default function PaymentChangeRequestsPanel({
   const [actors, setActors] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  const actorList = useMemo(() => buildUniqueActors(items, actors), [items, actors]);
+
   const actorColors = useMemo(() => {
     const map = new Map();
-    actors.forEach((actor) => {
-      map.set(getActorSeed(actor), colorFromSeed(getActorSeed(actor)));
-    });
 
-    items.forEach((item) => {
-      const actor = item?.actor || {
-        id: item?.actorUserId,
-        name: item?.actorName,
-        email: item?.actorEmail,
-      };
+    actorList.forEach((actor) => {
       const seed = getActorSeed(actor);
-      if (!map.has(seed)) {
-        map.set(seed, colorFromSeed(seed));
-      }
+      map.set(seed, colorFromSeed(seed));
     });
 
     return map;
-  }, [actors, items]);
+  }, [actorList]);
+
+  const mergedTimeline = useMemo(() => mergeConsecutiveLogs(items), [items]);
 
   async function loadLogs() {
     if (!open || !paymentCloneId) return;
@@ -324,7 +551,7 @@ export default function PaymentChangeRequestsPanel({
           <div>
             <h3 style={styles.title}>Payment Sheet Row Audit</h3>
             <p style={styles.subtitle}>
-              Row ID: {safeText(paymentCloneId)} — jis user ne jo field edit ki hai, usi user ke color me woh box highlight hoga.
+              Row ID: {safeText(paymentCloneId)} — same user ke consecutive changes ek hi line me merge honge aur sirf changed fields color me aayengi.
             </p>
           </div>
 
@@ -343,8 +570,8 @@ export default function PaymentChangeRequestsPanel({
             <div style={styles.blockTitle}>Users who edited this row</div>
             <div style={{ padding: "12px" }}>
               <div style={styles.badgeWrap}>
-                {actors.length ? (
-                  actors.map((actor, idx) => {
+                {actorList.length ? (
+                  actorList.map((actor, idx) => {
                     const seed = getActorSeed(actor);
                     const color = actorColors.get(seed) || "#166534";
 
@@ -378,7 +605,7 @@ export default function PaymentChangeRequestsPanel({
                   <tr>
                     {FIELD_COLUMNS.map((col) => (
                       <td key={col.key} style={{ ...styles.td, ...styles.currentRowCell }}>
-                        {safeText(rowData?.[col.key])}
+                        {safeText(getFieldValue(rowData || {}, col.key))}
                       </td>
                     ))}
                   </tr>
@@ -388,72 +615,95 @@ export default function PaymentChangeRequestsPanel({
           </div>
 
           <div style={styles.block}>
-            <div style={styles.blockTitle}>Audit Timeline (table format)</div>
+            <div style={styles.blockTitle}>Audit Timeline (merged & easy view)</div>
+            <div style={styles.blockSubText}>
+              Top badges ke colors aur neeche highlighted cells same user ko show karte hain.
+            </div>
 
             {loading ? (
               <div style={styles.empty}>Loading audit logs...</div>
-            ) : !items.length ? (
+            ) : !mergedTimeline.length ? (
               <div style={styles.empty}>No audit log found for this row.</div>
             ) : (
-              <div style={styles.tableWrap}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={{ ...styles.th, ...styles.metaCell }}>User</th>
-                      <th style={{ ...styles.th, ...styles.smallCell }}>Action</th>
-                      <th style={{ ...styles.th, ...styles.metaCell }}>Time</th>
-                      {FIELD_COLUMNS.map((col) => (
-                        <th key={col.key} style={styles.th}>{col.label}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((item) => {
-                      const actor = item?.actor || {
-                        id: item?.actorUserId,
-                        name: item?.actorName,
-                        email: item?.actorEmail,
-                        role: item?.actorRole,
-                      };
+              <>
+                <div style={styles.legendNote}>
+                  Same user ke consecutive edits ek hi row me show honge. Dusra user edit karega to new row banegi.
+                </div>
 
-                      const seed = getActorSeed(actor);
-                      const color = actorColors.get(seed) || "#166534";
+                <div style={styles.tableWrap}>
+                  <table style={styles.table}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...styles.th, ...styles.actionCell }}>Action</th>
+                        <th style={{ ...styles.th, ...styles.timeCell }}>Time</th>
+                        {FIELD_COLUMNS.map((col) => (
+                          <th key={col.key} style={styles.th}>{col.label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {mergedTimeline.map((item) => {
+                        const actor = item.actor || getActorFromItem(item);
+                        const seed = getActorSeed(actor);
+                        const color = actorColors.get(seed) || "#166534";
 
-                      return (
-                        <tr key={item.id}>
-                          <td style={styles.td}>
-                            <span style={{ ...styles.badge, background: color }}>
-                              {safeText(item.actorName)}
-                            </span>
-                          </td>
-
-                          <td style={styles.td}>{actionLabel(item.actionType)}</td>
-                          <td style={styles.td}>{formatDateTime(item.createdAt)}</td>
-
-                          {FIELD_COLUMNS.map((col) => {
-                            const highlighted = isHighlighted(item, col.key);
-                            const value = getCellDisplayValue(item, col.key);
-
-                            return (
-                              <td
-                                key={`${item.id}-${col.key}`}
+                        return (
+                          <tr key={item.rowKey}>
+                            <td
+                              style={{
+                                ...styles.td,
+                                ...styles.actionCell,
+                                borderLeft: `6px solid ${color}`,
+                              }}
+                            >
+                              <div style={{ fontWeight: 800, color: "#111111" }}>
+                                {item.displayAction}
+                              </div>
+                              <span
                                 style={{
-                                  ...styles.td,
-                                  background: highlighted ? color : "#ffffff",
-                                  color: highlighted ? "#ffffff" : "#111111",
-                                  fontWeight: highlighted ? 800 : 500,
+                                  ...styles.smallInlineBadge,
+                                  background: color,
                                 }}
                               >
-                                {value || "--"}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                                {safeText(actor?.name)}
+                              </span>
+                            </td>
+
+                            <td style={{ ...styles.td, ...styles.timeCell }}>
+                              {item.displayTime}
+                            </td>
+
+                            {FIELD_COLUMNS.map((col) => {
+                              const highlighted = Object.prototype.hasOwnProperty.call(
+                                item.mergedValues || {},
+                                col.key
+                              );
+
+                              const value = highlighted
+                                ? safeText(item.mergedValues[col.key])
+                                : "--";
+
+                              return (
+                                <td
+                                  key={`${item.rowKey}-${col.key}`}
+                                  style={{
+                                    ...styles.td,
+                                    background: highlighted ? color : "#ffffff",
+                                    color: highlighted ? "#ffffff" : "#111111",
+                                    fontWeight: highlighted ? 800 : 500,
+                                  }}
+                                >
+                                  {value}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         </div>
