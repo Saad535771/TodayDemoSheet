@@ -10,7 +10,7 @@ const MAX_HISTORY = 100;
 const RECENT_MUTATION_PAUSE_MS = 1200;
 const PAGE_TOP_OFFSET = 78;
 const FIXED_TOOLBAR_HEIGHT = 118;
-const STICKY_TOP = 0;
+const STICKY_TOP =-10;
 const styles = {
   page: {
     minHeight: "100vh",
@@ -134,14 +134,15 @@ const styles = {
     whiteSpace: "nowrap",
   },
   tableWrapper: {
-    overflowX: "auto",
-    overflowY: "visible",
-    position: "relative",
-    borderRadius: "12px",
-    border: "2px solid #000000",
-    maxWidth: "100%",
-    background: "#ffffff",
-  },
+  overflowX: "auto",
+  overflowY: "auto",
+  position: "relative",
+  borderRadius: "12px",
+  border: "2px solid #000000",
+  maxWidth: "100%",
+  maxHeight: "calc(100vh - 220px)",
+  background: "#ffffff",
+},
   tableZoomWrap: {
     transformOrigin: "top left",
   },
@@ -152,21 +153,20 @@ const styles = {
     fontSize: "12px",
     background: "#ffffff",
   },
-  th: {
-    background: "#000000",
-    color: "#ffffff",
-    fontWeight: "700",
-    textAlign: "center",
-    padding: "12px 10px",
-    borderBottom: "1.5px solid #000000",
-    borderRight: "1.5px solid #000000",
-    position: "sticky",
-    width:'100%',
-    top: "0px",
-    zIndex: 1200,
-    whiteSpace: "nowrap",
-    boxShadow: "0 3px 0 rgba(0,0,0,0.08)",
-  },
+ th: {
+  background: "#000000",
+  color: "#ffffff",
+  fontWeight: "700",
+  textAlign: "center",
+  padding: "12px 10px",
+  borderBottom: "1.5px solid #000000",
+  borderRight: "1.5px solid #000000",
+  position: "sticky",
+  top: 0,
+  zIndex: 1200,
+  whiteSpace: "nowrap",
+  boxShadow: "0 3px 0 rgba(0,0,0,0.08)",
+},
   td: {
     borderBottom: "1.5px solid #000000",
     borderRight: "1.5px solid #000000",
@@ -2587,7 +2587,7 @@ export default function PaymentSheetWithDate({ me }) {
 
       <div style={styles.card} ref={cardRef}>
         {isHeaderPinned ? (
-          <div style={{ height: `${headerMetrics.height + 14}px` }} />
+          <div style={{ height: `${headerMetrics.height + 4}px` }} />
         ) : null}
 
         <div
@@ -2701,8 +2701,8 @@ export default function PaymentSheetWithDate({ me }) {
             <table style={styles.table}>
               <thead>
                 <tr>
-                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "68px" }}>#</th>
-                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "58px" }}>
+                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "8px" }}>#</th>
+                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "8px" }}>
                     <input
                       type="checkbox"
                       checked={allVisibleRowsSelected}
@@ -2714,8 +2714,8 @@ export default function PaymentSheetWithDate({ me }) {
                       aria-label="Select all visible rows"
                     />
                   </th>
-                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "70px" }}>Sort</th>
-                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "60px" }}>🎨</th>
+                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "20px" }}>Sort</th>
+                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "30px" }}>🎨</th>
 
                   {gridColumns.map((col) => (
                     <th key={col.id} style={{ ...styles.th, top: tableHeadTop, minWidth: `${col.width}px` }}>
@@ -2723,7 +2723,7 @@ export default function PaymentSheetWithDate({ me }) {
                     </th>
                   ))}
 
-                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "140px" }}>Action</th>
+                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "100px" }}>Action</th>
                 </tr>
               </thead>
 
