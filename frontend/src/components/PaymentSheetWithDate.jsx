@@ -7,6 +7,7 @@ const MAX_ZOOM = 1.5;
 const ZOOM_STEP = 0.1;
 const MAX_HISTORY = 100;
 const RECENT_MUTATION_PAUSE_MS = 1200;
+const SILENT_RELOAD_DEBOUNCE_MS = 800;
 const PAGE_TOP_OFFSET = 78;
 const FIXED_TOOLBAR_HEIGHT = 118;
 const STICKY_TOP =-40;
@@ -349,7 +350,26 @@ function getRowId(row) {
 }
 
 function rowsAreSame(a = [], b = []) {
-  return JSON.stringify(a) === JSON.stringify(b);
+  if (a === b) return true;
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+
+  for (let i = 0; i < a.length; i += 1) {
+    const left = a[i] || {};
+    const right = b[i] || {};
+
+    if (getRowId(left) !== getRowId(right)) return false;
+
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+    if (leftKeys.length !== rightKeys.length) return false;
+
+    for (const key of leftKeys) {
+      if (!Object.is(left[key], right[key])) return false;
+    }
+  }
+
+  return true;
 }
 
 function cloneRow(row) {
@@ -897,6 +917,7 @@ export default function PaymentSheetWithDate({ me }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [zoomLevel, setZoomLevel] = useState(1);
   const [selectedRowIds, setSelectedRowIds] = useState(new Set());
@@ -935,15 +956,8 @@ export default function PaymentSheetWithDate({ me }) {
   const mutationInFlightRef = useRef(false);
   const isApplyingHistoryRef = useRef(false);
   const skipNextPollUntilRef = useRef(0);
+  const silentReloadTimerRef = useRef(null);
 
-  const canSeeTutorShare =
-    me?.role === "admin" || me?.role === "hod" || !!me?.access_tutor_share;
-
-  const canSeeLacasShare =
-    me?.role === "admin" || me?.role === "hod" || !!me?.access_lacas_share;
-
-  const canSeeTotalFees =
-    me?.role === "admin" || me?.role === "hod" || !!me?.access_total_fees;
   const currentRole = resolveCurrentUserRole(me);
   const canSeeAuditTrail = currentRole === "admin";
   const zoomPercent = `${Math.round(zoomLevel * 100)}%`;
@@ -1010,31 +1024,17 @@ export default function PaymentSheetWithDate({ me }) {
       },
     ];
 
-    if (canSeeTutorShare) {
-      cols.push(
-        {
-          id: "tutorFee",
-          label: "Tutor Fee",
-          field: "tutorFee",
-          editable: true,
-          width: 130,
-          type: "number",
-          align: "left",
-        },
-        {
-          id: "tutorShare",
-          label: "Tutor Share",
-          field: "tutorShare",
-          editable: true,
-          width: 130,
-          type: "number",
-          align: "left",
-        }
-      );
-    }
-
-    if (canSeeLacasShare) {
-      cols.push({
+    cols.push(
+      {
+        id: "tutorFee",
+        label: "Tutor Fee",
+        field: "tutorFee",
+        editable: true,
+        width: 130,
+        type: "number",
+        align: "left",
+      },
+      {
         id: "lacasShare",
         label: "Lacas Share",
         field: "lacasShare",
@@ -1042,11 +1042,8 @@ export default function PaymentSheetWithDate({ me }) {
         width: 130,
         type: "number",
         align: "left",
-      });
-    }
-
-    if (canSeeTotalFees) {
-      cols.push({
+      },
+      {
         id: "totalFees",
         label: "Total Fee",
         field: "totalFees",
@@ -1054,8 +1051,8 @@ export default function PaymentSheetWithDate({ me }) {
         width: 130,
         type: "number",
         align: "left",
-      });
-    }
+      }
+    );
 
     cols.push(
       {
@@ -1087,7 +1084,7 @@ export default function PaymentSheetWithDate({ me }) {
     );
 
     return cols;
-  }, [canSeeTutorShare, canSeeLacasShare, canSeeTotalFees]);
+  }, []);
 
   const gridColumnIds = useMemo(() => gridColumns.map((c) => c.id), [gridColumns]);
 
@@ -1128,6 +1125,21 @@ export default function PaymentSheetWithDate({ me }) {
 
     document.addEventListener("mouseup", stopMouseSelection);
     return () => document.removeEventListener("mouseup", stopMouseSelection);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearch(searchInput);
+    }, 180);
+
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => () => {
+    if (silentReloadTimerRef.current) {
+      window.clearTimeout(silentReloadTimerRef.current);
+      silentReloadTimerRef.current = null;
+    }
   }, []);
 
   useEffect(() => {
@@ -1225,9 +1237,9 @@ export default function PaymentSheetWithDate({ me }) {
   }, [editingCell, gridColumnMap]);
 
 
-  const openAuditForRow = (row) => {
+  const openAuditPanel = () => {
     if (!canSeeAuditTrail) return;
-    setAuditRow(row || null);
+    setAuditRow(null);
     setAuditOpen(true);
   };
 
@@ -1254,6 +1266,24 @@ export default function PaymentSheetWithDate({ me }) {
   const setItemsImmediate = (nextItems) => {
     itemsRef.current = nextItems;
     setItems(nextItems);
+  };
+
+  const queueSilentReload = (delay = SILENT_RELOAD_DEBOUNCE_MS) => {
+    if (silentReloadTimerRef.current) {
+      window.clearTimeout(silentReloadTimerRef.current);
+    }
+
+    silentReloadTimerRef.current = window.setTimeout(() => {
+      silentReloadTimerRef.current = null;
+      void loadRows({ silent: true });
+    }, delay);
+  };
+
+  const syncRowsWithServer = (rows = []) => {
+    if (!mountedRef.current) return;
+    if (!rowsAreSame(itemsRef.current, rows)) {
+      setItemsImmediate(rows);
+    }
   };
 
   const applyUpdateEntries = async (updates, { historyLabel = "Edit", recordHistory = true } = {}) => {
@@ -1291,7 +1321,7 @@ export default function PaymentSheetWithDate({ me }) {
       }
 
       markMutationSettled();
-      await loadRows({ silent: true });
+      queueSilentReload();
       return true;
     } catch (err) {
       setItemsImmediate(previousItems);
@@ -1321,7 +1351,7 @@ export default function PaymentSheetWithDate({ me }) {
         afterOrder: cloneRow(afterOrder),
       });
       markMutationSettled();
-      await loadRows({ silent: true });
+      queueSilentReload();
       return true;
     } catch (err) {
       setItemsImmediate(previousItems);
@@ -1373,7 +1403,7 @@ export default function PaymentSheetWithDate({ me }) {
 
       historyRedoRef.current.push(entry);
       markMutationSettled();
-      await loadRows({ silent: true });
+      queueSilentReload();
     } catch (err) {
       setItemsImmediate(previousItems);
       historyUndoRef.current.push(entry);
@@ -1425,7 +1455,7 @@ export default function PaymentSheetWithDate({ me }) {
       }
       historyUndoRef.current.push(entry);
       markMutationSettled();
-      await loadRows({ silent: true });
+      queueSilentReload();
     } catch (err) {
       setItemsImmediate(previousItems);
       historyRedoRef.current.push(entry);
@@ -1469,9 +1499,7 @@ export default function PaymentSheetWithDate({ me }) {
           ? res.data
           : [];
       if (!mountedRef.current) return;
-      if (!rowsAreSame(itemsRef.current, rows)) {
-        setItems(rows);
-      }
+      syncRowsWithServer(rows);
     } catch (err) {
       console.error("Failed to load payment sheet rows:", err);
       if (!silent && mountedRef.current && initial) {
@@ -1509,7 +1537,6 @@ export default function PaymentSheetWithDate({ me }) {
         className: "",
         tutorName: "",
         tutorFee: "",
-        tutorShare: "",
         lacasShare: "",
         totalFees: "",
         status: "",
@@ -1571,9 +1598,9 @@ export default function PaymentSheetWithDate({ me }) {
         });
 
         markMutationSettled();
-        await loadRows({ silent: true });
+        queueSilentReload();
       } else {
-        await loadRows({ silent: true });
+        queueSilentReload();
       }
     } catch (err) {
       console.error("Failed to add row:", err);
@@ -1700,7 +1727,7 @@ export default function PaymentSheetWithDate({ me }) {
         row: cloneRow(row),
       });
       markMutationSettled();
-      await loadRows({ silent: true });
+      queueSilentReload();
     } catch (err) {
       console.error("Failed to delete row:", err);
       setItemsImmediate(previousItems);
@@ -1731,24 +1758,16 @@ export default function PaymentSheetWithDate({ me }) {
 
   function withAutoTotalFee(row, patch = {}) {
     const hasTutorFee = Object.prototype.hasOwnProperty.call(patch, "tutorFee");
-    const hasTutorShare = Object.prototype.hasOwnProperty.call(patch, "tutorShare");
     const hasLacasShare = Object.prototype.hasOwnProperty.call(patch, "lacasShare");
 
-    if (!hasTutorFee && !hasTutorShare && !hasLacasShare) return patch;
+    if (!hasTutorFee && !hasLacasShare) return patch;
 
-    const nextTutorFee = hasTutorFee
-      ? patch.tutorFee
-      : hasTutorShare
-        ? patch.tutorShare
-        : (row?.tutorFee ?? row?.tutorShare);
+    const nextTutorFee = hasTutorFee ? patch.tutorFee : row?.tutorFee;
     const nextLacasShare = hasLacasShare ? patch.lacasShare : row?.lacasShare;
-
-    const totalFees = calculateAutoTotalFees(nextTutorFee, nextLacasShare);
 
     return {
       ...patch,
-      totalFees,
-      ...(hasTutorShare && !hasTutorFee ? { tutorFee: nextTutorFee } : {}),
+      totalFees: calculateAutoTotalFees(nextTutorFee, nextLacasShare),
     };
   }
   const filteredItems = useMemo(() => {
@@ -1769,7 +1788,6 @@ export default function PaymentSheetWithDate({ me }) {
             item.className,
             item.tutorName,
             item.tutorFee,
-            item.tutorShare,
             item.lacasShare,
             item.totalFees,
             item.status,
@@ -1784,6 +1802,19 @@ export default function PaymentSheetWithDate({ me }) {
 
     return sortRowsByDateGroup(baseRows);
   }, [items, search]);
+
+  const itemIndexMap = useMemo(() => {
+    const next = new Map();
+
+    items.forEach((item, index) => {
+      const rowId = getRowId(item);
+      if (rowId !== undefined && rowId !== null) {
+        next.set(String(rowId), index);
+      }
+    });
+
+    return next;
+  }, [items]);
 
   const visibleRowIds = useMemo(
     () =>
@@ -2553,16 +2584,12 @@ export default function PaymentSheetWithDate({ me }) {
 
     if (
       editingCell?.colId !== "tutorFee" &&
-      editingCell?.colId !== "tutorShare" &&
       editingCell?.colId !== "lacasShare"
     ) {
       return row?.totalFees ?? "";
     }
 
-    const tutorFee =
-      editingCell.colId === "tutorFee" || editingCell.colId === "tutorShare"
-        ? editValue
-        : (row?.tutorFee ?? row?.tutorShare);
+    const tutorFee = editingCell.colId === "tutorFee" ? editValue : row?.tutorFee;
     const lacasShare =
       editingCell.colId === "lacasShare" ? editValue : row?.lacasShare;
 
@@ -2800,7 +2827,7 @@ export default function PaymentSheetWithDate({ me }) {
         >
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>Payment Sheet With Date</h2>
-            <p style={styles.subtitle}>Excel-style sheet with sticky toolbar, sticky header, color controls, totals columns, and history panel</p>
+            <p style={styles.subtitle}>Excel-style sheet with sticky toolbar, sticky header, tutor fee, lacas share, total fee columns, and one full-sheet history panel</p>
           </div>
 
           <div style={styles.actions}>
@@ -2834,9 +2861,9 @@ export default function PaymentSheetWithDate({ me }) {
 
             <input
               type="text"
-              placeholder="Search by date text, tuition name, tutor fee/share, lacas share, total fee, status..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by date text, tuition name, tutor fee, lacas share, total fee, status..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               style={styles.searchInput}
             />
 
@@ -2846,12 +2873,12 @@ export default function PaymentSheetWithDate({ me }) {
 
             {canSeeAuditTrail ? (
               <button
-                onClick={() => openAuditForRow(filteredItems.find((row) => selectedRowIds.has(getRowId(row))) || items[0] || null)}
+                onClick={openAuditPanel}
                 style={styles.refreshBtn}
                 disabled={!items.length}
                 title="Open history panel"
               >
-                History Panel
+                Sheet History
               </button>
             ) : null}
 
@@ -2943,9 +2970,7 @@ export default function PaymentSheetWithDate({ me }) {
                 ) : (
                   filteredItems.map((row, visibleIndex) => {
                     const rowId = getRowId(row);
-                    const originalIndex = items.findIndex(
-                      (item) => getRowId(item) === rowId
-                    );
+                    const originalIndex = itemIndexMap.get(String(rowId)) ?? -1;
 
                     const canMoveUp = originalIndex > 0;
                     const canMoveDown =
@@ -3043,16 +3068,6 @@ export default function PaymentSheetWithDate({ me }) {
 
                         <td style={styles.td}>
                           <div style={styles.actionGroup}>
-                            {canSeeAuditTrail ? (
-                              <button
-                                type="button"
-                                style={styles.historyBtn}
-                                onClick={() => openAuditForRow(row)}
-                                title="View row history"
-                              >
-                                History
-                              </button>
-                            ) : null}
 
                             <button
                               type="button"
@@ -3088,8 +3103,8 @@ export default function PaymentSheetWithDate({ me }) {
           setAuditOpen(false);
           setAuditRow(null);
         }}
-        paymentCloneId={getRowId(auditRow)}
-        rowData={auditRow}
+        scope="sheet"
+        moduleName="payment_sheet_with_date"
       />
     </div>
   );

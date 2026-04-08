@@ -1,35 +1,33 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api/api.js";
 
+const ACTOR_COLORS = [
+  { bg: "#ecfeff", border: "#a5f3fc", text: "#155e75" },
+  { bg: "#f0fdf4", border: "#86efac", text: "#166534" },
+  { bg: "#eff6ff", border: "#93c5fd", text: "#1d4ed8" },
+  { bg: "#fefce8", border: "#fde68a", text: "#854d0e" },
+  { bg: "#fdf2f8", border: "#f9a8d4", text: "#9d174d" },
+  { bg: "#f5f3ff", border: "#c4b5fd", text: "#6d28d9" },
+  { bg: "#fff7ed", border: "#fdba74", text: "#9a3412" },
+  { bg: "#f0fdfa", border: "#99f6e4", text: "#115e59" },
+];
+
 const styles = {
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.42)",
-    zIndex: 5000,
-    display: "flex",
-    justifyContent: "flex-end",
-  },
-  panel: {
-    width: "min(560px, 100vw)",
-    height: "100vh",
+  wrap: {
+    width: "100%",
     background: "#ffffff",
-    borderLeft: "2px solid #000000",
-    boxShadow: "-10px 0 24px rgba(0,0,0,0.14)",
-    display: "flex",
-    flexDirection: "column",
   },
   header: {
     position: "sticky",
     top: 0,
-    zIndex: 2,
-    background: "#ffffff",
-    borderBottom: "2px solid #000000",
-    padding: "18px 16px 14px",
+    zIndex: 5,
     display: "flex",
-    alignItems: "flex-start",
     justifyContent: "space-between",
+    alignItems: "center",
     gap: "12px",
+    padding: "16px 18px",
+    borderBottom: "2px solid #000000",
+    background: "#ffffff",
   },
   titleWrap: {
     display: "flex",
@@ -38,102 +36,99 @@ const styles = {
   },
   title: {
     margin: 0,
-    fontSize: "20px",
+    fontSize: "22px",
     fontWeight: 800,
     color: "#111111",
   },
   subtitle: {
     margin: 0,
-    fontSize: "12px",
     color: "#4b5563",
-    lineHeight: 1.4,
+    fontSize: "13px",
+    lineHeight: 1.45,
   },
   closeBtn: {
-    minWidth: "42px",
     height: "42px",
-    borderRadius: "10px",
+    minWidth: "42px",
     border: "1.5px solid #000000",
+    borderRadius: "10px",
     background: "#ffffff",
-    fontSize: "18px",
+    color: "#111111",
     fontWeight: 800,
+    fontSize: "18px",
     cursor: "pointer",
   },
-  metaBox: {
-    borderBottom: "1px solid #d1d5db",
-    padding: "14px 16px",
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+  summaryBar: {
+    display: "flex",
+    flexWrap: "wrap",
     gap: "10px",
+    padding: "12px 18px",
+    borderBottom: "1.5px solid #000000",
     background: "#fafafa",
   },
-  metaItem: {
-    border: "1px solid #e5e7eb",
-    borderRadius: "10px",
-    padding: "10px 12px",
+  summaryItem: {
+    border: "1px solid #d1d5db",
+    borderRadius: "999px",
+    padding: "8px 12px",
     background: "#ffffff",
-  },
-  metaLabel: {
-    fontSize: "11px",
+    fontSize: "12px",
     fontWeight: 700,
-    color: "#6b7280",
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-    marginBottom: "4px",
+    color: "#374151",
   },
-  metaValue: {
-    fontSize: "13px",
-    fontWeight: 700,
-    color: "#111827",
-    wordBreak: "break-word",
-  },
-  body: {
-    flex: 1,
+  scroller: {
+    width: "100%",
+    overflowX: "auto",
     overflowY: "auto",
-    padding: "16px",
+    maxHeight: "70vh",
     background: "#ffffff",
+  },
+  table: {
+    width: "100%",
+    minWidth: "1800px",
+    borderCollapse: "collapse",
+    fontSize: "12px",
+    background: "#ffffff",
+  },
+  th: {
+    position: "sticky",
+    top: 0,
+    zIndex: 3,
+    background: "#000000",
+    color: "#ffffff",
+    padding: "12px 10px",
+    textAlign: "center",
+    borderRight: "1.5px solid #000000",
+    borderBottom: "1.5px solid #000000",
+    whiteSpace: "nowrap",
+    fontWeight: 800,
+  },
+  td: {
+    verticalAlign: "top",
+    padding: "10px",
+    borderRight: "1.5px solid #000000",
+    borderBottom: "1.5px solid #000000",
+    background: "#ffffff",
+    color: "#111827",
+  },
+  empty: {
+    padding: "24px",
+    textAlign: "center",
+    fontWeight: 700,
+    color: "#475569",
   },
   loading: {
-    padding: "20px",
+    padding: "24px",
     textAlign: "center",
     fontWeight: 700,
     color: "#374151",
   },
   error: {
-    padding: "16px",
+    margin: "14px 18px",
+    padding: "14px 16px",
+    borderRadius: "12px",
     border: "1px solid #fecaca",
     background: "#fef2f2",
     color: "#991b1b",
-    borderRadius: "12px",
-    fontWeight: 600,
-  },
-  empty: {
-    padding: "20px",
-    border: "1px dashed #cbd5e1",
-    borderRadius: "14px",
-    textAlign: "center",
-    color: "#475569",
     fontWeight: 700,
-  },
-  card: {
-    border: "1.5px solid #000000",
-    borderRadius: "14px",
-    padding: "14px",
-    marginBottom: "14px",
-    background: "#ffffff",
-  },
-  cardHead: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: "10px",
-    marginBottom: "12px",
-    flexWrap: "wrap",
-  },
-  tagRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    flexWrap: "wrap",
   },
   actionTag: {
     display: "inline-flex",
@@ -141,94 +136,61 @@ const styles = {
     justifyContent: "center",
     borderRadius: "999px",
     padding: "6px 10px",
+    fontSize: "11px",
+    fontWeight: 800,
+    border: "1.5px solid currentColor",
+    whiteSpace: "nowrap",
+  },
+  userTag: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "999px",
+    padding: "6px 10px",
     fontSize: "12px",
     fontWeight: 800,
-    border: "1.5px solid #111827",
+    border: "1px solid transparent",
+    whiteSpace: "nowrap",
   },
-  timeTag: {
-    fontSize: "12px",
-    fontWeight: 700,
-    color: "#374151",
-  },
-  actor: {
-    fontSize: "13px",
-    fontWeight: 700,
-    color: "#111827",
-  },
-  message: {
-    fontSize: "13px",
-    color: "#374151",
-    marginBottom: "12px",
-    lineHeight: 1.5,
-  },
-  sectionTitle: {
-    fontSize: "12px",
-    fontWeight: 800,
-    color: "#111827",
-    marginBottom: "8px",
-    textTransform: "uppercase",
-    letterSpacing: "0.03em",
-  },
-  changedCols: {
+  chipWrap: {
     display: "flex",
-    gap: "8px",
+    gap: "6px",
     flexWrap: "wrap",
-    marginBottom: "12px",
   },
   chip: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: "999px",
-    padding: "5px 10px",
-    fontSize: "12px",
+    padding: "4px 8px",
+    fontSize: "11px",
     fontWeight: 700,
     background: "#eff6ff",
     border: "1px solid #bfdbfe",
     color: "#1d4ed8",
   },
-  compareGrid: {
+  detailBlock: {
     display: "grid",
-    gridTemplateColumns: "1fr",
-    gap: "10px",
+    gap: "6px",
   },
-  fieldRow: {
-    border: "1px solid #e5e7eb",
-    borderRadius: "12px",
-    overflow: "hidden",
-    background: "#ffffff",
-  },
-  fieldLabel: {
-    background: "#f8fafc",
-    borderBottom: "1px solid #e5e7eb",
+  detailLine: {
     padding: "8px 10px",
-    fontSize: "12px",
-    fontWeight: 800,
-    color: "#334155",
+    borderRadius: "10px",
+    border: "1px solid #e5e7eb",
+    background: "#ffffff",
+    lineHeight: 1.45,
   },
-  fieldValues: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+  beforeValue: {
+    color: "#9a3412",
+    fontWeight: 700,
   },
-  beforeBox: {
-    padding: "10px",
-    borderRight: "1px solid #e5e7eb",
-    background: "#fff7ed",
+  afterValue: {
+    color: "#166534",
+    fontWeight: 700,
   },
-  afterBox: {
-    padding: "10px",
-    background: "#ecfdf5",
-  },
-  valueLabel: {
-    fontSize: "11px",
-    fontWeight: 800,
+  muted: {
     color: "#6b7280",
-    textTransform: "uppercase",
-    marginBottom: "4px",
-  },
-  valueText: {
-    fontSize: "12px",
-    color: "#111827",
-    lineHeight: 1.5,
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
+    fontWeight: 700,
   },
 };
 
@@ -253,6 +215,16 @@ function toObject(value) {
   const parsed = safeJsonParse(value);
   if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
   return {};
+}
+
+function normalizeHistoryResponse(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.history)) return data.history;
+  if (Array.isArray(data?.requests)) return data.requests;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.logs)) return data.logs;
+  return [];
 }
 
 function getActionStyle(actionType) {
@@ -280,26 +252,44 @@ function formatDateTime(value) {
   })}`;
 }
 
-function normalizeHistoryResponse(data) {
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.items)) return data.items;
-  if (Array.isArray(data?.history)) return data.history;
-  if (Array.isArray(data?.requests)) return data.requests;
-  if (Array.isArray(data?.data)) return data.data;
-  if (Array.isArray(data?.logs)) return data.logs;
-  return [];
-}
-
 function displayValue(value) {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "object") {
     try {
-      return JSON.stringify(value, null, 2);
+      return JSON.stringify(value);
     } catch {
       return String(value);
     }
   }
   return String(value);
+}
+
+function pickPrimaryValue(...values) {
+  for (const value of values) {
+    if (value !== null && value !== undefined && value !== "") return value;
+  }
+  return "—";
+}
+
+function getActorColor(name) {
+  const key = String(name || "Unknown User");
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+  return ACTOR_COLORS[hash % ACTOR_COLORS.length];
+}
+
+function buildCompactChangeLines(beforeData, afterData, changedColumns) {
+  const columns = changedColumns.length
+    ? changedColumns
+    : Array.from(new Set([...Object.keys(beforeData), ...Object.keys(afterData)]));
+
+  return columns.map((field) => ({
+    field,
+    before: displayValue(beforeData[field]),
+    after: displayValue(afterData[field]),
+  }));
 }
 
 export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId, rowData }) {
@@ -308,7 +298,7 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!open || !paymentCloneId) return;
+    if (!open) return;
 
     let cancelled = false;
 
@@ -316,10 +306,17 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
       setLoading(true);
       setError("");
 
+      const filters = [];
+      if (paymentCloneId !== undefined && paymentCloneId !== null) {
+        filters.push(`paymentCloneId=${encodeURIComponent(paymentCloneId)}`);
+      }
+      filters.push("moduleName=payment_sheet_with_date");
+      const query = filters.length ? `?${filters.join("&")}` : "";
+
       const endpoints = [
-        `/payment-change-requests/history?paymentCloneId=${encodeURIComponent(paymentCloneId)}&moduleName=payment_sheet_with_date`,
-        `/payment-change-requests/history?paymentCloneId=${encodeURIComponent(paymentCloneId)}`,
-        `/payment-change-requests/logs?paymentCloneId=${encodeURIComponent(paymentCloneId)}`,
+        `/payment-change-requests/history${query}`,
+        `/payment-change-requests/history${paymentCloneId !== undefined && paymentCloneId !== null ? `?paymentCloneId=${encodeURIComponent(paymentCloneId)}` : ""}`,
+        `/payment-change-requests/logs${paymentCloneId !== undefined && paymentCloneId !== null ? `?paymentCloneId=${encodeURIComponent(paymentCloneId)}` : ""}`,
       ];
 
       let loaded = [];
@@ -328,10 +325,14 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
       for (const endpoint of endpoints) {
         try {
           const res = await api.get(endpoint);
-          const normalized = normalizeHistoryResponse(res.data).filter((item) => {
-            const candidateId = item?.paymentCloneId ?? item?.payment_clone_id ?? item?.paymentClone?.id ?? null;
-            return String(candidateId) === String(paymentCloneId);
-          });
+          let normalized = normalizeHistoryResponse(res.data);
+
+          if (paymentCloneId !== undefined && paymentCloneId !== null) {
+            normalized = normalized.filter((item) => {
+              const candidateId = item?.paymentCloneId ?? item?.payment_clone_id ?? item?.paymentClone?.id ?? null;
+              return String(candidateId) === String(paymentCloneId);
+            });
+          }
 
           if (normalized.length) {
             loaded = normalized;
@@ -339,7 +340,7 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
           }
 
           if (!loaded.length) {
-            loaded = normalizeHistoryResponse(res.data);
+            loaded = normalized;
           }
         } catch (err) {
           lastError = err;
@@ -349,7 +350,7 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
       if (cancelled) return;
 
       if (!loaded.length && lastError) {
-        setError(lastError?.response?.data?.message || "Failed to load payment history.");
+        setError(lastError?.response?.data?.message || "Failed to load payment sheet history.");
         setItems([]);
       } else {
         const sorted = [...loaded].sort((a, b) => {
@@ -369,126 +370,172 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
     };
   }, [open, paymentCloneId]);
 
-  const rowMeta = useMemo(() => ({
-    tuitionName: rowData?.tuitionName || "-",
-    date: rowData?.date || rowData?.paymentDate || "-",
-    tutorFee: rowData?.tutorFee ?? rowData?.tutorShare ?? "-",
-    totalFees: rowData?.totalFees ?? "-",
-  }), [rowData]);
+  const normalizedItems = useMemo(() => {
+    return items.map((item, index) => {
+      const changedColumns = toArray(item?.changedColumns ?? item?.changed_columns).map((col) => String(col));
+      const beforeData = toObject(item?.beforeData ?? item?.before_data);
+      const afterData = toObject(item?.afterData ?? item?.after_data);
+      const metadata = toObject(item?.metadata);
+      const actorName = item?.actorName || item?.actor_name || item?.actorUser?.name || "Unknown User";
+      const actionType = item?.actionType || item?.action_type || "update";
+      const timestamp = item?.createdAt || item?.created_at || item?.updatedAt || item?.updated_at;
+      const compactLines = buildCompactChangeLines(beforeData, afterData, changedColumns);
+
+      return {
+        id: item?.id || `${actorName}-${timestamp}-${index}`,
+        actionType,
+        actorName,
+        timestamp,
+        metadata,
+        changedColumns,
+        beforeData,
+        afterData,
+        compactLines,
+        tuitionName: pickPrimaryValue(
+          afterData.tuitionName,
+          beforeData.tuitionName,
+          item?.paymentClone?.tuitionName,
+          metadata?.tuitionName
+        ),
+        dateWithMonth: pickPrimaryValue(
+          afterData.dateWithMonth,
+          beforeData.dateWithMonth,
+          afterData.paymentDate,
+          beforeData.paymentDate,
+          metadata?.date,
+          rowData?.dateWithMonth,
+          rowData?.paymentDate
+        ),
+        tutorFee: pickPrimaryValue(afterData.tutorFee, beforeData.tutorFee, rowData?.tutorFee),
+        lacasShare: pickPrimaryValue(afterData.lacasShare, beforeData.lacasShare, rowData?.lacasShare),
+        totalFees: pickPrimaryValue(afterData.totalFees, beforeData.totalFees, rowData?.totalFees),
+      };
+    });
+  }, [items, rowData]);
+
+  const summary = useMemo(() => {
+    const users = new Set(normalizedItems.map((item) => item.actorName));
+    const actions = new Set(normalizedItems.map((item) => item.actionType));
+    return {
+      total: normalizedItems.length,
+      users: users.size,
+      actions: actions.size,
+    };
+  }, [normalizedItems]);
 
   if (!open) return null;
 
   return (
-    <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.panel} onClick={(e) => e.stopPropagation()}>
-        <div style={styles.header}>
-          <div style={styles.titleWrap}>
-            <h3 style={styles.title}>Payment Row History</h3>
-            <p style={styles.subtitle}>
-              Yeh panel selected row ki changes, user name, changed columns, aur before/after values show karta hai.
-            </p>
-          </div>
-          <button type="button" style={styles.closeBtn} onClick={onClose} aria-label="Close history panel">
-            ×
-          </button>
+    <div style={styles.wrap}>
+      <div style={styles.header}>
+        <div style={styles.titleWrap}>
+          <h3 style={styles.title}>
+            {paymentCloneId ? "Payment Row History" : "Payment Sheet History"}
+          </h3>
+          <p style={styles.subtitle}>
+            Yeh full-width history table hai. Har user ki create, update, delete, reorder changes yahan same sheet style me show hongi.
+          </p>
         </div>
+        <button type="button" style={styles.closeBtn} onClick={onClose} aria-label="Close history panel">
+          ×
+        </button>
+      </div>
 
-        <div style={styles.metaBox}>
-          <div style={styles.metaItem}>
-            <div style={styles.metaLabel}>Tuition Name</div>
-            <div style={styles.metaValue}>{rowMeta.tuitionName}</div>
-          </div>
-          <div style={styles.metaItem}>
-            <div style={styles.metaLabel}>Date</div>
-            <div style={styles.metaValue}>{rowMeta.date || "-"}</div>
-          </div>
-          <div style={styles.metaItem}>
-            <div style={styles.metaLabel}>Tutor Fee / Share</div>
-            <div style={styles.metaValue}>{rowMeta.tutorFee}</div>
-          </div>
-          <div style={styles.metaItem}>
-            <div style={styles.metaLabel}>Total Fee</div>
-            <div style={styles.metaValue}>{rowMeta.totalFees}</div>
-          </div>
-        </div>
+      <div style={styles.summaryBar}>
+        <div style={styles.summaryItem}>Total Changes: {summary.total}</div>
+        <div style={styles.summaryItem}>Users: {summary.users}</div>
+        <div style={styles.summaryItem}>Action Types: {summary.actions}</div>
+        <div style={styles.summaryItem}>Mode: {paymentCloneId ? "Selected Row" : "Whole Sheet"}</div>
+      </div>
 
-        <div style={styles.body}>
-          {loading ? <div style={styles.loading}>Loading history...</div> : null}
+      {error ? <div style={styles.error}>{error}</div> : null}
 
-          {!loading && error ? <div style={styles.error}>{error}</div> : null}
+      <div style={styles.scroller}>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={{ ...styles.th, minWidth: "170px" }}>Date &amp; Time</th>
+              <th style={{ ...styles.th, minWidth: "180px" }}>User</th>
+              <th style={{ ...styles.th, minWidth: "120px" }}>Action</th>
+              <th style={{ ...styles.th, minWidth: "220px" }}>Tuition Name</th>
+              <th style={{ ...styles.th, minWidth: "130px" }}>Date</th>
+              <th style={{ ...styles.th, minWidth: "110px" }}>Tutor Fee</th>
+              <th style={{ ...styles.th, minWidth: "110px" }}>Lacas Share</th>
+              <th style={{ ...styles.th, minWidth: "110px" }}>Total Fee</th>
+              <th style={{ ...styles.th, minWidth: "250px" }}>Changed Columns</th>
+              <th style={{ ...styles.th, minWidth: "600px" }}>Before / After Changes</th>
+              <th style={{ ...styles.th, minWidth: "260px" }}>Message</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={11} style={styles.loading}>Loading payment history...</td>
+              </tr>
+            ) : null}
 
-          {!loading && !error && !items.length ? (
-            <div style={styles.empty}>No history found for this row yet.</div>
-          ) : null}
+            {!loading && !normalizedItems.length ? (
+              <tr>
+                <td colSpan={11} style={styles.empty}>No history found yet.</td>
+              </tr>
+            ) : null}
 
-          {!loading && !error && items.map((item, index) => {
-            const changedColumns = toArray(item?.changedColumns ?? item?.changed_columns).map((col) => String(col));
-            const beforeData = toObject(item?.beforeData ?? item?.before_data);
-            const afterData = toObject(item?.afterData ?? item?.after_data);
-            const metadata = toObject(item?.metadata);
-            const actorName = item?.actorName || item?.actor_name || item?.actorUser?.name || "Unknown User";
-            const actionType = item?.actionType || item?.action_type || "update";
-            const timestamp = item?.createdAt || item?.created_at || item?.updatedAt || item?.updated_at;
-            const columnsToShow = changedColumns.length
-              ? changedColumns
-              : Array.from(new Set([...Object.keys(beforeData), ...Object.keys(afterData)]));
-            const actionStyle = getActionStyle(actionType);
-
-            return (
-              <div key={item?.id || index} style={styles.card}>
-                <div style={styles.cardHead}>
-                  <div>
-                    <div style={styles.tagRow}>
-                      <span style={{ ...styles.actionTag, ...actionStyle }}>
-                        {String(actionType).toUpperCase()}
-                      </span>
-                      <span style={styles.timeTag}>{formatDateTime(timestamp)}</span>
-                    </div>
-                    <div style={{ ...styles.actor, marginTop: 8 }}>{actorName}</div>
-                  </div>
-                </div>
-
-                <div style={styles.message}>
-                  {metadata?.message || metadata?.historyLabel || "Payment row changed."}
-                </div>
-
-                {changedColumns.length ? (
-                  <>
-                    <div style={styles.sectionTitle}>Changed Columns</div>
-                    <div style={styles.changedCols}>
-                      {changedColumns.map((col) => (
-                        <span key={col} style={styles.chip}>{col}</span>
+            {!loading && normalizedItems.map((item) => {
+              const actionStyle = getActionStyle(item.actionType);
+              const actorStyle = getActorColor(item.actorName);
+              return (
+                <tr key={item.id}>
+                  <td style={styles.td}>{formatDateTime(item.timestamp)}</td>
+                  <td style={{ ...styles.td, background: actorStyle.bg }}>
+                    <span
+                      style={{
+                        ...styles.userTag,
+                        background: actorStyle.bg,
+                        color: actorStyle.text,
+                        borderColor: actorStyle.border,
+                      }}
+                    >
+                      {item.actorName}
+                    </span>
+                  </td>
+                  <td style={styles.td}>
+                    <span style={{ ...styles.actionTag, ...actionStyle }}>
+                      {String(item.actionType).toUpperCase()}
+                    </span>
+                  </td>
+                  <td style={styles.td}>{displayValue(item.tuitionName)}</td>
+                  <td style={styles.td}>{displayValue(item.dateWithMonth)}</td>
+                  <td style={styles.td}>{displayValue(item.tutorFee)}</td>
+                  <td style={styles.td}>{displayValue(item.lacasShare)}</td>
+                  <td style={styles.td}>{displayValue(item.totalFees)}</td>
+                  <td style={styles.td}>
+                    <div style={styles.chipWrap}>
+                      {(item.changedColumns.length ? item.changedColumns : ["No explicit columns"]).map((col) => (
+                        <span key={`${item.id}-${col}`} style={styles.chip}>{col}</span>
                       ))}
                     </div>
-                  </>
-                ) : null}
-
-                {columnsToShow.length ? (
-                  <>
-                    <div style={styles.sectionTitle}>Before / After</div>
-                    <div style={styles.compareGrid}>
-                      {columnsToShow.map((field) => (
-                        <div key={field} style={styles.fieldRow}>
-                          <div style={styles.fieldLabel}>{field}</div>
-                          <div style={styles.fieldValues}>
-                            <div style={styles.beforeBox}>
-                              <div style={styles.valueLabel}>Before</div>
-                              <div style={styles.valueText}>{displayValue(beforeData[field])}</div>
-                            </div>
-                            <div style={styles.afterBox}>
-                              <div style={styles.valueLabel}>After</div>
-                              <div style={styles.valueText}>{displayValue(afterData[field])}</div>
-                            </div>
+                  </td>
+                  <td style={styles.td}>
+                    <div style={styles.detailBlock}>
+                      {item.compactLines.length ? item.compactLines.map((line) => (
+                        <div key={`${item.id}-${line.field}`} style={styles.detailLine}>
+                          <strong>{line.field}</strong>
+                          <div>
+                            <span style={styles.beforeValue}>Before:</span> {line.before}
+                          </div>
+                          <div>
+                            <span style={styles.afterValue}>After:</span> {line.after}
                           </div>
                         </div>
-                      ))}
+                      )) : <span style={styles.muted}>No before/after diff found.</span>}
                     </div>
-                  </>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
+                  </td>
+                  <td style={styles.td}>{displayValue(item.metadata?.message || item.metadata?.historyLabel || "Payment sheet changed.")}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
