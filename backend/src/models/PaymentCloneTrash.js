@@ -28,6 +28,12 @@ export function definePaymentCloneTrash(sequelize) {
         field: "payment_date",
       },
 
+      date: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+        field: "date",
+      },
+
       dateWithMonth: {
         type: DataTypes.STRING(100),
         allowNull: true,
@@ -40,12 +46,25 @@ export function definePaymentCloneTrash(sequelize) {
         field: "tuition_name",
       },
 
+      totalStudents: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: "total_students",
+      },
+
       country: {
         type: DataTypes.STRING(100),
         allowNull: true,
         field: "country",
       },
 
+      subjects: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: "subjects",
+      },
+
+      // legacy fallback
       className: {
         type: DataTypes.STRING(100),
         allowNull: true,
@@ -58,7 +77,7 @@ export function definePaymentCloneTrash(sequelize) {
         field: "tutor_name",
       },
 
-      tutorShare: {
+      tutorFee: {
         type: DataTypes.DECIMAL(12, 2),
         allowNull: true,
         field: "tutor_share",
@@ -77,7 +96,7 @@ export function definePaymentCloneTrash(sequelize) {
       },
 
       status: {
-        type: DataTypes.STRING(100),
+        type: DataTypes.TEXT,
         allowNull: true,
         field: "status",
       },
@@ -86,6 +105,12 @@ export function definePaymentCloneTrash(sequelize) {
         type: DataTypes.TEXT,
         allowNull: true,
         field: "feedback",
+      },
+
+      notes: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: "notes",
       },
 
       otmName: {
@@ -136,6 +161,13 @@ export function definePaymentCloneTrash(sequelize) {
         type: DataTypes.STRING(20),
         allowNull: true,
         field: "tuition_name_color",
+      },
+
+      daysPerWeek: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: 0,
+        field: "days_per_week",
       },
     },
     {

@@ -23,6 +23,12 @@ export function definePaymentClone(sequelize) {
         field: "payment_date",
       },
 
+      date: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+        field: "date",
+      },
+
       dateWithMonth: {
         type: DataTypes.STRING(100),
         allowNull: true,
@@ -35,12 +41,25 @@ export function definePaymentClone(sequelize) {
         field: "tuition_name",
       },
 
+      totalStudents: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: "total_students",
+      },
+
       country: {
         type: DataTypes.STRING(100),
         allowNull: true,
         field: "country",
       },
 
+      subjects: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: "subjects",
+      },
+
+      // legacy fallback
       className: {
         type: DataTypes.STRING(100),
         allowNull: true,
@@ -53,7 +72,7 @@ export function definePaymentClone(sequelize) {
         field: "tutor_name",
       },
 
-      tutorShare: {
+      tutorFee: {
         type: DataTypes.DECIMAL(12, 2),
         allowNull: true,
         field: "tutor_share",
@@ -72,14 +91,8 @@ export function definePaymentClone(sequelize) {
       },
 
       status: {
-        type: DataTypes.ENUM(
-          "Fees Receive",
-          "Fee Pending",
-          "Tuition Close",
-          "Tuition Pending"
-        ),
-        allowNull: false,
-        defaultValue: "Tuition Pending",
+        type: DataTypes.TEXT,
+        allowNull: true,
         field: "status",
       },
 
@@ -87,6 +100,12 @@ export function definePaymentClone(sequelize) {
         type: DataTypes.TEXT,
         allowNull: true,
         field: "feedback",
+      },
+
+      notes: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: "notes",
       },
 
       otmName: {
@@ -151,18 +170,6 @@ export function definePaymentClone(sequelize) {
         allowNull: true,
         defaultValue: 0,
         field: "days_per_week",
-      },
-
-      date: {
-        type: DataTypes.DATEONLY,
-        allowNull: true,
-        field: "date",
-      },
-
-      notes: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-        field: "notes",
       },
     },
     {
