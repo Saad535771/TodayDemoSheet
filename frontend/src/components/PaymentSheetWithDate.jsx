@@ -10,7 +10,7 @@ const MAX_HISTORY = 100;
 const RECENT_MUTATION_PAUSE_MS = 1200;
 const PAGE_TOP_OFFSET = 78;
 const FIXED_TOOLBAR_HEIGHT = 118;
-const STICKY_TOP =-10;
+const STICKY_TOP =-40;
 const styles = {
   page: {
     minHeight: "100vh",
@@ -140,7 +140,7 @@ const styles = {
   borderRadius: "12px",
   border: "2px solid #000000",
   maxWidth: "100%",
-  maxHeight: "calc(100vh - 220px)",
+  maxHeight: "calc(100vh - 0px)",
   background: "#ffffff",
 },
   tableZoomWrap: {
