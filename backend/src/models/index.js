@@ -8,6 +8,7 @@ import { defineUserPresence } from "./UserPresence.js";
 import { defineOtmTuitionEntry } from "./OtmTuitionEntry.js";
 import { defineOtmPortalReport } from "./OtmPortalReport.js";
 import { defineOtmClassTime } from "./OtmClassTime.js";
+import { defineOtmTotalClass } from "./OtmTotalClass.js";
 import { definePaymentChangeRequest } from "./PaymentChangeRequest.js";
 
 export function initModels(sequelize) {
@@ -21,6 +22,7 @@ export function initModels(sequelize) {
   const OtmTuitionEntry = defineOtmTuitionEntry(sequelize);
   const OtmPortalReport = defineOtmPortalReport(sequelize);
   const OtmClassTime = defineOtmClassTime(sequelize);
+  const OtmTotalClass = defineOtmTotalClass(sequelize);
   const PaymentChangeRequest = definePaymentChangeRequest(sequelize);
 
   UserPresence.belongsTo(User, {
@@ -51,6 +53,16 @@ export function initModels(sequelize) {
   User.hasMany(OtmPortalReport, {
     foreignKey: "userId",
     as: "otmReports",
+  });
+
+  OtmTotalClass.belongsTo(User, {
+    foreignKey: "userId",
+    as: "user",
+  });
+
+  User.hasMany(OtmTotalClass, {
+    foreignKey: "userId",
+    as: "otmTotalClasses",
   });
 
   PaymentChangeRequest.belongsTo(User, {
@@ -85,6 +97,7 @@ export function initModels(sequelize) {
     OtmTuitionEntry,
     OtmPortalReport,
     OtmClassTime,
+    OtmTotalClass,
     PaymentChangeRequest,
   };
 }

@@ -15,6 +15,7 @@ export function makeOtmManagementController({
   OtmTuitionEntry,
   OtmPortalReport,
   OtmClassTime,
+  OtmTotalClass,
 }) {
   const canUsePortal = (req) => req.user?.role === "otm" || req.user?.role === "admin";
   const isAdmin = (req) => req.user?.role === "admin";
@@ -194,6 +195,30 @@ export function makeOtmManagementController({
     return reportRows;
   }
 
+
+async function syncTotalClassTable(userId) {
+  const entries = await OtmTuitionEntry.findAll({
+    where: { userId },
+    order: [["sortOrder", "ASC"], ["id", "DESC"]],
+  });
+
+  const rows = buildTotalClassRows(entries.map((item) => item.get({ plain: true })));
+
+  await OtmTotalClass.destroy({ where: { userId } });
+
+  if (rows.length > 0) {
+    await OtmTotalClass.bulkCreate(
+      rows.map((row) => ({
+        userId,
+        ...row,
+        lastSyncedAt: new Date(),
+      }))
+    );
+  }
+
+  return rows;
+}
+
   async function getClassTimes() {
     const rows = await OtmClassTime.findAll({
       where: { isActive: true },
@@ -340,12 +365,14 @@ export function makeOtmManagementController({
         });
 
         const reportRows = await syncReportTable(target.userId);
+        const totalClassRows = await syncTotalClassTable(target.userId);
 
         return res.json({
           success: true,
           message: "Entry created successfully",
           entry,
           reportRows,
+          totalClassRows,
         });
       } catch (error) {
         console.error("OTM CREATE ENTRY ERROR:", error);
@@ -382,12 +409,14 @@ export function makeOtmManagementController({
         });
 
         const reportRows = await syncReportTable(target.userId);
+        const totalClassRows = await syncTotalClassTable(target.userId);
 
         return res.json({
           success: true,
           message: "Entry updated successfully",
           entry,
           reportRows,
+          totalClassRows,
         });
       } catch (error) {
         console.error("OTM UPDATE ENTRY ERROR:", error);
@@ -414,11 +443,13 @@ export function makeOtmManagementController({
         }
 
         const reportRows = await syncReportTable(target.userId);
+        const totalClassRows = await syncTotalClassTable(target.userId);
 
         return res.json({
           success: true,
           message: "Entry deleted successfully",
           reportRows,
+          totalClassRows,
         });
       } catch (error) {
         console.error("OTM DELETE ENTRY ERROR:", error);
@@ -475,13 +506,26 @@ export function makeOtmManagementController({
           order: [["sortOrder", "ASC"], ["id", "DESC"]],
         });
 
+        let totalClassRows = await OtmTotalClass.findAll({
+          where: { userId: target.userId },
+          order: [["tuitionName", "ASC"], ["tutorName", "ASC"]],
+        });
+
+        if (totalClassRows.length === 0 && entries.length > 0) {
+          await syncTotalClassTable(target.userId);
+          totalClassRows = await OtmTotalClass.findAll({
+            where: { userId: target.userId },
+            order: [["tuitionName", "ASC"], ["tutorName", "ASC"]],
+          });
+        }
+
         const plainEntries = entries.map((item) => item.get({ plain: true }));
         return res.json({
           summary: {
             totalClasses: plainEntries.length,
             byStatus: countBy(plainEntries.map((item) => item.status)),
           },
-          rows: buildTotalClassRows(plainEntries),
+          rows: totalClassRows.map((row) => row.get({ plain: true })),
         });
       } catch (error) {
         console.error("OTM TOTAL CLASS ERROR:", error);
