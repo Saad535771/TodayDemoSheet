@@ -245,7 +245,8 @@ function normalizeRole(role) {
 
 function hasAccessByRoleOrFlag(userData, permissionKey, rolesAllowed = []) {
   const role = normalizeRole(userData?.role);
-  if (rolesAllowed.includes(role)) return true;
+
+  if (role === "admin") return true; // admin always allowed
   return Boolean(userData?.[permissionKey]);
 }
 
@@ -358,8 +359,7 @@ export default function Dashboard() {
     const nextAllowedTabs = tabsConfig
       .map((t) => ({
         ...t,
-        allowed:
-          t.rolesAllowed.includes(roleNow) || Boolean(userData?.[t.permissionKey]),
+        allowed: t.rolesAllowed.includes(roleNow) || Boolean(userData?.[t.permissionKey]),
       }))
       .filter((t) => t.allowed)
       .map((t) => t.key);
@@ -780,7 +780,7 @@ export default function Dashboard() {
                   <option value="staff">Staff</option>
                   <option value="admin">Admin</option>
                   <option value="hod">Hod</option>
-                  <option value="otm">Management Portal</option>
+                  <option value="otm">Management Portals</option>
                 </select>
               </div>
               {regMsg && (
