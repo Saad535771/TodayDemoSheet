@@ -7,7 +7,7 @@ export function defineUser(sequelize) {
     name: { type: DataTypes.STRING(120), allowNull: true },
     passwordHash: { type: DataTypes.STRING(191), allowNull: false },
     role: {
-      type: DataTypes.ENUM("admin", "staff", "hod","otm"),
+      type: DataTypes.ENUM("admin", "staff", "hod", "otm"),
       allowNull: false,
       defaultValue: "admin"
     },
@@ -47,7 +47,22 @@ export function defineUser(sequelize) {
       type: DataTypes.TINYINT,
       defaultValue: 0,
       field: "access_total_fees"
-    }
+    },
+    accessHodApprovals: {
+      type: DataTypes.TINYINT,
+      defaultValue: 0,
+      field: "access_hod_approvals"
+    },
+    accessStaff: {
+      type: DataTypes.TINYINT,
+      defaultValue: 0,
+      field: "access_staff"
+    },
+    accessOtmManagement: {
+      type: DataTypes.TINYINT,
+      defaultValue: 0,
+      field: "access_otm_management"
+    },
   }, {
     tableName: "users",
     underscored: true

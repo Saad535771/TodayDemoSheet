@@ -179,17 +179,17 @@ export default function StaffManager() {
       const user = updatedUsers.find((u) => u.id === userId);
 
       await api.put(`/auth/users/${userId}/permissions`, {
-        access_monthly: toInt(user.access_monthly),
-        access_demo: toInt(user.access_demo),
-        access_trash: toInt(user.access_trash),
-        access_payment_sheet: toInt(user.access_payment_sheet),
-        access_tutor_share: toInt(user.access_tutor_share),
-        access_lacas_share: toInt(user.access_lacas_share),
-        access_total_fees: toInt(user.access_total_fees),
-        access_staff: toInt(user.access_staff),
-        access_hod_approvals: toInt(user.access_hod_approvals),
-        access_otm_management: toInt(user.access_otm_management),
-      });
+  access_monthly: toInt(user.access_monthly),
+  access_demo: toInt(user.access_demo),
+  access_trash: toInt(user.access_trash),
+  access_payment_sheet: toInt(user.access_payment_sheet),
+  access_tutor_share: toInt(user.access_tutor_share),
+  access_lacas_share: toInt(user.access_lacas_share),
+  access_total_fees: toInt(user.access_total_fees),
+  access_hod_approvals: toInt(user.access_hod_approvals),
+  access_staff: toInt(user.access_staff),
+  access_otm_management: toInt(user.access_otm_management),
+});
     } catch (err) {
       alert("Failed to update permission");
       fetchUsers();

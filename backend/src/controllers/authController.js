@@ -66,7 +66,10 @@ export function makeAuthController({ User, UserPresence }) {
     access_payment_sheet: user.accessPaymentSheet,
     access_tutor_share: user.accessTutorShare,
     access_lacas_share: user.accessLacasShare,
-    access_total_fees: user.accessTotalFees
+    access_total_fees: user.accessTotalFees,
+    access_hod_approvals: user.accessHodApprovals,
+    access_staff: user.accessStaff,
+    access_otm_management: user.accessOtmManagement,
   });
 
   async function createOrUpdatePresence({
@@ -291,7 +294,10 @@ export function makeAuthController({ User, UserPresence }) {
         access_payment_sheet,
         access_tutor_share,
         access_lacas_share,
-        access_total_fees
+        access_total_fees,
+        access_hod_approvals,
+        access_staff,
+        access_otm_management
       } = req.body;
 
       try {
@@ -319,7 +325,10 @@ export function makeAuthController({ User, UserPresence }) {
             accessPaymentSheet: paymentPermissions.accessPaymentSheet,
             accessTutorShare: paymentPermissions.accessTutorShare,
             accessLacasShare: paymentPermissions.accessLacasShare,
-            accessTotalFees: paymentPermissions.accessTotalFees
+            accessTotalFees: paymentPermissions.accessTotalFees,
+            accessHodApprovals: toBoolInt(access_hod_approvals),
+            accessStaff: toBoolInt(access_staff),
+            accessOtmManagement: toBoolInt(access_otm_management),
           },
           { where: { id: userId } }
         );

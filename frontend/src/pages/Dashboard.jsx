@@ -243,13 +243,13 @@ function normalizeRole(role) {
   return String(role || "").trim().toLowerCase();
 }
 
-function hasAccessByRoleOrFlag(userData, permissionKey, rolesAllowed = []) {
+function hasAccessByRoleOrFlag(userData, permissionKey) {
   const role = normalizeRole(userData?.role);
 
-  if (role === "admin") return true; // admin always allowed
-  return Boolean(userData?.[permissionKey]);
-}
+  if (role === "admin") return true;
 
+  return Number(userData?.[permissionKey] || 0) === 1;
+}
 function DashboardFallback({ title }) {
   return (
     <div style={styles.fallbackCard}>
@@ -352,7 +352,7 @@ const tabsConfig = useMemo(() => {
   }));
 }, [me]);
   const allowedTabs = useMemo(() => tabsConfig.filter((tabItem) => tabItem.allowed), [tabsConfig]);
-  function getPreferredTab(userData) {
+function getPreferredTab(userData) {
   const savedTab = sessionStorage.getItem(LAST_TAB_KEY);
 
   const nextAllowedTabs = tabsConfig
