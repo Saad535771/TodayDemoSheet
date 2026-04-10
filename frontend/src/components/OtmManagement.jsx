@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api/api.js";
 import OtmPortalSheet from "../components/OtmPortalSheet.jsx";
-
 export default function OtmManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [user, setUser] = useState(null);
@@ -20,20 +19,16 @@ export default function OtmManagement() {
     otmUsers: [],
   });
   const [loading, setLoading] = useState(true);
-
   const requestedUserId = searchParams.get("userId");
   const isAdmin = user?.role === "admin";
-
   const selectedPortalUserId = useMemo(() => {
     if (isAdmin && requestedUserId) return Number(requestedUserId);
     if (selectedUser?.id) return Number(selectedUser.id);
     return Number(user?.id || 0);
   }, [isAdmin, requestedUserId, selectedUser, user]);
-
   async function loadAll(targetUserId) {
     try {
       setLoading(true);
-
       const mePromise = api.get("/auth/me");
       const metaPromise = api.get("/otm-management/meta");
       const query = targetUserId ? `?userId=${targetUserId}` : "";
@@ -60,7 +55,6 @@ export default function OtmManagement() {
       setReportSummary(reportsRes.data?.summary || null);
       setTotalClassRows(totalClassRes.data?.rows || []);
       setTotalClassSummary(totalClassRes.data?.summary || null);
-
       const otmUsers = metaRes.data?.otmUsers || [];
       if (meUser?.role === "admin" && !targetUserId && otmUsers.length > 0) {
         setSearchParams({ userId: String(otmUsers[0].id) }, { replace: true });
@@ -76,17 +70,13 @@ export default function OtmManagement() {
       setLoading(false);
     }
   }
-
   useEffect(() => {
     loadAll(requestedUserId);
   }, [requestedUserId]);
-
   useEffect(() => {
     const sessionId =
       localStorage.getItem("session_id") || sessionStorage.getItem("session_id");
-
     if (!sessionId) return;
-
     const ping = async () => {
       try {
         await api.put("/auth/presence/heartbeat", {

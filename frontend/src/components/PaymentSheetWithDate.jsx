@@ -65,8 +65,8 @@ const styles = {
     flexWrap: "wrap",
   },
   zoomBtn: {
-    width: "42px",
-    height: "42px",
+    width: "32px",
+    height: "auto",
     borderRadius: "10px",
     border: "1.5px solid #000000",
     background: "#ffffff",
@@ -149,7 +149,6 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "2150px",
     fontSize: "12px",
     background: "#ffffff",
   },
@@ -158,7 +157,6 @@ const styles = {
   color: "#ffffff",
   fontWeight: "700",
   textAlign: "center",
-  padding: "12px 10px",
   borderBottom: "1.5px solid #000000",
   borderRight: "1.5px solid #000000",
   position: "sticky",
@@ -170,18 +168,16 @@ const styles = {
   td: {
     borderBottom: "1.5px solid #000000",
     borderRight: "1.5px solid #000000",
-    padding: "0",
+    padding: "0px",
     textAlign: "center",
-    height: "42px",
-
     background: "#fff",
   },
+
   input: {
-    width: "100%",
-    height: "42px",
+    width: "22px",
+    height: "12px",
     border: "none",
     outline: "none",
-    padding: "10px 12px",
     fontSize: "12px",
     background: "transparent",
     boxSizing: "border-box",
@@ -190,8 +186,6 @@ const styles = {
     fontWeight: "600",
   },
   select: {
-    width: "100%",
-    height: "42px",
     border: "none",
     outline: "none",
     padding: "10px 12px",
@@ -204,11 +198,10 @@ const styles = {
     fontWeight: "600",
   },
   readCell: {
-    padding: "8px 10px",
-    minHeight: "42px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+   
+    display:'flex',
+    justifyContent:'center',
+    alignItems:'center',
     cursor: "cell",
     fontWeight: "600",
     color: "#111111",
@@ -218,7 +211,7 @@ const styles = {
     color: "#ffffff",
     border: "1.5px solid #000000",
     borderRadius: "8px",
-    padding: "6px 10px",
+    
     cursor: "pointer",
     fontWeight: "700",
     fontSize: "12px",
@@ -228,7 +221,7 @@ const styles = {
     color: "#111111",
     border: "1.5px solid #000000",
     borderRadius: "8px",
-    padding: "6px 10px",
+    
     cursor: "pointer",
     fontWeight: "700",
     fontSize: "12px",
@@ -238,7 +231,6 @@ const styles = {
     color: "#ffffff",
     border: "1.5px solid #000000",
     borderRadius: "8px",
-    padding: "6px 10px",
     cursor: "pointer",
     fontWeight: "700",
     fontSize: "12px",
@@ -251,33 +243,34 @@ const styles = {
     borderRadius: "8px",
     cursor: "pointer",
     fontWeight: "800",
-    fontSize: "12px",
-    padding: "6px 10px",
+    fontSize: "10px",
+   
     minWidth: "42px",
   },
   actionGroup: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: "6px",
+    
     flexWrap: "wrap",
-    minHeight: "42px",
-    padding: "6px",
+    Height: "auto",
+   
   },
   moveBtn: {
     cursor: "pointer",
     border: "none",
     background: "transparent",
     fontSize: "14px",
-    padding: "2px 6px",
+   
     color: "#111111",
     fontWeight: "700",
   },
   checkbox: {
-    width: "16px",
-    height: "16px",
+    width: "12px",
+    height: "12px",
     cursor: "pointer",
     accentColor: "#107c41",
+    margin:'0px',
   },
   colorSwatch: {
     width: "22px",
@@ -296,20 +289,18 @@ const styles = {
     position: "fixed",
     background: "white",
     border: "1.5px solid #000000",
-    padding: "10px",
-    borderRadius: "8px",
+  
     boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
     zIndex: 3000,
     width: "220px",
   },
   emptyState: {
-    padding: "28px",
+   
     textAlign: "center",
     color: "#444444",
     fontWeight: "700",
   },
   loading: {
-    padding: "20px",
     textAlign: "center",
     color: "#444444",
     fontWeight: "700",
@@ -616,7 +607,7 @@ function StatusPill({ value }) {
           background: "#475569",
           color: "#ffffff",
           border: "1px solid #334155",
-          padding: "6px 10px",
+      
           borderRadius: "999px",
           fontSize: "12px",
           fontWeight: "700",
@@ -646,11 +637,11 @@ function StatusPill({ value }) {
             key={status}
             style={{
               ...style,
-              padding: "6px 10px",
+              padding: "3px 6px",
               borderRadius: "999px",
               fontSize: "12px",
               fontWeight: "700",
-              display: "inline-block",
+           
               whiteSpace: "nowrap",
             }}
           >
@@ -802,7 +793,7 @@ const ColorSwatch = ({
         >
           <div
             style={{
-              marginBottom: "8px",
+            
               fontSize: "13px",
               fontWeight: "700",
               color: "#111111",
@@ -816,7 +807,7 @@ const ColorSwatch = ({
               display: "grid",
               gridTemplateColumns: "repeat(6, 28px)",
               gap: "6px",
-              marginBottom: "12px",
+            
             }}
           >
             {presets.map((c, i) => (
@@ -977,16 +968,16 @@ export default function PaymentSheetWithDate({ me }) {
         label: "Date",
         field: "dateWithMonth",
         editable: true,
-        width: 140,
-        align: "left",
+        width: 60,
+        align: "center",
       },
       {
         id: "tuitionName",
         label: "Tuition Name",
         field: "tuitionName",
         editable: true,
-        width: 220,
-        align: "left",
+        width: 40,
+        align: "center",
         kind: "tuitionName",
       },
       {
@@ -994,33 +985,33 @@ export default function PaymentSheetWithDate({ me }) {
         label: "Total Students",
         field: "totalStudents",
         editable: true,
-        width: 140,
+        width: 30,
         type: "number",
-        align: "left",
+        align: "center",
       },
       {
         id: "country",
         label: "Country",
         field: "country",
         editable: true,
-        width: 130,
-        align: "left",
+        width: 30,
+        align: "center",
       },
       {
         id: "subjects",
         label: "Subjects",
         field: "subjects",
         editable: true,
-        width: 180,
-        align: "left",
+        width: 60,
+        align: "center",
       },
       {
         id: "tutorName",
         label: "Tutor Name",
         field: "tutorName",
         editable: true,
-        width: 180,
-        align: "left",
+        width: 90,
+        align: "center",
       },
     ];
 
@@ -1030,7 +1021,7 @@ export default function PaymentSheetWithDate({ me }) {
         label: "Tutor Fee",
         field: "tutorFee",
         editable: true,
-        width: 130,
+        width: 35,
         type: "number",
         align: "left",
       },
@@ -1039,7 +1030,7 @@ export default function PaymentSheetWithDate({ me }) {
         label: "Lacas Share",
         field: "lacasShare",
         editable: true,
-        width: 130,
+        width: 35,
         type: "number",
         align: "left",
       },
@@ -1048,7 +1039,7 @@ export default function PaymentSheetWithDate({ me }) {
         label: "Total Fee",
         field: "totalFees",
         editable: true,
-        width: 130,
+        width: 35,
         type: "number",
         align: "left",
       }
@@ -1060,7 +1051,7 @@ export default function PaymentSheetWithDate({ me }) {
         label: "Status",
         field: "status",
         editable: true,
-        width: 240,
+        width: 40,
         kind: "multiSelect",
         options: statusOptions,
         align: "center",
@@ -1070,16 +1061,16 @@ export default function PaymentSheetWithDate({ me }) {
         label: "Feedback",
         field: "feedback",
         editable: true,
-        width: 220,
-        align: "left",
+        width: 70,
+        align: "center",
       },
       {
         id: "notes",
         label: "Notes",
         field: "notes",
         editable: true,
-        width: 220,
-        align: "left",
+        width: 40,
+        align: "center",
       }
     );
 
@@ -2543,7 +2534,6 @@ export default function PaymentSheetWithDate({ me }) {
       selectSingleCell(nextRow, colId, true);
       return;
     }
-
     if (!isSelectLikeColumn(col) && e.key === "ArrowDown") {
       e.preventDefault();
       const nextRow = Math.min(filteredItems.length - 1, rowIndex + 1);
@@ -2551,7 +2541,6 @@ export default function PaymentSheetWithDate({ me }) {
       selectSingleCell(nextRow, colId, true);
       return;
     }
-
     if (!isSelectLikeColumn(col) && e.key === "ArrowLeft") {
       e.preventDefault();
       const currentColIndex = getColumnIndex(colId);
@@ -2561,7 +2550,6 @@ export default function PaymentSheetWithDate({ me }) {
       selectSingleCell(rowIndex, nextColId, true);
       return;
     }
-
     if (!isSelectLikeColumn(col) && e.key === "ArrowRight") {
       e.preventDefault();
       const currentColIndex = getColumnIndex(colId);
@@ -2571,7 +2559,6 @@ export default function PaymentSheetWithDate({ me }) {
       selectSingleCell(rowIndex, nextColId, true);
       return;
     }
-
     if (e.key === "Escape") {
       e.preventDefault();
       cancelEdit({ rowIndex, colId });
@@ -2581,26 +2568,21 @@ export default function PaymentSheetWithDate({ me }) {
     if (editingCell?.rowIndex !== rowIndex) {
       return row?.totalFees ?? "";
     }
-
     if (
       editingCell?.colId !== "tutorFee" &&
       editingCell?.colId !== "lacasShare"
     ) {
       return row?.totalFees ?? "";
     }
-
     const tutorFee = editingCell.colId === "tutorFee" ? editValue : row?.tutorFee;
     const lacasShare =
       editingCell.colId === "lacasShare" ? editValue : row?.lacasShare;
-
     return calculateAutoTotalFees(tutorFee, lacasShare);
   };
   const renderGridCell = (row, rowIndex, col) => {
     const cellKey = getCellKey(rowIndex, col.id);
     const isSelected = selectedCells.has(cellKey);
-    const isEditing =
-      editingCell?.rowIndex === rowIndex && editingCell?.colId === col.id;
-
+    const isEditing = editingCell?.rowIndex === rowIndex && editingCell?.colId === col.id;
     const rawValue = getCellValue(row, col);
     const value = col.id === "totalFees"
       ? getLiveTotalFeeValue(row, rowIndex)
@@ -2608,7 +2590,6 @@ export default function PaymentSheetWithDate({ me }) {
         ? (String(rawValue || "").trim() === "0000-00-00" ? "" : rawValue)
         : rawValue;
     const rowId = getRowId(row);
-
     const commonTdStyle = {
       ...styles.td,
       minWidth: col.width,
@@ -2642,11 +2623,10 @@ export default function PaymentSheetWithDate({ me }) {
             style={{
               ...styles.select,
               height: "132px",
-              padding: "8px",
-              textAlign: "left",
+              padding: "4px",
+              textAlign: "center",
               background: "#ffffff",
-            }}
-          >
+            }}>
             {col.options.map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
@@ -2949,7 +2929,7 @@ export default function PaymentSheetWithDate({ me }) {
                     </th>
                   ))}
 
-                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "110px" }}>Add Row</th>
+                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "60px" }}>Add Row</th>
                   <th style={{ ...styles.th, top: tableHeadTop, minWidth: "100px" }}>Action</th>
                 </tr>
               </thead>

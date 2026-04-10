@@ -166,6 +166,7 @@ const styles = {
     padding: "0 16px",
     borderBottom: "1px solid #e5e7eb",
     overflowX: "auto",
+    Height:'82vh',
     background: "#fff",
   },
   tabBtn: (active) => ({
@@ -186,8 +187,7 @@ const styles = {
     background: "#fff",
     overflow: "hidden",
   },
-  sheetViewport: {
-    maxHeight: "72vh",
+  sheetViewport:{
     overflow: "auto",
     background: "#fff",
   },
@@ -197,6 +197,7 @@ const styles = {
     borderSpacing: 0,
     minWidth: 2500,
     tableLayout: "fixed",
+     Height: "82vh",
   },
   th: {
     position: "sticky",
@@ -708,8 +709,8 @@ export default function OtmPortalSheet({
 
         <div style={styles.body}>
           {tab === "tuitions" && (
-            <div style={styles.sheetWrap}>
-              <div style={styles.sheetViewport}>
+            <div style={styles.sheetWrap} className="vh-100">
+              <div style={styles.sheetViewport} className="vh-100">
                 <table style={styles.table}>
                   <thead>
                     <tr>
