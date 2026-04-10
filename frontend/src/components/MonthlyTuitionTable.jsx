@@ -935,7 +935,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   useEffect(() => {
     const timer = setTimeout(() => performSearch(searchTerm), 400);
     return () => clearTimeout(timer);
-  }, [searchTerm, sortField, sortDir, assignedFilter, items]);
+  }, [searchTerm, sortField, sortDir, assignedFilter]);
 
   useEffect(() => {
     if (typeof load !== "function") return;
