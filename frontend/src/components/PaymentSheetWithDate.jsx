@@ -587,15 +587,15 @@ function getStatusStyle(status) {
       };
     case "Tuition Pending":
       return {
-        background: "#b91c1c",
+        background: "#0059be",
         color: "#ffffff",
-        border: "1px solid #991b1b",
+        border: "1px solid #08649d",
       };
     case "Tuition Cancelled":
       return {
-        background: "#475569",
+        background: "#c50101",
         color: "#ffffff",
-        border: "1px solid #334155",
+        border: "1px solid #c83200",
       };
     default:
       return {
