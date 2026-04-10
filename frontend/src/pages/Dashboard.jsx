@@ -290,86 +290,81 @@ export default function Dashboard() {
 
   const role = normalizeRole(me?.role);
 
-  const tabsConfig = useMemo(() => {
-    const base = [
-      {
-        key: "main",
-        label: "📅 Monthly Tuitions",
-        permissionKey: "access_monthly",
-        rolesAllowed: ["admin", "hod"],
-        component: <MainTuitions />,
-      },
-      {
-        key: "target",
-        label: "🔥 Today Demo",
-        permissionKey: "access_demo",
-        rolesAllowed: ["admin", "hod"],
-        component: <TargetBoard />,
-      },
-      {
-        key: "payment",
-        label: "💳 Payment Sheet",
-        permissionKey: "access_payment_sheet",
-        rolesAllowed: ["admin", "hod"],
-        component: <PaymentSheet me={me} />,
-      },
-      {
-        key: "hod_approvals",
-        label: "✅ HOD Approvals",
-        permissionKey: "access_hod_approvals",
-        rolesAllowed: ["admin", "hod"],
-        component: <HodApprovals me={me} onCountChange={(count) => updateSingleBadge("hod_approvals", count)} />,
-      },
-      {
-        key: "trash",
-        label: "🗑️ Recycle Bin",
-        permissionKey: "access_trash",
-        rolesAllowed: ["admin"],
-        component: <TrashBin />,
-      },
-      {
-        key: "staff",
-        label: "👥 Staff",
-        permissionKey: "access_staff",
-        rolesAllowed: ["admin", "hod"],
-        component: (
-          <div style={{ padding: "24px" }}>
-            <ActiveUsersPanel />
-            <StaffManager />
-          </div>
-        ),
-      },
-      {
-        key: "otm_management",
-        label: "📘 Management Portal",
-        permissionKey: "access_otm_management",
-        rolesAllowed: ["otm","admin","hod"],
-        component: <OtmManagement />,
-      },
-    ];
-    return base.map((item) => ({
-      ...item,
-      allowed: hasAccessByRoleOrFlag(me, item.permissionKey, item.rolesAllowed),
-    }));
-  }, [me]);
+const tabsConfig = useMemo(() => {
+  const base = [
+    {
+      key: "main",
+      label: "📅 Monthly Tuitions",
+      permissionKey: "access_monthly",
+      component: <MainTuitions />,
+    },
+    {
+      key: "target",
+      label: "🔥 Today Demo",
+      permissionKey: "access_demo",
+      component: <TargetBoard />,
+    },
+    {
+      key: "payment",
+      label: "💳 Payment Sheet",
+      permissionKey: "access_payment_sheet",
+      component: <PaymentSheet me={me} />,
+    },
+    {
+      key: "hod_approvals",
+      label: "✅ HOD Approvals",
+      permissionKey: "access_hod_approvals",
+      component: (
+        <HodApprovals
+          me={me}
+          onCountChange={(count) => updateSingleBadge("hod_approvals", count)}
+        />
+      ),
+    },
+    {
+      key: "trash",
+      label: "🗑️ Recycle Bin",
+      permissionKey: "access_trash",
+      component: <TrashBin />,
+    },
+    {
+      key: "staff",
+      label: "👥 Staff",
+      permissionKey: "access_staff",
+      component: (
+        <div style={{ padding: "24px" }}>
+          <ActiveUsersPanel />
+          <StaffManager />
+        </div>
+      ),
+    },
+    {
+      key: "otm_management",
+      label: "📘 Management Portal",
+      permissionKey: "access_otm_management",
+      component: <OtmManagement />,
+    },
+  ];
+
+  return base.map((item) => ({
+    ...item,
+    allowed: hasAccessByRoleOrFlag(me, item.permissionKey),
+  }));
+}, [me]);
   const allowedTabs = useMemo(() => tabsConfig.filter((tabItem) => tabItem.allowed), [tabsConfig]);
   function getPreferredTab(userData) {
-    const savedTab = sessionStorage.getItem(LAST_TAB_KEY);
-    const roleNow = normalizeRole(userData?.role);
-    const nextAllowedTabs = tabsConfig
-      .map((t) => ({
-        ...t,
-        allowed: t.rolesAllowed.includes(roleNow) || Boolean(userData?.[t.permissionKey]),
-      }))
-      .filter((t) => t.allowed)
-      .map((t) => t.key);
+  const savedTab = sessionStorage.getItem(LAST_TAB_KEY);
 
-    if (savedTab && nextAllowedTabs.includes(savedTab)) {
-      return savedTab;
-    }
+  const nextAllowedTabs = tabsConfig
+    .filter((t) => hasAccessByRoleOrFlag(userData, t.permissionKey))
+    .map((t) => t.key);
 
-    return nextAllowedTabs[0] || "no_access";
+  if (savedTab && nextAllowedTabs.includes(savedTab)) {
+    return savedTab;
   }
+
+  return nextAllowedTabs[0] || "no_access";
+}
 
   function updateSingleBadge(key, count) {
     setBadgeCounts((prev) => ({

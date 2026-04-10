@@ -53,18 +53,18 @@ const styles = {
       role === "admin"
         ? "#e6fffa"
         : role === "hod"
-        ? "#ebf8ff"
-        : role === "otm"
-        ? "#f3e8ff"
-        : "#f8fafc",
+          ? "#ebf8ff"
+          : role === "otm"
+            ? "#f3e8ff"
+            : "#f8fafc",
     color:
       role === "admin"
         ? "#2c7a7b"
         : role === "hod"
-        ? "#2b6cb0"
-        : role === "otm"
-        ? "#7c3aed"
-        : "#475569",
+          ? "#2b6cb0"
+          : role === "otm"
+            ? "#7c3aed"
+            : "#475569",
     padding: "4px 10px",
     borderRadius: "20px",
     fontSize: "11px",
@@ -186,6 +186,9 @@ export default function StaffManager() {
         access_tutor_share: toInt(user.access_tutor_share),
         access_lacas_share: toInt(user.access_lacas_share),
         access_total_fees: toInt(user.access_total_fees),
+        access_staff: toInt(user.access_staff),
+        access_hod_approvals: toInt(user.access_hod_approvals),
+        access_otm_management: toInt(user.access_otm_management),
       });
     } catch (err) {
       alert("Failed to update permission");
@@ -221,6 +224,9 @@ export default function StaffManager() {
             <tr>
               <th style={styles.th}>Email</th>
               <th style={styles.th}>Role</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Show HOD Approvals</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Show Staff</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Show OTM Portal</th>
               <th style={{ ...styles.th, textAlign: "center" }}>Show Monthly</th>
               <th style={{ ...styles.th, textAlign: "center" }}>Show Demo</th>
               <th style={{ ...styles.th, textAlign: "center" }}>Show Trash</th>
@@ -246,7 +252,38 @@ export default function StaffManager() {
                   <td style={styles.td}>
                     <span style={styles.roleBadge(user.role)}>{user.role}</span>
                   </td>
+                  <td style={{ ...styles.td, ...styles.centerCell }}>
+                    <button
+                      style={styles.toggleBtn(user.access_hod_approvals)}
+                      onClick={() =>
+                        togglePermission(user.id, "access_hod_approvals", user.access_hod_approvals)
+                      }
+                    >
+                      <div style={styles.toggleCircle(user.access_hod_approvals)} />
+                    </button>
+                  </td>
 
+                  <td style={{ ...styles.td, ...styles.centerCell }}>
+                    <button
+                      style={styles.toggleBtn(user.access_staff)}
+                      onClick={() =>
+                        togglePermission(user.id, "access_staff", user.access_staff)
+                      }
+                    >
+                      <div style={styles.toggleCircle(user.access_staff)} />
+                    </button>
+                  </td>
+
+                  <td style={{ ...styles.td, ...styles.centerCell }}>
+                    <button
+                      style={styles.toggleBtn(user.access_otm_management)}
+                      onClick={() =>
+                        togglePermission(user.id, "access_otm_management", user.access_otm_management)
+                      }
+                    >
+                      <div style={styles.toggleCircle(user.access_otm_management)} />
+                    </button>
+                  </td>
                   <td style={{ ...styles.td, ...styles.centerCell }}>
                     <button
                       style={styles.toggleBtn(user.access_monthly)}
