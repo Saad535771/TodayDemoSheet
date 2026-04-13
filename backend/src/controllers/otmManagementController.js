@@ -43,25 +43,46 @@ export function makeOtmManagementController({
       return { userId: Number(req.user.id), actingUserId: Number(req.user.id) };
     }
 
-    const userId = requestedUserId ? Number(requestedUserId) : Number(req.user.id);
-    if (!Number.isFinite(userId) || userId <= 0) {
-      return { error: { status: 400, message: "Valid userId is required" } };
+    const actingUserId = Number(req.user.id);
+    let userId = requestedUserId ? Number(requestedUserId) : null;
+    let targetUser = null;
+
+    const shouldAutoPickOtmUser =
+      !Number.isFinite(userId) || userId <= 0 || userId === actingUserId;
+
+    if (!shouldAutoPickOtmUser) {
+      targetUser = await User.findByPk(userId);
+
+      if (!targetUser) {
+        return { error: { status: 404, message: "Selected user not found" } };
+      }
+
+      if (targetUser.role !== "otm") {
+        return { error: { status: 400, message: "Selected user is not an OTM user" } };
+      }
     }
 
-    if (userId === Number(req.user.id) && forWrite) {
-      return { error: { status: 400, message: "Admin should select an OTM user to edit portal data" } };
-    }
-
-    const targetUser = await User.findByPk(userId);
     if (!targetUser) {
-      return { error: { status: 404, message: "Selected user not found" } };
+      targetUser = await User.findOne({
+        where: { role: "otm" },
+        order: [["name", "ASC"], ["email", "ASC"], ["id", "ASC"]],
+      });
+
+      if (!targetUser) {
+        return {
+          error: {
+            status: 400,
+            message: forWrite
+              ? "No OTM user available to edit portal data"
+              : "No OTM user available to view portal data",
+          },
+        };
+      }
+
+      userId = Number(targetUser.id);
     }
 
-    if (targetUser.role !== "otm") {
-      return { error: { status: 400, message: "Selected user is not an OTM user" } };
-    }
-
-    return { userId, targetUser, actingUserId: Number(req.user.id) };
+    return { userId, targetUser, actingUserId };
   }
 
   function buildSingleEntryPayload(body = {}) {
