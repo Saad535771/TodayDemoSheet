@@ -37,7 +37,7 @@ export default function MainTuitions() {
       <MonthlyTuitionTable 
       
         items={items} 
-        load={load} 
+      load={load} 
         zoom={zoom} 
         handleZoom={handleZoom} 
       />

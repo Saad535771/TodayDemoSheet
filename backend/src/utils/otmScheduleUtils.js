@@ -27,10 +27,25 @@ function pad2(value) {
   return String(value).padStart(2, "0");
 }
 
+export const DAY_ORDER_INDEX = OTM_DAY_OPTIONS.reduce((acc, day, index) => {
+  acc[day.toLowerCase()] = index;
+  return acc;
+}, {});
+
+export function getDayOrderIndex(day) {
+  const cleaned = normalizeString(day);
+  if (!cleaned) return Number.MAX_SAFE_INTEGER;
+  return DAY_ORDER_INDEX[cleaned.toLowerCase()] ?? Number.MAX_SAFE_INTEGER;
+}
+
+export function sortDays(days = []) {
+  return normalizeArrayInput(days).sort((a, b) => getDayOrderIndex(a) - getDayOrderIndex(b));
+}
+
 export function buildDefaultTimeSlots() {
   const slots = [];
   for (let hour = 6; hour <= 23; hour += 1) {
-    for (const minute of [0, 30]) {
+    for (const minute of [0, 15, 30, 45]) {
       const h12 = ((hour + 11) % 12) + 1;
       const suffix = hour >= 12 ? "PM" : "AM";
       slots.push(`${h12}:${pad2(minute)} ${suffix}`);
@@ -103,8 +118,26 @@ export function durationLabelFromMinutes(minutes) {
   return found?.label || `${minutes} min`;
 }
 
-export function parseTimeToMinutes(timeLabel) {
+export function normalizeTimeLabel(timeLabel) {
   const cleaned = normalizeString(timeLabel);
+  if (!cleaned) return null;
+
+  const compact = cleaned.replace(/\s+/g, "");
+  const match = compact.match(/^(\d{1,2})(?::?(\d{1,2}))?(am|pm)$/i);
+  if (!match) return cleaned;
+
+  let hour = Number(match[1]);
+  const minute = Number(match[2] ?? 0);
+  const suffix = match[3].toUpperCase();
+
+  if (!Number.isFinite(hour) || hour < 1 || hour > 12) return cleaned;
+  if (!Number.isFinite(minute) || minute < 0 || minute > 59) return cleaned;
+
+  return `${hour}:${pad2(minute)} ${suffix}`;
+}
+
+export function parseTimeToMinutes(timeLabel) {
+  const cleaned = normalizeTimeLabel(timeLabel);
   if (!cleaned) return null;
 
   const match = cleaned.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
@@ -126,7 +159,7 @@ export function formatMinutesToTime(totalMinutes) {
   let normalized = totalMinutes % (24 * 60);
   if (normalized < 0) normalized += 24 * 60;
 
-  let hour24 = Math.floor(normalized / 60);
+  const hour24 = Math.floor(normalized / 60);
   const minute = normalized % 60;
 
   const suffix = hour24 >= 12 ? "PM" : "AM";
@@ -146,9 +179,47 @@ export function joinLabels(values = []) {
   return normalizeArrayInput(values).join(", ");
 }
 
+export function normalizeMonthValue(value) {
+  const cleaned = normalizeString(value);
+  if (!cleaned) return null;
+  const match = cleaned.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+  return `${match[1]}-${match[2]}`;
+}
+
+export function extractYearFromMonth(value) {
+  const monthValue = normalizeMonthValue(value);
+  return monthValue ? monthValue.slice(0, 4) : null;
+}
+
+export function extractMonthPart(value) {
+  const monthValue = normalizeMonthValue(value);
+  return monthValue ? monthValue.slice(5, 7) : null;
+}
+
+export function normalizeTimeAssignments(value = {}, days = []) {
+  const output = {};
+
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    for (const day of sortDays(days)) {
+      output[day] = normalizeTimeLabel(value?.[day]);
+    }
+    return output;
+  }
+
+  const slots = normalizeArrayInput(value).map((slot) => normalizeTimeLabel(slot));
+  const normalizedDays = sortDays(days);
+
+  normalizedDays.forEach((day, index) => {
+    output[day] = slots[index] || slots[0] || null;
+  });
+
+  return output;
+}
+
 export function buildScheduleFields({ days, timeSlots, durationMinutes }) {
-  const normalizedDays = normalizeArrayInput(days);
-  const normalizedSlots = normalizeArrayInput(timeSlots);
+  const normalizedDays = sortDays(days);
+  const normalizedSlots = normalizeArrayInput(timeSlots).map((slot) => normalizeTimeLabel(slot));
   const minutes = parseDurationMinutes(durationMinutes);
 
   const classStartTimes = [...normalizedSlots];

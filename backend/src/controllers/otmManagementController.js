@@ -6,8 +6,13 @@ import {
   buildScheduleFields,
   normalizeArrayInput,
   normalizeBoolean,
+  normalizeMonthValue,
   normalizeString,
+  normalizeTimeAssignments,
+  normalizeTimeLabel,
   countBy,
+  sortDays,
+  getDayOrderIndex,
 } from "../utils/otmScheduleUtils.js";
 
 export function makeOtmManagementController({
@@ -59,12 +64,17 @@ export function makeOtmManagementController({
     return { userId, targetUser, actingUserId: Number(req.user.id) };
   }
 
-  function buildEntryPayload(body = {}) {
-    const days = normalizeArrayInput(body.days ?? body.day);
-    const timeSlots = normalizeArrayInput(body.timeSlots ?? body.time);
+  function buildSingleEntryPayload(body = {}) {
+    const requestedDays = sortDays(body.days ?? body.day);
+    const day = normalizeString(body.day) || requestedDays[0] || null;
+
+    const timeAssignments = normalizeTimeAssignments(body.timeAssignments, day ? [day] : []);
+    const fallbackSlots = normalizeArrayInput(body.timeSlots ?? body.time).map((slot) => normalizeTimeLabel(slot));
+    const time = timeAssignments?.[day] || fallbackSlots[0] || normalizeTimeLabel(body.time);
+
     const schedule = buildScheduleFields({
-      days,
-      timeSlots,
+      days: day ? [day] : [],
+      timeSlots: time ? [time] : [],
       durationMinutes: body.durationMinutes ?? body.durationLabel ?? body.duration,
     });
 
@@ -90,14 +100,57 @@ export function makeOtmManagementController({
       reportStatus: normalizeString(body.reportStatus),
       notes: normalizeString(body.notes),
       newTuition: normalizeBoolean(body.newTuition),
+      rowColor: normalizeString(body.rowColor),
+      tuitionStartMonth: normalizeMonthValue(body.tuitionStartMonth),
+      tuitionEndMonth: normalizeMonthValue(body.tuitionEndMonth),
     };
+  }
+
+  function expandCreatePayload(body = {}) {
+    const days = sortDays(body.days ?? body.day);
+    const timeAssignments = normalizeTimeAssignments(body.timeAssignments, days);
+    const fallbackSlots = normalizeArrayInput(body.timeSlots ?? body.time).map((slot) => normalizeTimeLabel(slot));
+
+    return days.map((day, index) => {
+      const time =
+        timeAssignments?.[day] ||
+        fallbackSlots[index] ||
+        fallbackSlots[0] ||
+        normalizeTimeLabel(body.time);
+
+      return buildSingleEntryPayload({
+        ...body,
+        day,
+        days: [day],
+        time,
+        timeSlots: time ? [time] : [],
+        timeAssignments: { [day]: time },
+      });
+    });
+  }
+
+  function toPlainEntries(entries = []) {
+    return entries.map((item) => item.get({ plain: true }));
+  }
+
+  function sortEntries(entries = []) {
+    return [...entries].sort((a, b) => {
+      const orderA = Number(a.sortOrder || 0);
+      const orderB = Number(b.sortOrder || 0);
+      if (orderA !== orderB) return orderA - orderB;
+
+      const dayCompare = getDayOrderIndex(a.day) - getDayOrderIndex(b.day);
+      if (dayCompare !== 0) return dayCompare;
+
+      return Number(a.id || 0) - Number(b.id || 0);
+    });
   }
 
   function buildSummary(entries = []) {
     return {
       totalEntries: entries.length,
       byStatus: countBy(entries.map((item) => item.status)),
-      byDay: countBy(entries.flatMap((item) => Array.isArray(item.days) ? item.days : normalizeArrayInput(item.day))),
+      byDay: countBy(entries.flatMap((item) => (Array.isArray(item.days) ? item.days : normalizeArrayInput(item.day)))),
       byTeacher: countBy(entries.map((item) => item.tutorName || "Unassigned")),
     };
   }
@@ -120,11 +173,19 @@ export function makeOtmManagementController({
           missedByTeacherCount: 0,
           missedByStudentCount: 0,
           newTuitionCount: 0,
+          days: [],
+          tuitionStartMonth: normalizeMonthValue(item.tuitionStartMonth),
+          tuitionEndMonth: normalizeMonthValue(item.tuitionEndMonth),
+          rowColor: normalizeString(item.rowColor),
         });
       }
 
       const row = map.get(key);
       row.totalClasses += 1;
+      row.days = sortDays([...(row.days || []), ...(Array.isArray(item.days) ? item.days : normalizeArrayInput(item.day))]);
+      row.rowColor = row.rowColor || normalizeString(item.rowColor);
+      row.tuitionStartMonth = row.tuitionStartMonth || normalizeMonthValue(item.tuitionStartMonth);
+      row.tuitionEndMonth = row.tuitionEndMonth || normalizeMonthValue(item.tuitionEndMonth);
 
       if (item.status === "class done") row.classDoneCount += 1;
       if (item.status === "class pending") row.classPendingCount += 1;
@@ -133,12 +194,17 @@ export function makeOtmManagementController({
       if (item.newTuition) row.newTuitionCount += 1;
     }
 
-    return [...map.values()].sort((a, b) => {
-      if (a.teacherName === b.teacherName) {
-        return a.tuitionName.localeCompare(b.tuitionName);
-      }
-      return a.teacherName.localeCompare(b.teacherName);
-    });
+    return [...map.values()]
+      .map((row) => ({
+        ...row,
+        day: row.days.join(", "),
+      }))
+      .sort((a, b) => {
+        if (a.teacherName === b.teacherName) {
+          return a.tuitionName.localeCompare(b.tuitionName);
+        }
+        return a.teacherName.localeCompare(b.teacherName);
+      });
   }
 
   function buildTotalClassRows(entries = []) {
@@ -160,25 +226,55 @@ export function makeOtmManagementController({
           duration: item.durationLabel || "1 hour",
           status: item.status || "class pending",
           totalClasses: 0,
+          classDoneCount: 0,
+          classPendingCount: 0,
+          missedByTeacherCount: 0,
+          missedByStudentCount: 0,
           newTuitionCount: 0,
+          tuitionStartMonth: normalizeMonthValue(item.tuitionStartMonth),
+          tuitionEndMonth: normalizeMonthValue(item.tuitionEndMonth),
+          rowColor: normalizeString(item.rowColor),
+          sortOrder: Number(item.sortOrder || 0),
         });
       }
 
       const row = map.get(key);
-      row.totalClasses += 1;
+      row.rowColor = row.rowColor || normalizeString(item.rowColor);
+      row.tuitionStartMonth = row.tuitionStartMonth || normalizeMonthValue(item.tuitionStartMonth);
+      row.tuitionEndMonth = row.tuitionEndMonth || normalizeMonthValue(item.tuitionEndMonth);
+      row.sortOrder = Math.min(row.sortOrder, Number(item.sortOrder || 0));
       if (item.newTuition) row.newTuitionCount += 1;
+      if (item.status === "class done") row.classDoneCount += 1;
+      if (item.status === "class pending") row.classPendingCount += 1;
+      if (item.status === "missed by teacher") row.missedByTeacherCount += 1;
+      if (item.status === "missed by student") row.missedByStudentCount += 1;
     }
 
-    return [...map.values()].sort((a, b) => a.tuitionName.localeCompare(b.tuitionName));
+    return [...map.values()]
+      .map((row) => ({
+        ...row,
+        totalClasses: row.classDoneCount,
+        status:
+          row.classDoneCount > 0
+            ? "class done"
+            : row.classPendingCount > 0
+              ? "class pending"
+              : row.missedByTeacherCount > 0
+                ? "missed by teacher"
+                : row.missedByStudentCount > 0
+                  ? "missed by student"
+                  : row.status,
+      }))
+      .sort((a, b) => a.sortOrder - b.sortOrder || getDayOrderIndex(a.days) - getDayOrderIndex(b.days));
   }
 
   async function syncReportTable(userId) {
     const entries = await OtmTuitionEntry.findAll({
       where: { userId },
-      order: [["sortOrder", "ASC"], ["id", "DESC"]],
+      order: [["sortOrder", "ASC"], ["id", "ASC"]],
     });
 
-    const reportRows = buildReportRows(entries.map((item) => item.get({ plain: true })));
+    const reportRows = buildReportRows(toPlainEntries(entries));
 
     await OtmPortalReport.destroy({ where: { userId } });
 
@@ -186,7 +282,14 @@ export function makeOtmManagementController({
       await OtmPortalReport.bulkCreate(
         reportRows.map((row) => ({
           userId,
-          ...row,
+          teacherName: row.teacherName,
+          tuitionName: row.tuitionName,
+          totalClasses: row.totalClasses,
+          classDoneCount: row.classDoneCount,
+          classPendingCount: row.classPendingCount,
+          missedByTeacherCount: row.missedByTeacherCount,
+          missedByStudentCount: row.missedByStudentCount,
+          newTuitionCount: row.newTuitionCount,
           lastSyncedAt: new Date(),
         }))
       );
@@ -195,29 +298,35 @@ export function makeOtmManagementController({
     return reportRows;
   }
 
+  async function syncTotalClassTable(userId) {
+    const entries = await OtmTuitionEntry.findAll({
+      where: { userId },
+      order: [["sortOrder", "ASC"], ["id", "ASC"]],
+    });
 
-async function syncTotalClassTable(userId) {
-  const entries = await OtmTuitionEntry.findAll({
-    where: { userId },
-    order: [["sortOrder", "ASC"], ["id", "DESC"]],
-  });
+    const rows = buildTotalClassRows(toPlainEntries(entries));
 
-  const rows = buildTotalClassRows(entries.map((item) => item.get({ plain: true })));
+    await OtmTotalClass.destroy({ where: { userId } });
 
-  await OtmTotalClass.destroy({ where: { userId } });
+    if (rows.length > 0) {
+      await OtmTotalClass.bulkCreate(
+        rows.map((row) => ({
+          userId,
+          tuitionName: row.tuitionName,
+          tutorName: row.tutorName,
+          days: row.days,
+          time: row.time,
+          duration: row.duration,
+          status: row.status,
+          totalClasses: row.totalClasses,
+          newTuitionCount: row.newTuitionCount,
+          lastSyncedAt: new Date(),
+        }))
+      );
+    }
 
-  if (rows.length > 0) {
-    await OtmTotalClass.bulkCreate(
-      rows.map((row) => ({
-        userId,
-        ...row,
-        lastSyncedAt: new Date(),
-      }))
-    );
+    return rows;
   }
-
-  return rows;
-}
 
   async function getClassTimes() {
     const rows = await OtmClassTime.findAll({
@@ -234,14 +343,33 @@ async function syncTotalClassTable(userId) {
       label,
       startTime: label,
       durationMinutes: 60,
-      endTime: buildScheduleFields({
-        days: [],
-        timeSlots: [label],
-        durationMinutes: 60,
-      }).classEndTimes[0] || label,
+      endTime:
+        buildScheduleFields({
+          days: [],
+          timeSlots: [label],
+          durationMinutes: 60,
+        }).classEndTimes[0] || label,
       sortOrder: index + 1,
       isActive: true,
     }));
+  }
+
+  async function fetchUserEntries(userId) {
+    const entries = await OtmTuitionEntry.findAll({
+      where: { userId },
+      order: [["sortOrder", "ASC"], ["id", "ASC"]],
+    });
+
+    return sortEntries(toPlainEntries(entries));
+  }
+
+  async function syncAllTables(userId) {
+    const [reportRows, totalClassRows] = await Promise.all([
+      syncReportTable(userId),
+      syncTotalClassTable(userId),
+    ]);
+
+    return { reportRows, totalClassRows };
   }
 
   return {
@@ -311,10 +439,7 @@ async function syncTotalClassTable(userId) {
       }
 
       try {
-        const entries = await OtmTuitionEntry.findAll({
-          where: { userId: target.userId },
-          order: [["sortOrder", "ASC"], ["id", "DESC"]],
-        });
+        const entries = await fetchUserEntries(target.userId);
 
         return res.json({
           selectedUser: target.targetUser
@@ -345,10 +470,14 @@ async function syncTotalClassTable(userId) {
       }
 
       try {
-        const payload = buildEntryPayload(req.body);
+        const payloads = expandCreatePayload(req.body);
 
-        if (!payload.day || !payload.tuitionName) {
-          return res.status(400).json({ message: "Day and Tuition Name are required" });
+        if (payloads.length === 0) {
+          return res.status(400).json({ message: "At least one day is required" });
+        }
+
+        if (payloads.some((item) => !item.day || !item.tuitionName || !item.time)) {
+          return res.status(400).json({ message: "Day, time and Tuition Name are required for each row" });
         }
 
         const lastEntry = await OtmTuitionEntry.findOne({
@@ -356,27 +485,34 @@ async function syncTotalClassTable(userId) {
           order: [["sortOrder", "DESC"], ["id", "DESC"]],
         });
 
-        const entry = await OtmTuitionEntry.create({
-          userId: target.userId,
-          ...payload,
-          sortOrder: (lastEntry?.sortOrder || 0) + 1,
-          createdBy: target.actingUserId,
-          updatedBy: target.actingUserId,
-        });
+        let nextSortOrder = Number(lastEntry?.sortOrder || 0);
+        const createdEntries = [];
 
-        const reportRows = await syncReportTable(target.userId);
-        const totalClassRows = await syncTotalClassTable(target.userId);
+        for (const payload of payloads) {
+          nextSortOrder += 1;
+          const entry = await OtmTuitionEntry.create({
+            userId: target.userId,
+            ...payload,
+            sortOrder: nextSortOrder,
+            createdBy: target.actingUserId,
+            updatedBy: target.actingUserId,
+          });
+          createdEntries.push(entry.get({ plain: true }));
+        }
+
+        const { reportRows, totalClassRows } = await syncAllTables(target.userId);
 
         return res.json({
           success: true,
-          message: "Entry created successfully",
-          entry,
+          message: `${createdEntries.length} row(s) created successfully`,
+          entry: createdEntries[0] || null,
+          entries: createdEntries,
           reportRows,
           totalClassRows,
         });
       } catch (error) {
         console.error("OTM CREATE ENTRY ERROR:", error);
-        return res.status(500).json({ message: "Failed to create entry" });
+        return res.status(500).json({ message: "Failed to create row(s)" });
       }
     },
 
@@ -398,9 +534,9 @@ async function syncTotalClassTable(userId) {
           return res.status(404).json({ message: "Entry not found" });
         }
 
-        const payload = buildEntryPayload(req.body);
-        if (!payload.day || !payload.tuitionName) {
-          return res.status(400).json({ message: "Day and Tuition Name are required" });
+        const payload = buildSingleEntryPayload(req.body);
+        if (!payload.day || !payload.tuitionName || !payload.time) {
+          return res.status(400).json({ message: "Day, time and Tuition Name are required" });
         }
 
         await entry.update({
@@ -408,19 +544,74 @@ async function syncTotalClassTable(userId) {
           updatedBy: target.actingUserId,
         });
 
-        const reportRows = await syncReportTable(target.userId);
-        const totalClassRows = await syncTotalClassTable(target.userId);
+        const { reportRows, totalClassRows } = await syncAllTables(target.userId);
 
         return res.json({
           success: true,
           message: "Entry updated successfully",
-          entry,
+          entry: entry.get({ plain: true }),
           reportRows,
           totalClassRows,
         });
       } catch (error) {
         console.error("OTM UPDATE ENTRY ERROR:", error);
         return res.status(500).json({ message: "Failed to update entry" });
+      }
+    },
+
+    async reorderEntries(req, res) {
+      const target = await resolveTargetUser(req, { forWrite: true });
+      if (target.error) {
+        return res.status(target.error.status).json({ message: target.error.message });
+      }
+
+      try {
+        const orderedIds = Array.isArray(req.body.orderedIds)
+          ? req.body.orderedIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+          : [];
+
+        if (orderedIds.length === 0) {
+          return res.status(400).json({ message: "orderedIds array is required" });
+        }
+
+        const entries = await OtmTuitionEntry.findAll({
+          where: { userId: target.userId },
+          order: [["sortOrder", "ASC"], ["id", "ASC"]],
+        });
+
+        const entryMap = new Map(entries.map((item) => [Number(item.id), item]));
+        if (orderedIds.some((id) => !entryMap.has(id))) {
+          return res.status(400).json({ message: "orderedIds contains invalid row ids" });
+        }
+
+        const remainingIds = entries
+          .map((item) => Number(item.id))
+          .filter((id) => !orderedIds.includes(id));
+
+        const finalIds = [...orderedIds, ...remainingIds];
+
+        await Promise.all(
+          finalIds.map((id, index) =>
+            entryMap.get(id).update({
+              sortOrder: index + 1,
+              updatedBy: target.actingUserId,
+            })
+          )
+        );
+
+        const sortedEntries = await fetchUserEntries(target.userId);
+        const { reportRows, totalClassRows } = await syncAllTables(target.userId);
+
+        return res.json({
+          success: true,
+          message: "Rows reordered successfully",
+          entries: sortedEntries,
+          reportRows,
+          totalClassRows,
+        });
+      } catch (error) {
+        console.error("OTM REORDER ENTRIES ERROR:", error);
+        return res.status(500).json({ message: "Failed to reorder rows" });
       }
     },
 
@@ -442,8 +633,21 @@ async function syncTotalClassTable(userId) {
           return res.status(404).json({ message: "Entry not found" });
         }
 
-        const reportRows = await syncReportTable(target.userId);
-        const totalClassRows = await syncTotalClassTable(target.userId);
+        const entries = await OtmTuitionEntry.findAll({
+          where: { userId: target.userId },
+          order: [["sortOrder", "ASC"], ["id", "ASC"]],
+        });
+
+        await Promise.all(
+          entries.map((item, index) =>
+            item.update({
+              sortOrder: index + 1,
+              updatedBy: target.actingUserId,
+            })
+          )
+        );
+
+        const { reportRows, totalClassRows } = await syncAllTables(target.userId);
 
         return res.json({
           success: true,
@@ -464,29 +668,16 @@ async function syncTotalClassTable(userId) {
       }
 
       try {
-        const entries = await OtmTuitionEntry.findAll({
-          where: { userId: target.userId },
-          order: [["sortOrder", "ASC"], ["id", "DESC"]],
-        });
+        const plainEntries = await fetchUserEntries(target.userId);
+        const reportRows = buildReportRows(plainEntries);
 
-        let reportRows = await OtmPortalReport.findAll({
-          where: { userId: target.userId },
-          order: [["teacherName", "ASC"], ["tuitionName", "ASC"]],
-        });
-
-        if (reportRows.length === 0 && entries.length > 0) {
+        if (plainEntries.length > 0) {
           await syncReportTable(target.userId);
-          reportRows = await OtmPortalReport.findAll({
-            where: { userId: target.userId },
-            order: [["teacherName", "ASC"], ["tuitionName", "ASC"]],
-          });
         }
-
-        const plainEntries = entries.map((item) => item.get({ plain: true }));
 
         return res.json({
           summary: buildSummary(plainEntries),
-          rows: reportRows.map((row) => row.get({ plain: true })),
+          rows: reportRows,
         });
       } catch (error) {
         console.error("OTM REPORTS ERROR:", error);
@@ -501,31 +692,19 @@ async function syncTotalClassTable(userId) {
       }
 
       try {
-        const entries = await OtmTuitionEntry.findAll({
-          where: { userId: target.userId },
-          order: [["sortOrder", "ASC"], ["id", "DESC"]],
-        });
+        const plainEntries = await fetchUserEntries(target.userId);
+        const rows = buildTotalClassRows(plainEntries);
 
-        let totalClassRows = await OtmTotalClass.findAll({
-          where: { userId: target.userId },
-          order: [["tuitionName", "ASC"], ["tutorName", "ASC"]],
-        });
-
-        if (totalClassRows.length === 0 && entries.length > 0) {
+        if (plainEntries.length > 0) {
           await syncTotalClassTable(target.userId);
-          totalClassRows = await OtmTotalClass.findAll({
-            where: { userId: target.userId },
-            order: [["tuitionName", "ASC"], ["tutorName", "ASC"]],
-          });
         }
 
-        const plainEntries = entries.map((item) => item.get({ plain: true }));
         return res.json({
           summary: {
-            totalClasses: plainEntries.length,
+            totalClasses: rows.reduce((sum, row) => sum + Number(row.totalClasses || 0), 0),
             byStatus: countBy(plainEntries.map((item) => item.status)),
           },
-          rows: totalClassRows.map((row) => row.get({ plain: true })),
+          rows,
         });
       } catch (error) {
         console.error("OTM TOTAL CLASS ERROR:", error);
@@ -548,12 +727,7 @@ async function syncTotalClassTable(userId) {
           return res.status(target.error.status).json({ message: target.error.message });
         }
 
-        const entries = await OtmTuitionEntry.findAll({
-          where: { userId: target.userId },
-          order: [["sortOrder", "ASC"], ["id", "DESC"]],
-        });
-
-        const plainEntries = entries.map((item) => item.get({ plain: true }));
+        const plainEntries = await fetchUserEntries(target.userId);
         return res.json({
           user: {
             id: target.targetUser.id,
@@ -568,7 +742,10 @@ async function syncTotalClassTable(userId) {
           },
           totalClass: {
             summary: {
-              totalClasses: plainEntries.length,
+              totalClasses: buildTotalClassRows(plainEntries).reduce(
+                (sum, row) => sum + Number(row.totalClasses || 0),
+                0
+              ),
               byStatus: countBy(plainEntries.map((item) => item.status)),
             },
             rows: buildTotalClassRows(plainEntries),

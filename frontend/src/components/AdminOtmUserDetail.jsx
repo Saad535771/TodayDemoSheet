@@ -21,8 +21,15 @@ export default function AdminOtmUserDetail() {
   async function loadDetails() {
     try {
       setLoading(true);
-      const res = await api.get(`/otm-management/admin/${userId}`);
-      setData(res.data || null);
+      const [detailsRes, metaRes] = await Promise.all([
+        api.get(`/otm-management/admin/${userId}`),
+        api.get(`/otm-management/meta`),
+      ]);
+
+      setData({
+        ...(detailsRes.data || {}),
+        meta: metaRes.data || {},
+      });
     } catch (err) {
       console.error("Failed to load admin OTM details:", err);
       setData(null);
@@ -36,17 +43,25 @@ export default function AdminOtmUserDetail() {
   }, [userId]);
 
   async function createEntry(payload) {
-    const res = await api.post(`/otm-management/admin/${userId}/entries`, payload);
-    return res.data?.entry || res.data?.data || { id: Date.now(), ...payload };
+    const res = await api.post(`/otm-management/entries`, { ...payload, userId: Number(userId) });
+    await loadDetails();
+    return res.data?.entry || res.data?.entries || null;
   }
 
   async function updateEntry(entryId, payload) {
-    const res = await api.put(`/otm-management/admin/${userId}/entries/${entryId}`, payload);
-    return res.data?.entry || res.data?.data || { id: entryId, ...payload };
+    const res = await api.put(`/otm-management/entries/${entryId}`, { ...payload, userId: Number(userId) });
+    await loadDetails();
+    return res.data?.entry || null;
+  }
+
+  async function reorderEntries(orderedIds) {
+    await api.post(`/otm-management/entries/reorder`, { orderedIds, userId: Number(userId) });
+    await loadDetails();
   }
 
   async function deleteEntry(entryId) {
-    await api.delete(`/otm-management/admin/${userId}/entries/${entryId}`);
+    await api.delete(`/otm-management/entries/${entryId}?userId=${Number(userId)}`);
+    await loadDetails();
   }
 
   if (loading) {
@@ -60,13 +75,20 @@ export default function AdminOtmUserDetail() {
   return (
     <OtmPortalSheet
       user={data?.user || null}
-      userId={data?.user?.id || userId}
+      portalUser={data?.user || null}
+      isAdmin={true}
       title={`${data?.user?.name || "OTM User"} Portal`}
       subtitle={`Admin view • ${data?.user?.email || "--"}`}
       initialEntries={data?.entries || []}
       loading={false}
+      meta={data?.meta || {}}
+      reportRows={data?.reports?.rows || []}
+      reportSummary={data?.reports?.summary || null}
+      totalClassRows={data?.totalClass?.rows || []}
+      totalClassSummary={data?.totalClass?.summary || null}
       onCreateEntry={createEntry}
       onUpdateEntry={updateEntry}
+      onReorderEntries={reorderEntries}
       onDeleteEntry={deleteEntry}
     />
   );

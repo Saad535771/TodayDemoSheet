@@ -264,12 +264,7 @@ export default function HodApprovals({ me, onCountChange }) {
         <div style={styles.header}>
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>HOD Approvals</h2>
-            <p style={styles.subtitle}>
-              Jab kisi tuition ka status Tuition Done hota hai to woh pehle yahan aayega.
-              Approve karne ke baad hi Payment Sheet mein record jayega.
-            </p>
           </div>
-
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             {pendingCount > 0 && <span style={styles.countBadge}>{pendingCount}</span>}
             <button type="button" style={styles.refreshBtn} onClick={() => loadRows()}>
@@ -277,7 +272,6 @@ export default function HodApprovals({ me, onCountChange }) {
             </button>
           </div>
         </div>
-
         {loading ? (
           <div style={styles.empty}>Loading...</div>
         ) : !items.length ? (
@@ -301,7 +295,6 @@ export default function HodApprovals({ me, onCountChange }) {
               <tbody>
                 {items.map((item) => {
                   const isBusy = busyId === item.tuitionId;
-
                   return (
                     <tr key={item.tuitionId}>
                       <td style={styles.td}>{item.date || item.demoDate || "--"}</td>
@@ -331,17 +324,14 @@ export default function HodApprovals({ me, onCountChange }) {
                             type="button"
                             style={styles.approveBtn}
                             disabled={isBusy}
-                            onClick={() => handleDecision(item.tuitionId, "approve")}
-                          >
+                            onClick={() => handleDecision(item.tuitionId, "approve")}>
                             {isBusy ? "Please wait..." : "Approve"}
                           </button>
-
                           <button
                             type="button"
                             style={styles.rejectBtn}
                             disabled={isBusy}
-                            onClick={() => handleDecision(item.tuitionId, "reject")}
-                          >
+                            onClick={() => handleDecision(item.tuitionId, "reject")}>
                             {isBusy ? "Please wait..." : "Reject"}
                           </button>
                         </div>

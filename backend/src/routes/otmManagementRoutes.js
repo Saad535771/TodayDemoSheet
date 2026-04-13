@@ -10,6 +10,7 @@ export function makeOtmManagementRoutes(otmManagementController) {
     body("days").optional().isArray(),
     body("time").optional().isString(),
     body("timeSlots").optional().isArray(),
+    body("timeAssignments").optional().isObject(),
     body("durationLabel").optional().isString(),
     body("durationMinutes").optional().isInt({ min: 1 }),
     body("tuitionName").trim().notEmpty().withMessage("Tuition Name is required"),
@@ -21,6 +22,9 @@ export function makeOtmManagementRoutes(otmManagementController) {
     body("status").optional().isString(),
     body("reportStatus").optional().isString(),
     body("notes").optional().isString(),
+    body("rowColor").optional().isString(),
+    body("tuitionStartMonth").optional().isString(),
+    body("tuitionEndMonth").optional().isString(),
     body("userId").optional().isInt({ min: 1 }),
   ];
 
@@ -29,6 +33,12 @@ export function makeOtmManagementRoutes(otmManagementController) {
 
   router.get("/entries", requireAuth, otmManagementController.listEntries);
   router.post("/entries", requireAuth, entryValidators, otmManagementController.createEntry);
+  router.post(
+    "/entries/reorder",
+    requireAuth,
+    [body("orderedIds").isArray({ min: 1 }), body("orderedIds.*").isInt({ min: 1 })],
+    otmManagementController.reorderEntries
+  );
 
   router.put(
     "/entries/:entryId",

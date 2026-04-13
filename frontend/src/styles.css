@@ -54,3 +54,6 @@ td div{
   border-block-end: 1px solid #000000;
   overflow: visible;
 }
+.custom-height{
+  height: 70vh;
+}
