@@ -7,7 +7,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import AdminOtmUserDetail from "./components/AdminOtmUserDetail.jsx";
 import PaymentChangeRequestsPanel from "./pages/PaymentChangeRequestsPanel.jsx";
-
+import 'react-data-grid/lib/styles.css';
 function PrivateRoute({ children }) {
   const token = getStoredToken();
   if (!token) {

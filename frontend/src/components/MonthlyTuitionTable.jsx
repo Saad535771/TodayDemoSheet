@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { api } from "../api/api.js";
 const styles = {
   card: {
@@ -228,6 +228,61 @@ function format12Hour(time24) {
   hours = hours % 12 || 12;
   return `${hours}:${minutes} ${ampm}`;
 }
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+const getCurrentMonthValue = () => new Date().getMonth() + 1;
+const getCurrentYearValue = () => new Date().getFullYear();
+
+const parseSupportedDate = (raw) => {
+  if (!raw) return null;
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return raw;
+
+  const value = String(raw).trim();
+  if (!value) return null;
+
+  let match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (match) {
+    const day = Number(match[1]);
+    const month = Number(match[2]) - 1;
+    const year = Number(match[3]);
+    const parsed = new Date(year, month, day);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  match = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const parsed = new Date(year, month, day);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  match = value.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const parsed = new Date(year, month, day);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const getItemDateForMonthFilter = (item) => item?.date || item?.demoDate || null;
+
+const matchesMonthYearFilter = (item, month, year) => {
+  if (!month || !year) return true;
+  const parsed = parseSupportedDate(getItemDateForMonthFilter(item));
+  if (!parsed) return false;
+  return parsed.getMonth() + 1 === Number(month) && parsed.getFullYear() === Number(year);
+};
 const normalizeMultiValue = (value) => {
   if (Array.isArray(value)) {
     return [...new Set(value.map((entry) => String(entry || "").trim()).filter(Boolean))];
@@ -548,6 +603,10 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const [selectedRows, setSelectedRows] = useState(new Set());
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [pendingMonth, setPendingMonth] = useState(getCurrentMonthValue());
+  const [pendingYear, setPendingYear] = useState(String(getCurrentYearValue()));
+  const [activeMonth, setActiveMonth] = useState(getCurrentMonthValue());
+  const [activeYear, setActiveYear] = useState(getCurrentYearValue());
   const [selectedFields, setSelectedFields] = useState(searchColumns.map((c) => c.key));
   const [sortField, setSortField] = useState("orderIndex");
   const [sortDir, setSortDir] = useState("ASC");
@@ -579,6 +638,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const refreshInFlightRef = useRef(false);
   const HORIZONTAL_TRACKPAD_MULTIPLIER = 1;
   const AUTO_REFRESH_INTERVAL = 550000000;
+  const MONTH_SWITCH_DEBOUNCE_MS = 450;
 
   useEffect(() => {
     localItemsRef.current = localItems;
@@ -601,6 +661,24 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       setStatusEditorSearch("");
     }
   }, [editingCell]);
+
+  const filteredBaseItems = useMemo(() => {
+    const allItems = Array.isArray(items) ? items : [];
+    return allItems.filter((item) => matchesMonthYearFilter(item, activeMonth, activeYear));
+  }, [items, activeMonth, activeYear]);
+
+  useEffect(() => {
+    const parsedYear = Number.parseInt(String(pendingYear).trim(), 10);
+    if (!pendingMonth) return;
+    if (!parsedYear || String(parsedYear).length !== 4) return;
+
+    const timer = setTimeout(() => {
+      setActiveMonth(Number(pendingMonth));
+      setActiveYear(parsedYear);
+    }, MONTH_SWITCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [pendingMonth, pendingYear, MONTH_SWITCH_DEBOUNCE_MS]);
 
   useEffect(() => {
     const stopMouseSelection = () => {
@@ -629,7 +707,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     };
   }, [HORIZONTAL_TRACKPAD_MULTIPLIER]);
   useEffect(() => {
-    const nextItems = Array.isArray(items) ? items : [];
+    const nextItems = filteredBaseItems;
 
     if (areItemListsEqual(localItemsRef.current, nextItems)) {
       return;
@@ -724,7 +802,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
         editingCellRef.current = nextEditing;
       }
     }
-  }, [items]);
+  }, [filteredBaseItems]);
 
   useEffect(() => {
     if (!localItems.length) {
@@ -903,9 +981,8 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const performSearch = async (query) => {
     try {
       if (!query) {
-        const nextItems = Array.isArray(items) ? items : [];
-        if (!areItemListsEqual(localItemsRef.current, nextItems)) {
-          setLocalItems(nextItems);
+        if (!areItemListsEqual(localItemsRef.current, filteredBaseItems)) {
+          setLocalItems(filteredBaseItems);
         }
         return;
       }
@@ -919,12 +996,17 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
           sortField,
           sortDir,
           assignedTo: assignedFilter || "",
+          month: activeMonth,
+          year: activeYear,
         },
       });
 
-      if (resp?.data?.items) {
-        setLocalItems(resp.data.items);
-      }
+      const searchedItems = Array.isArray(resp?.data?.items) ? resp.data.items : [];
+      const filteredSearchItems = searchedItems.filter((item) =>
+        matchesMonthYearFilter(item, activeMonth, activeYear)
+      );
+
+      setLocalItems(filteredSearchItems);
     } catch (err) {
       console.error("Search failed", err);
     } finally {
@@ -935,7 +1017,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   useEffect(() => {
     const timer = setTimeout(() => performSearch(searchTerm), 400);
     return () => clearTimeout(timer);
-  }, [searchTerm, sortField, sortDir, assignedFilter]);
+  }, [searchTerm, sortField, sortDir, assignedFilter, activeMonth, activeYear, filteredBaseItems]);
 
   useEffect(() => {
     if (typeof load !== "function") return;
@@ -2220,7 +2302,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
           }}
         >
           <input
-            placeholder={isSearching ? "Searching..." : "Search across all columns..."}
+            placeholder={isSearching ? "Searching..." : "Search inside selected month..."}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -2233,6 +2315,20 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
               boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
             }}
           />
+
+          <span
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "#f3f4f6",
+              color: "#111827",
+              fontWeight: "700",
+              fontSize: "14px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Showing {MONTH_NAMES[activeMonth - 1]} {activeYear} • {localItems.length} records
+          </span>
 
           {selectedRows.size > 0 && (
             <>
@@ -2483,6 +2579,87 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 14,
+          flexWrap: "wrap",
+          padding: "14px 18px 18px",
+          borderTop: "1px solid #e5e7eb",
+          background: "#ffffff",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {MONTH_NAMES.map((monthLabel, index) => {
+            const monthNumber = index + 1;
+            const isActive = Number(pendingMonth) === monthNumber;
+            return (
+              <button
+                key={monthLabel}
+                type="button"
+                onClick={() => setPendingMonth(monthNumber)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 999,
+                  border: isActive ? "1px solid #111827" : "1px solid #d1d5db",
+                  background: isActive ? "#111827" : "#ffffff",
+                  color: isActive ? "#ffffff" : "#111827",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                {monthLabel}
+              </button>
+            );
+          })}
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+            marginLeft: "auto",
+          }}
+        >
+          <input
+            type="number"
+            min="2000"
+            max="2100"
+            value={pendingYear}
+            onChange={(e) => setPendingYear(e.target.value)}
+            placeholder="Enter year"
+            style={{
+              width: 120,
+              padding: "10px 12px",
+              borderRadius: 8,
+              border: "1px solid #c8c6c4",
+              fontSize: 14,
+              outline: "none",
+            }}
+          />
+
+          <span
+            style={{
+              padding: "10px 14px",
+              background: "#f3f4f6",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 700,
+              color: "#111827",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Showing {MONTH_NAMES[activeMonth - 1]} {activeYear} • {localItems.length} records
+          </span>
         </div>
       </div>
     </div>

@@ -41,10 +41,11 @@ const styles = {
     gap: "0px",
   },
   title: {
-    fontSize: "22px",
+    fontSize: "20px",
     fontWeight: "700",
     color: "#111111",
     margin: 0,
+    textAlign:'center',
   },
   subtitle: {
     fontSize: "13px",
@@ -2807,11 +2808,10 @@ export default function PaymentSheetWithDate({ me }) {
         >
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>Payment Sheet With Date</h2>
-            <p style={styles.subtitle}>Excel-style sheet with sticky toolbar, sticky header, tutor fee, lacas share, total fee columns, and one full-sheet history panel</p>
           </div>
 
           <div style={styles.actions}>
-            <div style={styles.liveBadge}>● Excel-style Manual Sheet</div>
+  
 
             <div style={styles.zoomControls}>
               <button

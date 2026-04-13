@@ -50,10 +50,11 @@ const styles = {
     gap: "4px",
   },
   title: {
-    fontSize: "22px",
+    fontSize: "20px",
     fontWeight: "700",
     color: "#111111",
     margin: 0,
+    textAlign:'center',
   },
   subtitle: {
     fontSize: "13px",
@@ -2637,14 +2638,9 @@ async function applyColorToSelectedRows(field, colorValue) {
         <div style={styles.headerRow}>
           <div style={styles.titleWrap}>
             <h2 style={styles.title}>Payment Sheet</h2>
-            <p style={styles.subtitle}>
-              Excel-style editing, black headers/borders, inline color palettes, Ctrl + Z undo, Backspace clear, and arrow move auto-save.
-            </p>
+  
           </div>
-
           <div style={styles.actions}>
-            <div style={styles.liveBadge}>● Live Sync</div>
-
             <div style={styles.selectedCountBadge}>
               Selected Rows: {selectedRowIds.size}
             </div>
