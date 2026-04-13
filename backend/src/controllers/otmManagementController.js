@@ -531,11 +531,18 @@ export function makeOtmManagementController({
           reportRows,
           totalClassRows,
         });
-      } catch (error) {
-        console.error("OTM CREATE ENTRY ERROR:", error);
-        return res.status(500).json({ message: "Failed to create row(s)" });
-      }
-    },
+      }  catch (error) {
+  console.error("OTM CREATE ENTRY ERROR:", error);
+  console.error("OTM CREATE ENTRY ERROR MESSAGE:", error?.message);
+  console.error("OTM CREATE ENTRY SQL ERROR:", error?.parent?.sqlMessage);
+  console.error("OTM CREATE ENTRY STACK:", error?.stack);
+
+  return res.status(500).json({
+    message:
+      error?.parent?.sqlMessage ||
+      error?.message ||
+      "Failed to create row(s)",
+  });}},
 
     async updateEntry(req, res) {
       const target = await resolveTargetUser(req, { forWrite: true });
