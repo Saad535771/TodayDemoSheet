@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api/api.js";
 import OtmPortalSheet from "../components/OtmPortalSheet.jsx";
-
 export default function OtmManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [user, setUser] = useState(null);
@@ -20,43 +19,44 @@ export default function OtmManagement() {
     otmUsers: [],
   });
   const [loading, setLoading] = useState(true);
-
   const requestedUserId = searchParams.get("userId");
   const isAdmin = user?.role === "admin";
-
   const selectedPortalUserId = useMemo(() => {
     if (isAdmin && requestedUserId) return Number(requestedUserId);
     if (selectedUser?.id) return Number(selectedUser.id);
+    if (isAdmin && meta?.otmUsers?.length > 0) return Number(meta.otmUsers[0].id);
     return Number(user?.id || 0);
-  }, [isAdmin, requestedUserId, selectedUser, user]);
-
+  }, [isAdmin, requestedUserId, selectedUser, user, meta]);
   async function loadAll(targetUserId) {
     try {
       setLoading(true);
+      const mePromise = api.get("/auth/me");
+      const metaPromise = api.get("/otm-management/meta");
       const query = targetUserId ? `?userId=${targetUserId}` : "";
+      const entriesPromise = api.get(`/otm-management/entries${query}`);
+      const reportsPromise = api.get(`/otm-management/reports${query}`);
+      const totalClassPromise = api.get(`/otm-management/total-class${query}`);
 
       const [meRes, metaRes, entriesRes, reportsRes, totalClassRes] = await Promise.all([
-        api.get("/auth/me"),
-        api.get("/otm-management/meta"),
-        api.get(`/otm-management/entries${query}`),
-        api.get(`/otm-management/reports${query}`),
-        api.get(`/otm-management/total-class${query}`),
+        mePromise,
+        metaPromise,
+        entriesPromise,
+        reportsPromise,
+        totalClassPromise,
       ]);
 
       const meUser = meRes.data?.user || null;
-      const nextMeta = metaRes.data || {};
-      const selected = entriesRes.data?.selectedUser || null;
-      const otmUsers = nextMeta.otmUsers || [];
-
       setUser(meUser);
-      setMeta(nextMeta);
+      setMeta(metaRes.data || {});
+
+      const selected = entriesRes.data?.selectedUser || null;
       setSelectedUser(selected || meUser);
       setEntries(entriesRes.data?.entries || []);
       setReportRows(reportsRes.data?.rows || []);
       setReportSummary(reportsRes.data?.summary || null);
       setTotalClassRows(totalClassRes.data?.rows || []);
       setTotalClassSummary(totalClassRes.data?.summary || null);
-
+      const otmUsers = metaRes.data?.otmUsers || [];
       if (meUser?.role === "admin" && !targetUserId && otmUsers.length > 0) {
         setSearchParams({ userId: String(otmUsers[0].id) }, { replace: true });
       }
@@ -71,15 +71,13 @@ export default function OtmManagement() {
       setLoading(false);
     }
   }
-
   useEffect(() => {
     loadAll(requestedUserId);
   }, [requestedUserId]);
-
   useEffect(() => {
-    const sessionId = localStorage.getItem("session_id") || sessionStorage.getItem("session_id");
+    const sessionId =
+      localStorage.getItem("session_id") || sessionStorage.getItem("session_id");
     if (!sessionId) return;
-
     const ping = async () => {
       try {
         await api.put("/auth/presence/heartbeat", {
@@ -97,23 +95,35 @@ export default function OtmManagement() {
   }, []);
 
   async function createEntry(payload) {
-    const body = isAdmin ? { ...payload, userId: selectedPortalUserId } : payload;
+    const targetUserId = isAdmin ? Number(selectedPortalUserId || meta?.otmUsers?.[0]?.id || 0) : null;
+    if (isAdmin && !targetUserId) {
+      throw new Error("No OTM user found for portal access");
+    }
+
+    const body = isAdmin
+      ? { ...payload, userId: targetUserId }
+      : payload;
+
     const res = await api.post("/otm-management/entries", body);
+    const entry = res.data?.entry || res.data?.data;
     await loadAll(selectedPortalUserId);
-    return res.data?.entries || res.data?.entry || null;
+    return entry;
   }
 
   async function updateEntry(entryId, payload) {
-    const body = isAdmin ? { ...payload, userId: selectedPortalUserId } : payload;
-    const res = await api.put(`/otm-management/entries/${entryId}`, body);
-    await loadAll(selectedPortalUserId);
-    return res.data?.entry || null;
-  }
+    const targetUserId = isAdmin ? Number(selectedPortalUserId || meta?.otmUsers?.[0]?.id || 0) : null;
+    if (isAdmin && !targetUserId) {
+      throw new Error("No OTM user found for portal access");
+    }
 
-  async function reorderEntries(orderedIds) {
-    const body = isAdmin ? { orderedIds, userId: selectedPortalUserId } : { orderedIds };
-    await api.post("/otm-management/entries/reorder", body);
+    const body = isAdmin
+      ? { ...payload, userId: targetUserId }
+      : payload;
+
+    const res = await api.put(`/otm-management/entries/${entryId}`, body);
+    const entry = res.data?.entry || res.data?.data;
     await loadAll(selectedPortalUserId);
+    return entry;
   }
 
   async function deleteEntry(entryId) {
@@ -129,7 +139,7 @@ export default function OtmManagement() {
 
   const title = isAdmin
     ? `OTM Portal - ${selectedUser?.name || "Select User"}`
-    : "OTM Management";
+    : "Otm Management";
 
   const subtitle = isAdmin
     ? `Admin mode: you can view and edit ${selectedUser?.name || "OTM user"} even when the user is offline.`
@@ -151,7 +161,6 @@ export default function OtmManagement() {
       totalClassSummary={totalClassSummary}
       onCreateEntry={createEntry}
       onUpdateEntry={updateEntry}
-      onReorderEntries={reorderEntries}
       onDeleteEntry={deleteEntry}
       onAdminUserChange={handleAdminUserChange}
     />

@@ -1156,7 +1156,6 @@ export default function OtmPortalSheet({
           {tab === "tuitions" && (
             <>
               <Toolbar
-                title="Spreadsheet View"
                 search={currentSearch}
                 onSearch={setSearchValue}
                 filters={currentFilters}
