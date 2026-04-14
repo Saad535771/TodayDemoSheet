@@ -2902,13 +2902,11 @@ export default function PaymentSheetWithDate({ me }) {
                     return (
                       <tr
                         key={rowId ?? visibleIndex}
-                        style={{ backgroundColor: row.rowColor || "#fff" }}
+                        style={{ backgroundColor: row.rowColor || "#ffffff04" }}
                       >
                           <td style={{ ...styles.td, textAlign: "center" }}>
-                          <div
+                          <div className="d-flex justify-content-center align-items-center flex-column"
                             style={{
-
-
                               minHeight: "6px",
                               minWidth: "8px",
                             }}
