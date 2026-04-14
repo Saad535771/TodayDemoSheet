@@ -1663,28 +1663,22 @@ const effectiveZoom = useMemo(() => {
         return {};
     }
   };
-
   const updateRecordFields = async (item, patchFields, options = {}) => {
     const { refreshAfter = true, skipHistory = false } = options;
-
     try {
       const currentItem =
         localItemsRef.current.find((x) => x.tuitionId === item.tuitionId) || item;
-
       if (!skipHistory) {
         const beforePatch = {};
         const afterPatch = {};
-
         Object.keys(patchFields).forEach((key) => {
           const beforeVal = currentItem?.[key] ?? "";
           const afterVal = patchFields[key] ?? "";
-
           if (String(beforeVal) !== String(afterVal)) {
             beforePatch[key] = beforeVal;
             afterPatch[key] = afterVal;
           }
         });
-
         if (Object.keys(afterPatch).length) {
           pushUndoEntry([
             {
@@ -1695,7 +1689,6 @@ const effectiveZoom = useMemo(() => {
           ]);
         }
       }
-
       setLocalItems((prev) =>
         prev.map((x) =>
           x.tuitionId === item.tuitionId
@@ -1706,11 +1699,8 @@ const effectiveZoom = useMemo(() => {
             : x
         )
       );
-
       const payload = { ...currentItem, ...patchFields, _source: "target" };
-
       await api.patch(`/target/${encodeURIComponent(item.tuitionId)}`, payload);
-
       if (onChanged && refreshAfter) {
         onChanged();
       }
@@ -1733,18 +1723,15 @@ const effectiveZoom = useMemo(() => {
       refreshAfter: false,
     });
   };
-
   const setEditingState = (cell, value, options = {}) => {
     const { selectAll = true, moveCaretToEnd = false } = options;
     shouldSelectAllOnFocusRef.current = selectAll;
     moveCaretToEndOnFocusRef.current = moveCaretToEnd;
-
     editingCellRef.current = cell;
     setEditingCell(cell);
     editValueRef.current = value;
     setEditValue(value);
   };
-
   const clearEditingState = () => {
     editingCellRef.current = null;
     setEditingCell(null);
@@ -1753,14 +1740,11 @@ const effectiveZoom = useMemo(() => {
     shouldSelectAllOnFocusRef.current = true;
     moveCaretToEndOnFocusRef.current = false;
   };
-
   const getNextEditableCell = (rowIndex, colId, direction = 1) => {
     let row = rowIndex;
     let colIndex = getColumnIndex(colId);
-
     while (true) {
       colIndex += direction;
-
       while (colIndex >= 0 && colIndex < gridColumns.length) {
         const candidate = gridColumns[colIndex];
         if (candidate?.editable) {
@@ -1768,94 +1752,71 @@ const effectiveZoom = useMemo(() => {
         }
         colIndex += direction;
       }
-
       row += direction > 0 ? 1 : -1;
-
       if (row < 0 || row >= filteredItemsRef.current.length) {
         return { rowIndex, colId };
       }
-
       colIndex = direction > 0 ? -1 : gridColumns.length;
     }
   };
-
   const startEditingCell = (rowIndex, colId, forcedValue = null, options = {}) => {
     const col = gridColumnMap[colId];
     const item = filteredItemsRef.current[rowIndex];
-
     if (!col?.editable || !item) return;
-
     const currentVal = getCellValue(item, col);
     const nextValue = forcedValue !== null ? forcedValue : String(currentVal ?? "");
-
     setSelectedCell({ rowIndex, colId });
     setAnchorCell({ rowIndex, colId });
     setSelectedCells(new Set([getCellKey(rowIndex, colId)]));
     setEditingState({ rowIndex, colId }, nextValue, options);
   };
-
   const cancelEdit = (focusTarget = null) => {
     clearEditingState();
     if (focusTarget) {
       focusCell(focusTarget.rowIndex, focusTarget.colId);
     }
   };
-
   const commitEdit = (focusTarget = null) => {
     const currentEditingCell = editingCellRef.current;
     if (!currentEditingCell) {
       if (focusTarget) focusCell(focusTarget.rowIndex, focusTarget.colId);
       return;
     }
-
     const { rowIndex, colId } = currentEditingCell;
     const col = gridColumnMap[colId];
     const item = filteredItemsRef.current[rowIndex];
-
     const newValue = String(editValueRef.current ?? "");
     clearEditingState();
-
     if (!item || !col?.editable) {
       if (focusTarget) focusCell(focusTarget.rowIndex, focusTarget.colId);
       return;
     }
-
     const oldValue = String(getCellValue(item, col) ?? "");
-
     if (newValue !== oldValue) {
       const patch = buildPatchForColumn(colId, newValue);
       if (Object.keys(patch).length > 0) {
         updateRecordFields(item, patch);
       }
     }
-
     if (focusTarget) {
       focusCell(focusTarget.rowIndex, focusTarget.colId);
     }
   };
-
   const clearSelectedCells = async () => {
     if (!selectedCells.size) return;
-
     const updatesById = new Map();
     const historyChanges = [];
-
     selectedCells.forEach((key) => {
       const { rowIndex, colId } = parseCellKey(key);
       const col = gridColumnMap[colId];
       const item = filteredItemsRef.current[rowIndex];
-
       if (!item || !col?.editable) return;
-
       const patch = buildPatchForColumn(colId, "");
       if (!Object.keys(patch).length) return;
-
       const prevPatch = updatesById.get(item.tuitionId)?.patch || {};
       updatesById.set(item.tuitionId, { item, patch: { ...prevPatch, ...patch } });
     });
-
     if (!updatesById.size) return;
-
     updatesById.forEach((entry) => {
       const currentItem =
         localItemsRef.current.find((x) => x.tuitionId === entry.item.tuitionId) || entry.item;
@@ -2330,6 +2291,7 @@ const resetLocalZoom = (e) => {
 
   const renderGridCell = (item, rowIndex, col) => {
     const cellKey = getCellKey(rowIndex, col.id);
+    const reactCellKey = `${item.tuitionId ?? rowIndex}-${col.id}`;
     const isSelected = selectedCells.has(cellKey);
     const isEditing =
       editingCell?.rowIndex === rowIndex && editingCell?.colId === col.id;
@@ -2362,7 +2324,7 @@ const resetLocalZoom = (e) => {
 
     if (isEditing && col.kind === "multiselect") {
       return (
-        <td style={{ ...commonTdStyle, verticalAlign: "top" }}>
+        <td key={reactCellKey} style={{ ...commonTdStyle, verticalAlign: "top" }}>
           <StatusMultiEditor
             inputRef={inputRef}
             value={editValue}
@@ -2383,7 +2345,7 @@ const resetLocalZoom = (e) => {
 
     if (isEditing && col.kind === "select") {
       return (
-        <td style={commonTdStyle}>
+        <td key={reactCellKey} style={commonTdStyle}>
           <select
             ref={inputRef}
             autoFocus
@@ -2398,9 +2360,9 @@ const resetLocalZoom = (e) => {
             onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
           >
             {col.options.map((o) => (
-              <option key={o} value={o}>
-                {o || "--"}
-              </option>
+               <option key={`${reactCellKey}-${o}`} value={o}>
+              {o || "Select"}
+            </option>
             ))}
           </select>
         </td>
@@ -2467,7 +2429,7 @@ const resetLocalZoom = (e) => {
 
     if (isEditing) {
       return (
-        <td style={commonTdStyle}>
+        <td key={reactCellKey} style={commonTdStyle}>
           <input
             ref={inputRef}
             autoFocus
@@ -2491,8 +2453,10 @@ const resetLocalZoom = (e) => {
         <td
           data-grid-row={rowIndex}
           data-grid-col={col.id}
+          key={reactCellKey}
           tabIndex={0}
           className="excel-cell"
+        
           onMouseDown={(e) => handleCellMouseDown(rowIndex, col.id, e)}
           onMouseEnter={() => handleCellMouseEnter(rowIndex, col.id)}
           onDoubleClick={() => startEditingCell(rowIndex, col.id)}
@@ -2538,6 +2502,7 @@ const resetLocalZoom = (e) => {
         data-grid-col={col.id}
         tabIndex={0}
         className="excel-cell"
+        key={reactCellKey}
         onMouseDown={(e) => handleCellMouseDown(rowIndex, col.id, e)}
         onMouseEnter={() => handleCellMouseEnter(rowIndex, col.id)}
         onDoubleClick={() => {

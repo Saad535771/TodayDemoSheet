@@ -1277,14 +1277,11 @@ export default function OtmPortalSheet({
                                   {statusOptions.map((item) => <option key={item} value={item}>{getStatusMeta(item).label}</option>)}
                                 </select>
                               </td>
-
-                              <td style={{ ...styles.td, background: rowBg, width: 120 }}>
+                              <td style={{ ...styles.td, background: rowBg, width: 20 }}>
                                 <button type="button" style={styles.boolBtn(Boolean(row.newTuition))} onClick={() => { updateRow(row.id, "newTuition", !row.newTuition); setTimeout(() => saveRow(row.id), 0); }}>{row.newTuition ? "Yes" : "No"}</button>
                               </td>
-
-                              <td style={{ ...styles.td, background: rowBg, width: 130 }}>
-                                <button type="button" style={styles.deleteBtn} onClick={() => deleteRow(row.id)}>{savingRowId === row.id ? "Saving..." : "Delete"}</button>
-                                <div style={styles.saveNote}>{savingRowId === row.id ? "Updating row" : "Auto save on blur"}</div>
+                              <td className="d-flex justify-content-center align-items-center">
+                                <button type="button" className="badge bg-primary border-none badge-pill" onClick={() => deleteRow(row.id)}>{savingRowId === row.id ? "Saving..." : "Delete"}</button>
                               </td>
                             </tr>
                           );
