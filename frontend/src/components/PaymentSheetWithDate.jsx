@@ -307,7 +307,6 @@ const styles = {
     fontWeight: "700",
   },
 };
-
 const statusOptions = [
   "Invoice Share",
   "Fee Receive",
@@ -315,12 +314,10 @@ const statusOptions = [
   "Tuition Pending",
   "Tuition Cancelled",
 ];
-
 function parseStatusValue(value) {
   if (Array.isArray(value)) {
     return [...new Set(value.map((item) => String(item || "").trim()).filter(Boolean))];
   }
-
   return [...new Set(
     String(value || "")
       .split(/[|,]/)
@@ -328,126 +325,96 @@ function parseStatusValue(value) {
       .filter(Boolean)
   )];
 }
-
 function serializeStatusValue(value) {
   return parseStatusValue(value).join(", ");
 }
-
 function isSelectLikeColumn(col) {
   return col?.kind === "select" || col?.kind === "multiSelect";
 }
-
 function getRowId(row) {
   return row?.id ?? row?.paymentId ?? row?._id ?? row?.rowId;
 }
-
 function rowsAreSame(a = [], b = []) {
   if (a === b) return true;
   if (!Array.isArray(a) || !Array.isArray(b)) return false;
   if (a.length !== b.length) return false;
-
   for (let i = 0; i < a.length; i += 1) {
     const left = a[i] || {};
     const right = b[i] || {};
-
     if (getRowId(left) !== getRowId(right)) return false;
-
     const leftKeys = Object.keys(left);
     const rightKeys = Object.keys(right);
     if (leftKeys.length !== rightKeys.length) return false;
-
     for (const key of leftKeys) {
       if (!Object.is(left[key], right[key])) return false;
     }
   }
-
   return true;
 }
-
 function cloneRow(row) {
   if (row === null || row === undefined) return row;
   return JSON.parse(JSON.stringify(row));
 }
-
 function cloneRows(rows = []) {
   return rows.map((row) => cloneRow(row));
 }
-
 function getDateGroupDay(value) {
   const raw = String(value || "").trim().toLowerCase();
   if (!raw) return Number.MAX_SAFE_INTEGER;
-
   const match = raw.match(/^(\d{1,2})/);
   if (!match) return Number.MAX_SAFE_INTEGER;
-
   const day = Number(match[1]);
   if (!Number.isFinite(day)) return Number.MAX_SAFE_INTEGER;
   return Math.max(1, Math.min(31, day));
 }
-
 function sortRowsByDateGroup(rows = []) {
   return cloneRows(rows).sort((a, b) => {
     const aDay = getDateGroupDay(a?.dateWithMonth);
     const bDay = getDateGroupDay(b?.dateWithMonth);
-
     if (aDay !== bDay) return aDay - bDay;
-
     const aOrder =
       typeof a?.orderIndex === "number" ? a.orderIndex : Number.MAX_SAFE_INTEGER;
     const bOrder =
       typeof b?.orderIndex === "number" ? b.orderIndex : Number.MAX_SAFE_INTEGER;
-
     if (aOrder !== bOrder) return aOrder - bOrder;
-
     return String(a?.tuitionName || "").localeCompare(String(b?.tuitionName || ""));
   });
 }
-
 function buildMergedPatchEntries(updates = []) {
   const merged = new Map();
-
   updates.forEach(({ row, patch }) => {
     const rowId = getRowId(row);
     if (rowId === undefined || rowId === null) return;
     if (!patch || typeof patch !== "object") return;
-
     const patchKeys = Object.keys(patch);
     if (!patchKeys.length) return;
-
     const existing = merged.get(String(rowId)) || {
       rowId,
       beforePatch: {},
       afterPatch: {},
     };
-
     patchKeys.forEach((key) => {
       existing.beforePatch[key] = row?.[key];
       existing.afterPatch[key] = patch[key];
     });
-
     merged.set(String(rowId), existing);
   });
-
   return [...merged.values()].filter((entry) =>
     Object.keys(entry.afterPatch).some(
       (key) => !Object.is(entry.beforePatch[key], entry.afterPatch[key])
     )
   );
 }
-
 function applyPatchEntriesToRows(rows = [], entries = [], patchKey = "afterPatch") {
   if (!entries.length) return rows;
-
-  const patchMap = new Map(
+    const patchMap = new Map(
     entries.map((entry) => [String(entry.rowId), entry[patchKey] || {}])
   );
-
   return rows.map((row) => {
     const patch = patchMap.get(String(getRowId(row)));
     return patch ? { ...row, ...patch } : row;
   });
 }
-
 function buildReorderPayload(rows = []) {
   return rows
     .map((row, index) => {
@@ -461,17 +428,14 @@ function buildReorderPayload(rows = []) {
     })
     .filter(Boolean);
 }
-
 function applyReorderPayloadToRows(rows = [], payload = []) {
   if (!payload.length) return rows;
-
   const orderMap = new Map(
     payload.map((item, index) => [
       String(item.id),
       typeof item?.orderIndex === "number" ? item.orderIndex : index,
     ])
   );
-
   return cloneRows(rows)
     .map((row, index) => ({
       ...row,
@@ -487,51 +451,39 @@ function applyReorderPayloadToRows(rows = [], payload = []) {
       return aOrder - bOrder;
     });
 }
-
 function insertRowByOrder(rows = [], row) {
   const next = cloneRows(rows).filter(
     (item) => String(getRowId(item)) !== String(getRowId(row))
   );
-
   if (!row) return next;
-
   const targetOrder = typeof row?.orderIndex === "number" ? row.orderIndex : next.length;
   const insertAt = Math.max(0, Math.min(next.length, targetOrder));
   next.splice(insertAt, 0, cloneRow(row));
   return next;
 }
-
 function isTextLikeSelectionInput(el) {
   if (!el) return false;
-
   const tag = String(el.tagName || "").toLowerCase();
   if (tag === "textarea") return true;
   if (tag !== "input") return false;
-
   const type = String(el.type || "text").toLowerCase();
   return ["text", "search", "url", "tel", "password"].includes(type);
 }
-
 function isPickerLikeColumn(col) {
   return isSelectLikeColumn(col) || col?.type === "date";
 }
-
 function tryOpenPicker(el, col) {
   if (!el || !col) return;
-
   requestAnimationFrame(() => {
     try {
       if (typeof el.focus === "function") el.focus();
     } catch (err) {
       console.error("Focus failed:", err);
     }
-
     if (!isPickerLikeColumn(col)) return;
-
     if (col.kind === "multiSelect") {
       return;
     }
-
     try {
       if (typeof el.showPicker === "function") {
         el.showPicker();
@@ -540,14 +492,12 @@ function tryOpenPicker(el, col) {
     } catch (err) {
       console.warn("showPicker not available:", err);
     }
-
     if (isSelectLikeColumn(col)) {
       try {
         el.click();
       } catch (err) {
         console.warn("Select click failed:", err);
       }
-
       try {
         el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
       } catch (err) {
@@ -556,7 +506,6 @@ function tryOpenPicker(el, col) {
     }
   });
 }
-
 function getStatusStyle(status) {
   switch ((status || "").trim()) {
     case "Invoice Share":
@@ -597,10 +546,8 @@ function getStatusStyle(status) {
       };
   }
 }
-
 function StatusPill({ value }) {
   const statuses = parseStatusValue(value);
-
   if (!statuses.length) {
     return (
       <span
@@ -608,7 +555,6 @@ function StatusPill({ value }) {
           background: "#475569",
           color: "#ffffff",
           border: "1px solid #334155",
-      
           borderRadius: "999px",
           fontSize: "12px",
           fontWeight: "700",
@@ -620,7 +566,6 @@ function StatusPill({ value }) {
       </span>
     );
   }
-
   return (
     <div
       style={{
@@ -979,7 +924,7 @@ export default function PaymentSheetWithDate({ me }) {
         editable: true,
         width: 40,
         align: "center",
-        kind: "tuitionName",
+        // kind: "tuitionName",
       },
       {
         id: "totalStudents",
@@ -2598,8 +2543,8 @@ export default function PaymentSheetWithDate({ me }) {
       boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
       backgroundColor:
         col.id === "tuitionName"
-          ? row.tuitionNameColor || "#fff"
-          : row.rowColor || "#fff",
+          ? row.tuitionNameColor || "#ffffff02"
+          : row.rowColor || "#ffffff04",
       position: "relative",
       cursor: col.editable ? "cell" : "default",
     };
@@ -2921,15 +2866,12 @@ export default function PaymentSheetWithDate({ me }) {
                       aria-label="Select all visible rows"
                     />
                   </th>
-                  
                   <th style={{ ...styles.th, top: tableHeadTop, minWidth: "10px" }}>🎨</th>
-
                   {gridColumns.map((col) => (
                     <th key={col.id} style={{ ...styles.th, top: tableHeadTop, minWidth: `${col.width}px` }}>
                       {col.label}
                     </th>
                   ))}
-
                   <th style={{ ...styles.th, top: tableHeadTop, minWidth: "60px" }}>Add Row</th>
                   <th style={{ ...styles.th, top: tableHeadTop, minWidth: "100px" }}>Action</th>
                 </tr>
