@@ -637,8 +637,8 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const isSearchingRef = useRef(isSearching);
   const refreshInFlightRef = useRef(false);
   const HORIZONTAL_TRACKPAD_MULTIPLIER = 1;
-  const AUTO_REFRESH_INTERVAL = 550000000;
-  const MONTH_SWITCH_DEBOUNCE_MS = 450;
+  const AUTO_REFRESH_INTERVAL = 55000;
+  const MONTH_SWITCH_DEBOUNCE_MS = 1500;
 
   useEffect(() => {
     localItemsRef.current = localItems;
