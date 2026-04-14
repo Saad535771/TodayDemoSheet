@@ -2907,6 +2907,7 @@ export default function PaymentSheetWithDate({ me }) {
             <table style={styles.table}>
               <thead>
                 <tr>
+                  <th style={{ ...styles.th, top: tableHeadTop, Width: "10px" }}>Sort</th>
                   <th style={{ ...styles.th, top: tableHeadTop, minWidth: "8px" }}>#</th>
                   <th style={{ ...styles.th, top: tableHeadTop, minWidth: "8px" }}>
                     <input
@@ -2920,8 +2921,8 @@ export default function PaymentSheetWithDate({ me }) {
                       aria-label="Select all visible rows"
                     />
                   </th>
-                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "20px" }}>Sort</th>
-                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "30px" }}>🎨</th>
+                  
+                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "10px" }}>🎨</th>
 
                   {gridColumns.map((col) => (
                     <th key={col.id} style={{ ...styles.th, top: tableHeadTop, minWidth: `${col.width}px` }}>
@@ -2961,38 +2962,13 @@ export default function PaymentSheetWithDate({ me }) {
                         key={rowId ?? visibleIndex}
                         style={{ backgroundColor: row.rowColor || "#fff" }}
                       >
-                        <td style={{ ...styles.td, textAlign: "center" }}>
-                          <div
-                            style={{
-                              ...styles.readCell,
-                              justifyContent: "center",
-                              fontWeight: "700",
-                              minWidth: "68px",
-                            }}
-                            aria-label={`Row number ${visibleIndex + 1}`}
-                          >
-                            {visibleIndex + 1}
-                          </div>
-                        </td>
-
-                        <td style={{ ...styles.td, textAlign: "center" }}>
-                          <div style={styles.readCell}>
-                            <input
-                              type="checkbox"
-                              checked={selectedRowIds.has(rowId)}
-                              onChange={(e) => toggleRowSelection(rowId, e.target.checked)}
-                              style={styles.checkbox}
-                              aria-label={`Select row ${visibleIndex + 1}`}
-                            />
-                          </div>
-                        </td>
-
-                        <td style={{ ...styles.td, textAlign: "center" }}>
+                          <td style={{ ...styles.td, textAlign: "center" }}>
                           <div
                             style={{
 
 
-                              minHeight: "46px",
+                              minHeight: "6px",
+                              minWidth: "8px",
                             }}
                           >
                             <button
@@ -3017,6 +2993,33 @@ export default function PaymentSheetWithDate({ me }) {
                             </button>
                           </div>
                         </td>
+                        <td style={{ ...styles.td, textAlign: "center" }}>
+                          <div
+                            style={{
+                              ...styles.readCell,
+                              justifyContent: "center",
+                              fontWeight: "700",
+                              minWidth: "8px",
+                            }}
+                            aria-label={`Row number ${visibleIndex + 1}`}
+                          >
+                            {visibleIndex + 1}
+                          </div>
+                        </td>
+                            
+                        <td style={{ ...styles.td, textAlign: "center" }}>
+                          <div style={styles.readCell}>
+                            <input
+                              type="checkbox"
+                              checked={selectedRowIds.has(rowId)}
+                              onChange={(e) => toggleRowSelection(rowId, e.target.checked)}
+                              style={styles.checkbox}
+                              aria-label={`Select row ${visibleIndex + 1}`}
+                            />
+                          </div>
+                        </td>
+
+                      
 
                         <td style={styles.td}>
                           <div style={styles.readCell}>
