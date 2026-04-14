@@ -88,63 +88,51 @@ export default function OtmManagement() {
         console.error("OTM heartbeat failed:", error);
       }
     };
-
     ping();
     const interval = setInterval(ping, 15000);
     return () => clearInterval(interval);
   }, []);
-
   async function createEntry(payload) {
     const targetUserId = isAdmin ? Number(selectedPortalUserId || meta?.otmUsers?.[0]?.id || 0) : null;
     if (isAdmin && !targetUserId) {
       throw new Error("No OTM user found for portal access");
     }
-
     const body = isAdmin
       ? { ...payload, userId: targetUserId }
       : payload;
-
     const res = await api.post("/otm-management/entries", body);
     const entry = res.data?.entry || res.data?.data;
     await loadAll(selectedPortalUserId);
     return entry;
   }
-
   async function updateEntry(entryId, payload) {
     const targetUserId = isAdmin ? Number(selectedPortalUserId || meta?.otmUsers?.[0]?.id || 0) : null;
     if (isAdmin && !targetUserId) {
       throw new Error("No OTM user found for portal access");
     }
-
     const body = isAdmin
       ? { ...payload, userId: targetUserId }
       : payload;
-
     const res = await api.put(`/otm-management/entries/${entryId}`, body);
     const entry = res.data?.entry || res.data?.data;
     await loadAll(selectedPortalUserId);
     return entry;
   }
-
   async function deleteEntry(entryId) {
     const suffix = isAdmin ? `?userId=${selectedPortalUserId}` : "";
     await api.delete(`/otm-management/entries/${entryId}${suffix}`);
     await loadAll(selectedPortalUserId);
   }
-
   function handleAdminUserChange(nextUserId) {
     if (!nextUserId) return;
     setSearchParams({ userId: String(nextUserId) });
   }
-
   const title = isAdmin
     ? `OTM Portal - ${selectedUser?.name || "Select User"}`
     : "Otm Management";
-
   const subtitle = isAdmin
     ? `Admin mode: you can view and edit ${selectedUser?.name || "OTM user"} even when the user is offline.`
     : `Logged in as ${user?.name || user?.email || "OTM User"}`;
-
   return (
     <OtmPortalSheet
       user={user}
