@@ -931,7 +931,7 @@ export default function PaymentSheetWithDate({ me }) {
         label: "Total Students",
         field: "totalStudents",
         editable: true,
-        width: 30,
+        width: 20,
         type: "number",
         align: "center",
       },
@@ -956,7 +956,7 @@ export default function PaymentSheetWithDate({ me }) {
         label: "Tutor Name",
         field: "tutorName",
         editable: true,
-        width: 90,
+        width: 120,
         align: "center",
       },
     ];
@@ -969,7 +969,7 @@ export default function PaymentSheetWithDate({ me }) {
         editable: true,
         width: 35,
         type: "number",
-        align: "left",
+        align: "center",
       },
       {
         id: "lacasShare",
@@ -978,7 +978,7 @@ export default function PaymentSheetWithDate({ me }) {
         editable: true,
         width: 35,
         type: "number",
-        align: "left",
+        align: "center",
       },
       {
         id: "totalFees",
@@ -987,7 +987,7 @@ export default function PaymentSheetWithDate({ me }) {
         editable: true,
         width: 35,
         type: "number",
-        align: "left",
+        align: "center",
       }
     );
 
@@ -1007,7 +1007,7 @@ export default function PaymentSheetWithDate({ me }) {
         label: "Feedback",
         field: "feedback",
         editable: true,
-        width: 70,
+        width: 120,
         align: "center",
       },
       {
@@ -1500,26 +1500,19 @@ export default function PaymentSheetWithDate({ me }) {
               ? created.orderIndex
               : nextOrderIndex,
         };
-
         let nextItems = [...itemsRef.current, createdRow];
-
         if (referenceRow) {
           const referenceId = getRowId(referenceRow);
           const referenceIndex = itemsRef.current.findIndex(
-            (item) => String(getRowId(item)) === String(referenceId)
-          );
-
+            (item) => String(getRowId(item)) === String(referenceId));
           if (referenceIndex >= 0) {
             nextItems = cloneRows(itemsRef.current);
             nextItems.splice(referenceIndex + 1, 0, createdRow);
-
             nextItems = nextItems.map((item, idx) => ({
               ...item,
               orderIndex: idx,
             }));
-
             setItemsImmediate(nextItems);
-
             await api.post(`/payments-clone/reorder`, { items: buildReorderPayload(nextItems) });
           } else {
             setItemsImmediate(nextItems);
@@ -1527,13 +1520,11 @@ export default function PaymentSheetWithDate({ me }) {
         } else {
           setItemsImmediate(nextItems);
         }
-
         rememberHistoryEntry({
           type: "addRow",
           label: referenceRow ? "Add Row After" : "Add Row",
           row: cloneRow(createdRow),
         });
-
         markMutationSettled();
         queueSilentReload();
       } else {
@@ -1547,7 +1538,6 @@ export default function PaymentSheetWithDate({ me }) {
       setAdding(false);
     }
   }
-
   async function updateRowFields(row, patchFields, options = {}) {
     try {
       await applyUpdateEntries([{ row, patch: patchFields }], {
@@ -1559,24 +1549,19 @@ export default function PaymentSheetWithDate({ me }) {
       alert(err?.response?.data?.message || "Failed to update the row.");
     }
   }
-
   async function updateRow(row, field, newValue, options = {}) {
     await updateRowFields(row, { [field]: newValue }, options);
   }
-
   async function moveRow(index, direction) {
     if (index < 0) return;
     if (direction === "up" && index === 0) return;
     if (direction === "down" && index === items.length - 1) return;
-
     const newItems = cloneRows(itemsRef.current);
     const targetIndex = direction === "up" ? index - 1 : index + 1;
-
     [newItems[index], newItems[targetIndex]] = [
       newItems[targetIndex],
       newItems[index],
     ];
-
     const normalized = newItems.map((item, idx) => ({
       ...item,
       orderIndex: idx,

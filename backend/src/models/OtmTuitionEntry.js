@@ -89,8 +89,8 @@ export function defineOtmTuitionEntry(sequelize) {
       },
       status: {
         type: DataTypes.STRING(80),
-        allowNull: false,
-        defaultValue: "class pending",
+        allowNull: true,
+        defaultValue: "",
       },
       reportStatus: {
         type: DataTypes.STRING(80),
@@ -103,9 +103,40 @@ export function defineOtmTuitionEntry(sequelize) {
       },
       newTuition: {
         type: DataTypes.BOOLEAN,
+        allowNull: true,
+        defaultValue: null,
+        field: "new_tuition",
+      },
+      rowColor: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+        field: "row_color",
+      },
+      tuitionStartDate: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+        field: "tuition_start_date",
+      },
+      tuitionStartWeek: {
+        type: DataTypes.STRING(10),
+        allowNull: true,
+        field: "tuition_start_week",
+      },
+      tuitionStartMonth: {
+        type: DataTypes.STRING(7),
+        allowNull: true,
+        field: "tuition_start_month",
+      },
+      tuitionEndMonth: {
+        type: DataTypes.STRING(7),
+        allowNull: true,
+        field: "tuition_end_month",
+      },
+      pauseNextCycle: {
+        type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: false,
-        field: "new_tuition",
+        field: "pause_next_cycle",
       },
       sortOrder: {
         type: DataTypes.INTEGER.UNSIGNED,
