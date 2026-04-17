@@ -26,7 +26,7 @@ export const DEFAULT_DURATION_OPTIONS = [
 ];
 
 export const GRID_DIMENSIONS = {
-  days: 96,
+  days: 136,
   time: 140,
   duration: 92,
   startMonth: 98,
