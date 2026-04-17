@@ -7,6 +7,8 @@ export function makeTuitionRoutes(tuitionController, requireAuth) {
   router.get("/", requireAuth, tuitionController.list);
   router.get("/search", requireAuth, tuitionController.search);
 
+  router.get("/otm-users", requireAuth, tuitionController.listOtmUsers);
+
   router.get(
     "/payment-approvals",
     requireAuth,

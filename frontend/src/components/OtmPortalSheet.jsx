@@ -1,222 +1,151 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import OtmPortalEntryForm from "./OtmPortalEntryForm.jsx";
+import {
+  DEFAULT_DAY_OPTIONS,
+  DEFAULT_DURATION_OPTIONS,
+  DEFAULT_STATUS_OPTIONS,
+  GRID_DIMENSIONS,
+  DayTimeAssignmentsEditor,
+  Pagination,
+  TEXT_COLUMNS,
+  Toolbar,
+  MultiSelectCell,
+  addMinutes,
+  extractMonthYear,
+  getDisplayName,
+  getDurationLabel,
+  getStatusMeta,
+  matchesFilters,
+  matchesSearch,
+  normalizeArray,
+  normalizeMonthValue,
+  normalizeString,
+  normalizeTimeText,
+  paginate,
+  sortDays,
+  styles,
+} from "./otmPortalShared.jsx";
 
-const DEFAULT_DAY_OPTIONS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
-
-const DEFAULT_STATUS_OPTIONS = [
-  "",
-  "class done",
-  "class pending",
-  "missed by teacher",
-  "missed by student",
-  "tuition pause",
-];
-
-const DEFAULT_DURATION_OPTIONS = [
-  { value: 60, label: "1 hour" },
-  { value: 90, label: "1.5 hours" },
-  { value: 120, label: "2 hours" },
-  { value: 150, label: "2.5 hours" },
-  { value: 180, label: "3 hours" },
-];
-
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
-const NEW_TUITION_OPTIONS = [
-  { value: "", label: "Select" },
-  { value: "true", label: "Yes" },
-  { value: "false", label: "No" },
-];
-const MONTH_OPTIONS = [
-  { value: "01", label: "January" },
-  { value: "02", label: "February" },
-  { value: "03", label: "March" },
-  { value: "04", label: "April" },
-  { value: "05", label: "May" },
-  { value: "06", label: "June" },
-  { value: "07", label: "July" },
-  { value: "08", label: "August" },
-  { value: "09", label: "September" },
-  { value: "10", label: "October" },
-  { value: "11", label: "November" },
-  { value: "12", label: "December" },
-];
-
-const DAY_INDEX = DEFAULT_DAY_OPTIONS.reduce((acc, day, index) => {
-  acc[day.toLowerCase()] = index;
-  return acc;
-}, {});
-
-function normalizeString(value) {
-  if (value === undefined || value === null) return "";
-  return String(value).trim();
-}
-
-function normalizeArray(value) {
+function stableSerialize(value) {
   if (Array.isArray(value)) {
-    return [...new Set(value.map((item) => normalizeString(item)).filter(Boolean))];
+    return `[${value.map((entry) => stableSerialize(entry)).join(",")}]`;
   }
-  const text = normalizeString(value);
-  if (!text) return [];
-  return [...new Set(text.split(",").map((item) => item.trim()).filter(Boolean))];
-}
 
-function sortDays(days = []) {
-  return normalizeArray(days).sort((a, b) => (DAY_INDEX[a.toLowerCase()] ?? 999) - (DAY_INDEX[b.toLowerCase()] ?? 999));
-}
-
-function normalizeTimeText(value) {
-  const text = normalizeString(value).replace(/\s+/g, "");
-  if (!text) return "";
-  const match = text.match(/^(\d{1,2})(?::?(\d{1,2}))?(am|pm)$/i);
-  if (!match) return normalizeString(value);
-  const hour = Number(match[1]);
-  const minute = Number(match[2] ?? 0);
-  const suffix = match[3].toUpperCase();
-  if (!Number.isFinite(hour) || hour < 1 || hour > 12) return normalizeString(value);
-  if (!Number.isFinite(minute) || minute < 0 || minute > 59) return normalizeString(value);
-  return `${hour}:${String(minute).padStart(2, "0")} ${suffix}`;
-}
-
-function toMinutes(timeLabel) {
-  const normalized = normalizeTimeText(timeLabel);
-  const match = normalized.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-  if (!match) return null;
-  let hour = Number(match[1]);
-  const minute = Number(match[2]);
-  const suffix = match[3].toUpperCase();
-  if (suffix === "AM" && hour === 12) hour = 0;
-  if (suffix === "PM" && hour !== 12) hour += 12;
-  return hour * 60 + minute;
-}
-
-function formatTime(totalMinutes) {
-  if (!Number.isFinite(totalMinutes)) return "";
-  let normalized = totalMinutes % (24 * 60);
-  if (normalized < 0) normalized += 24 * 60;
-  const hour24 = Math.floor(normalized / 60);
-  const minute = normalized % 60;
-  const suffix = hour24 >= 12 ? "PM" : "AM";
-  let hour12 = hour24 % 12;
-  if (hour12 === 0) hour12 = 12;
-  return `${hour12}:${String(minute).padStart(2, "0")} ${suffix}`;
-}
-
-function addMinutes(timeLabel, minutesToAdd) {
-  const start = toMinutes(timeLabel);
-  if (!Number.isFinite(start)) return "";
-  return formatTime(start + Number(minutesToAdd || 0));
-}
-
-function normalizeMonthValue(value) {
-  const text = normalizeString(value);
-  if (/^\d{4}-\d{2}$/.test(text)) return text;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text.slice(0, 7);
-  return "";
-}
-
-function normalizeDateValue(value) {
-  const text = normalizeString(value);
-  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
-}
-
-function getDurationLabel(options, value) {
-  const found = options.find((item) => Number(item.value) === Number(value));
-  return found?.label || `${value} min`;
-}
-
-function getWeekLabel(dateValue) {
-  const normalized = normalizeDateValue(dateValue);
-  if (!normalized) return "";
-  const day = Number(normalized.slice(8, 10));
-  if (day <= 7) return "Week1";
-  if (day <= 14) return "Week2";
-  if (day <= 21) return "Week3";
-  return "Week4";
-}
-
-function addDays(dateValue, daysToAdd) {
-  const normalized = normalizeDateValue(dateValue);
-  if (!normalized) return "";
-  const date = new Date(`${normalized}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return "";
-  date.setDate(date.getDate() + Number(daysToAdd || 0));
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function getStatusMeta(status) {
-  const value = normalizeString(status).toLowerCase();
-  if (!value) {
-    return { label: "Select Status", background: "#ffffff", color: "#475569", border: "#cbd5e1" };
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`)
+      .join(",")}}`;
   }
-  if (value === "class done") {
-    return { label: "Class Done", background: "#dcfce7", color: "#166534", border: "#86efac" };
-  }
-  if (value === "class pending") {
-    return { label: "Class Pending", background: "#fef3c7", color: "#92400e", border: "#fcd34d" };
-  }
-  if (value === "tuition pause") {
-    return { label: "Tuition Pause", background: "#dbeafe", color: "#1d4ed8", border: "#93c5fd" };
-  }
-  if (value === "missed by teacher") {
-    return { label: "Missed by Teacher", background: "#fee2e2", color: "#b91c1c", border: "#fca5a5" };
-  }
-  return { label: "Missed by Student", background: "#fee2e2", color: "#b91c1c", border: "#fca5a5" };
+
+  return JSON.stringify(value ?? null);
 }
 
-function deriveCalendar(dateValue, statusValue = "") {
-  const tuitionStartDate = normalizeDateValue(dateValue);
-  const tuitionStartWeek = getWeekLabel(tuitionStartDate);
-  const tuitionStartMonth = normalizeMonthValue(tuitionStartDate);
-  const tuitionEndMonth = normalizeString(statusValue).toLowerCase() === "tuition pause"
-    ? tuitionStartMonth
-    : normalizeMonthValue(addDays(tuitionStartDate, 30));
-  return { tuitionStartDate, tuitionStartWeek, tuitionStartMonth, tuitionEndMonth };
+function areRowListsEqual(prevRows, nextRows) {
+  if (prevRows === nextRows) return true;
+  if (!Array.isArray(prevRows) || !Array.isArray(nextRows)) return false;
+  if (prevRows.length !== nextRows.length) return false;
+
+  for (let index = 0; index < prevRows.length; index += 1) {
+    if (stableSerialize(prevRows[index]) !== stableSerialize(nextRows[index])) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
-function formatNewTuitionValue(value) {
-  if (value === true || value === "true") return "true";
-  if (value === false || value === "false") return "false";
-  return "";
+function buildTimeAssignments(days = [], assignments = {}, fallbackDay = "", fallbackTime = "") {
+  const safeDays = sortDays(days);
+  const normalizedFallbackTime = normalizeTimeText(fallbackTime);
+
+  return Object.fromEntries(
+    safeDays.map((day) => {
+      const directValue = assignments?.[day];
+      const legacyValue = fallbackDay === day ? normalizedFallbackTime : "";
+      return [day, normalizeTimeText(directValue ?? legacyValue)];
+    })
+  );
 }
 
-function parseNewTuitionValue(value) {
-  if (value === "true") return true;
-  if (value === "false") return false;
-  return null;
+function getPrimaryTime(days = [], assignments = {}) {
+  const firstDay = sortDays(days)[0];
+  if (!firstDay) return "";
+  return normalizeTimeText(assignments?.[firstDay]);
+}
+
+function buildDayTimeSummary(days = [], assignments = {}) {
+  return sortDays(days)
+    .map((day) => {
+      const time = normalizeTimeText(assignments?.[day]);
+      return time ? `${day}: ${time}` : `${day}: --`;
+    })
+    .join(" • ");
 }
 
 function computeRow(row, durationOptions) {
-  const day = normalizeString(row.day) || normalizeArray(row.days)[0] || "";
-  const days = day ? [day] : normalizeArray(row.days);
-  const time = normalizeTimeText(row.time || normalizeArray(row.timeSlots)[0] || "");
+  const legacyDay = normalizeString(row.day);
+  const legacyTime = normalizeTimeText(row.time || normalizeArray(row.timeSlots)[0] || "");
+  const providedDays = normalizeArray(row.days);
+  const assignmentDays =
+    row.timeAssignments && typeof row.timeAssignments === "object"
+      ? Object.keys(row.timeAssignments)
+      : [];
+  const days = sortDays(providedDays.length ? providedDays : legacyDay ? [legacyDay] : assignmentDays);
   const durationMinutes = Number(row.durationMinutes || 60);
+  const timeAssignments = buildTimeAssignments(days, row.timeAssignments || {}, legacyDay, legacyTime);
+  const timeSlots = days.map((day) => normalizeTimeText(timeAssignments[day])).filter(Boolean);
+  const time = getPrimaryTime(days, timeAssignments) || legacyTime;
   const classStartTime = time || normalizeString(row.classStartTime);
-  const classEndTime = classStartTime ? addMinutes(classStartTime, durationMinutes) : normalizeString(row.classEndTime);
-  const calendar = deriveCalendar(row.tuitionStartDate || row.tuitionStartMonth || "", row.status);
+  const classEndTime = classStartTime
+    ? addMinutes(classStartTime, durationMinutes)
+    : normalizeString(row.classEndTime);
 
   return {
     ...row,
-    day,
+    day: days[0] || legacyDay,
     days,
+    dayText: days.join(", "),
     time,
+    timeText: buildDayTimeSummary(days, timeAssignments),
+    timeSlots,
+    timeAssignments,
     durationMinutes,
     durationLabel: getDurationLabel(durationOptions, durationMinutes),
     classStartTime,
     classEndTime,
+    tuitionStartMonth: normalizeMonthValue(row.tuitionStartMonth),
+    tuitionEndMonth: normalizeMonthValue(row.tuitionEndMonth),
     notes: row.notes || "",
-    newTuition: parseNewTuitionValue(formatNewTuitionValue(row.newTuition)),
-    status: normalizeString(row.status).toLowerCase(),
-    tuitionStartDate: calendar.tuitionStartDate || normalizeDateValue(row.tuitionStartDate),
-    tuitionStartWeek: calendar.tuitionStartWeek || normalizeString(row.tuitionStartWeek),
-    tuitionStartMonth: calendar.tuitionStartMonth || normalizeMonthValue(row.tuitionStartMonth),
-    tuitionEndMonth: calendar.tuitionEndMonth || normalizeMonthValue(row.tuitionEndMonth),
+    newTuition: Boolean(row.newTuition || row.newTuitionName),
+    newTuitionName: normalizeString(row.newTuitionName) || "",
+    sourceTuitionId: normalizeString(row.sourceTuitionId),
+    status: normalizeString(row.status).toLowerCase() || "",
+  };
+}
+
+function buildEntryPayload(row) {
+  const normalizedDays = sortDays(row.days || []);
+  const normalizedAssignments = buildTimeAssignments(
+    normalizedDays,
+    row.timeAssignments || {},
+    row.day,
+    row.time
+  );
+  const primaryTime = getPrimaryTime(normalizedDays, normalizedAssignments);
+  const { tuitionEndMonth, ...safeRow } = row || {};
+
+  return {
+    ...safeRow,
+    day: normalizedDays[0] || "",
+    days: normalizedDays,
+    dayText: normalizedDays.join(", "),
+    time: primaryTime,
+    timeText: buildDayTimeSummary(normalizedDays, normalizedAssignments),
+    timeAssignments: normalizedAssignments,
+    timeSlots: normalizedDays.map((day) => normalizedAssignments[day]).filter(Boolean),
+    classStartTime: primaryTime,
+    classEndTime: primaryTime ? addMinutes(primaryTime, row.durationMinutes) : "",
   };
 }
 
@@ -225,6 +154,7 @@ function makeEmptyDraft(durationOptions) {
     days: [],
     timeAssignments: {},
     durationMinutes: Number(durationOptions?.[0]?.value || 60),
+    tuitionStartMonth: "",
     tuitionName: "",
     tutorName: "",
     groupName: "",
@@ -232,529 +162,52 @@ function makeEmptyDraft(durationOptions) {
     classEndTime: "",
     status: "",
     notes: "",
-    newTuition: null,
-    tuitionStartDate: "",
-    tuitionStartWeek: "",
-    tuitionStartMonth: "",
-    tuitionEndMonth: "",
+    newTuition: false,
+    newTuitionName: "",
   };
 }
 
-function getDisplayName(user) {
-  if (user?.name) return user.name;
-  const prefix = user?.email?.split("@")[0] || "User";
-  return prefix.charAt(0).toUpperCase() + prefix.slice(1);
+function buildCellPrefix(rowId, columnKey) {
+  return `${rowId}::${columnKey}`;
 }
 
-function extractMonthYear(row) {
-  const monthValue = normalizeMonthValue(row?.tuitionStartMonth) || normalizeMonthValue(row?.tuitionEndMonth);
-  if (monthValue) {
-    return { month: monthValue.slice(5, 7), year: monthValue.slice(0, 4) };
-  }
-  return { month: "", year: "" };
+function buildEditorKey(rowId, columnKey, editorKey = "main") {
+  return `${buildCellPrefix(rowId, columnKey)}::${editorKey}`;
 }
 
-function matchesSearch(row, searchTerm) {
-  const query = normalizeString(searchTerm).toLowerCase();
-  if (!query) return true;
-  return Object.values(row || {}).some((value) => {
-    if (Array.isArray(value)) return value.join(" ").toLowerCase().includes(query);
-    if (value && typeof value === "object") return JSON.stringify(value).toLowerCase().includes(query);
-    return String(value ?? "").toLowerCase().includes(query);
-  });
+function getElementSnapshot(key, element) {
+  if (!element?.isConnected || element.disabled) return null;
+  const rect = element.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  return {
+    key,
+    element,
+    rect,
+    left: rect.left,
+    right: rect.right,
+    top: rect.top,
+    bottom: rect.bottom,
+    centerX: rect.left + rect.width / 2,
+    centerY: rect.top + rect.height / 2,
+    area: rect.width * rect.height,
+  };
 }
 
-function matchesFilters(row, filters) {
-  const dayText = normalizeString(row.day || row.days || row.dayText);
-  const status = normalizeString(row.status).toLowerCase();
-  const { month, year } = extractMonthYear(row);
+function isTextInputLike(element) {
+  if (!element) return false;
+  if (element.tagName === "TEXTAREA") return true;
+  if (element.tagName !== "INPUT") return false;
+  const type = (element.type || "text").toLowerCase();
+  return ["text", "search", "email", "url", "tel", "password"].includes(type);
+}
 
-  if (filters.day && !dayText.toLowerCase().includes(filters.day.toLowerCase())) return false;
-  if (filters.status && status !== filters.status.toLowerCase()) return false;
-  if (filters.month && filters.month !== month) return false;
-  if (filters.year && filters.year !== year) return false;
+function shouldNavigateHorizontally() {
   return true;
 }
 
-function paginate(items, page, pageSize) {
-  const safePage = Math.max(1, Number(page || 1));
-  const start = (safePage - 1) * pageSize;
-  return items.slice(start, start + pageSize);
+function shouldNavigateVertically() {
+  return true;
 }
-
-function Toolbar({
-  search,
-  onSearch,
-  filters,
-  onFiltersChange,
-  pageSize,
-  onPageSizeChange,
-  selectedCount,
-  onMoveUp,
-  onMoveDown,
-  dayOptions,
-  yearOptions,
-  statusOptions,
-  zoomPercent,
-  onZoomChange,
-  onScrollLeft,
-  onScrollRight,
-}) {
-  return (
-    <div style={styles.toolbar}>
-      <input
-        style={styles.searchInput}
-        value={search}
-        onChange={(event) => onSearch(event.target.value)}
-        placeholder="Search across all fields"
-      />
-
-      <div style={styles.toolbarGroup}>
-        <select style={styles.toolbarSelect} value={filters.day} onChange={(event) => onFiltersChange("day", event.target.value)}>
-          <option value="">All days</option>
-          {dayOptions.map((item) => <option key={item} value={item}>{item}</option>)}
-        </select>
-        <select style={styles.toolbarSelect} value={filters.month} onChange={(event) => onFiltersChange("month", event.target.value)}>
-          <option value="">All months</option>
-          {MONTH_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-        </select>
-        <select style={styles.toolbarSelect} value={filters.year} onChange={(event) => onFiltersChange("year", event.target.value)}>
-          <option value="">All years</option>
-          {yearOptions.map((item) => <option key={item} value={item}>{item}</option>)}
-        </select>
-        <select style={styles.toolbarSelect} value={filters.status} onChange={(event) => onFiltersChange("status", event.target.value)}>
-          <option value="">All status</option>
-          {statusOptions.map((item) => (
-            <option key={item || "blank"} value={item}>{getStatusMeta(item).label}</option>
-          ))}
-        </select>
-        <select style={styles.toolbarSelect} value={pageSize} onChange={(event) => onPageSizeChange(Number(event.target.value))}>
-          {PAGE_SIZE_OPTIONS.map((item) => <option key={item} value={item}>{item} / page</option>)}
-        </select>
-      </div>
-
-      <div style={styles.toolbarGroup}>
-        <button type="button" style={styles.toolbarBtn} onClick={onMoveUp} disabled={!selectedCount}>↑ Move</button>
-        <button type="button" style={styles.toolbarBtn} onClick={onMoveDown} disabled={!selectedCount}>↓ Move</button>
-        <button type="button" style={styles.toolbarBtn} onClick={onScrollLeft}>← Scroll</button>
-        <button type="button" style={styles.toolbarBtn} onClick={onScrollRight}>→ Scroll</button>
-        <div style={styles.zoomBox}>
-          <button type="button" style={styles.zoomBtn} onClick={() => onZoomChange(-10)}>-</button>
-          <span style={styles.zoomText}>{zoomPercent}%</span>
-          <button type="button" style={styles.zoomBtn} onClick={() => onZoomChange(10)}>+</button>
-        </div>
-        <div style={styles.selectedPill}>{selectedCount} selected</div>
-      </div>
-    </div>
-  );
-}
-
-function Pagination({ totalItems, page, pageSize, onPageChange }) {
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  return (
-    <div style={styles.pagination}>
-      <span style={styles.paginationMeta}>Showing {totalItems} row(s)</span>
-      <div style={styles.paginationBtns}>
-        <button type="button" style={styles.pageBtn} disabled={page <= 1} onClick={() => onPageChange(page - 1)}>Previous</button>
-        <span style={styles.pageText}>Page {page} of {totalPages}</span>
-        <button type="button" style={styles.pageBtn} disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>Next</button>
-      </div>
-    </div>
-  );
-}
-
-const styles = {
-  page: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 16,
-  },
-  card: {
-    background: "#ffffff",
-    borderRadius: 18,
-    border: "1px solid #dbe3ee",
-    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
-    overflow: "hidden",
-  },
-  header: {
-    padding: 18,
-    borderBottom: "1px solid #e2e8f0",
-    background: "#ffffff",
-  },
-  title: {
-    margin: 0,
-    fontSize: 26,
-    fontWeight: 900,
-    color: "#0f172a",
-  },
-  subtitle: {
-    margin: "8px 0 0",
-    color: "#475569",
-    fontSize: 14,
-    fontWeight: 600,
-  },
-  adminBar: {
-    marginTop: 16,
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 10,
-    alignItems: "center",
-  },
-  adminLabel: {
-    fontSize: 14,
-    fontWeight: 800,
-    color: "#1d4ed8",
-  },
-  backBtn: {
-    border: "1px solid #cbd5e1",
-    background: "#f8fafc",
-    color: "#0f172a",
-    borderRadius: 12,
-    padding: "10px 14px",
-    fontWeight: 800,
-    cursor: "pointer",
-  },
-  select: {
-    width: "100%",
-    minHeight: 36,
-    padding: "7px 9px",
-    border: "1px solid #cbd5e1",
-    borderRadius: 0,
-    outline: "none",
-    fontSize: 13,
-    background: "#fff",
-  },
-  tabsWrap: {
-    display: "flex",
-    gap: 8,
-    padding: "14px 18px 0",
-    flexWrap: "wrap",
-  },
-  tabBtn: (active) => ({
-    border: "none",
-    borderBottom: active ? "3px solid #16a34a" : "3px solid transparent",
-    background: "transparent",
-    color: active ? "#16a34a" : "#334155",
-    fontWeight: 900,
-    padding: "10px 6px",
-    cursor: "pointer",
-    fontSize: 14,
-  }),
-  body: {
-    padding: 18,
-  },
-  toolbar: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 10,
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  toolbarGroup: {
-    display: "flex",
-    gap: 8,
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
-  searchInput: {
-    flex: "1 1 280px",
-    minWidth: 260,
-    padding: "11px 12px",
-    border: "1px solid #cbd5e1",
-    borderRadius: 12,
-    outline: "none",
-    fontSize: 14,
-  },
-  toolbarSelect: {
-    minHeight: 38,
-    padding: "8px 10px",
-    border: "1px solid #cbd5e1",
-    borderRadius: 12,
-    outline: "none",
-    fontSize: 13,
-    background: "#fff",
-  },
-  toolbarBtn: {
-    border: "1px solid #cbd5e1",
-    background: "#ffffff",
-    borderRadius: 12,
-    padding: "9px 12px",
-    fontWeight: 800,
-    fontSize: 13,
-    cursor: "pointer",
-  },
-  zoomBox: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    border: "1px solid #dbe3ee",
-    borderRadius: 12,
-    padding: "4px 8px",
-    background: "#fff",
-  },
-  zoomBtn: {
-    border: "none",
-    background: "transparent",
-    fontWeight: 900,
-    fontSize: 18,
-    cursor: "pointer",
-    lineHeight: 1,
-  },
-  zoomText: {
-    minWidth: 48,
-    textAlign: "center",
-    fontWeight: 800,
-    fontSize: 13,
-    color: "#334155",
-  },
-  selectedPill: {
-    padding: "9px 12px",
-    borderRadius: 999,
-    background: "#f8fafc",
-    border: "1px solid #e2e8f0",
-    fontWeight: 800,
-    fontSize: 13,
-    color: "#475569",
-  },
-  sheetWrap: {
-    border: "1px solid #dbe3ee",
-    borderRadius: 16,
-    overflow: "hidden",
-    background: "#fff",
-  },
-  sheetViewport: {
-    overflow: "auto",
-    width: "100%",
-    maxHeight: "70vh",
-  },
-  table: {
-    width: "100%",
-    minWidth: 1450,
-    borderCollapse: "collapse",
-    tableLayout: "fixed",
-    background: "#fff",
-  },
-  th: {
-    background: "#f59e0b",
-    color: "#111827",
-    border: "1px solid #f8c25d",
-    padding: "8px 8px",
-    fontSize: 12,
-    fontWeight: 900,
-    textTransform: "uppercase",
-    whiteSpace: "nowrap",
-    textAlign: "center",
-  },
-  td: {
-    border: "1px solid #e2e8f0",
-    padding: 0,
-    fontSize: 13,
-    color: "#0f172a",
-    background: "#ffffff",
-    verticalAlign: "top",
-  },
-  addRowCell: {
-    border: "1px solid #e5e7eb",
-    background: "#fffbea",
-    padding: 0,
-    verticalAlign: "top",
-  },
-  numberCell: {
-    width: 52,
-    textAlign: "center",
-    fontWeight: 800,
-    background: "#f8fafc",
-  },
-  checkCell: {
-    width: 58,
-    textAlign: "center",
-    background: "#f8fafc",
-  },
-  cellInput: {
-    width: "100%",
-    minHeight: 36,
-    padding: "7px 9px",
-    border: "none",
-    outline: "none",
-    fontSize: 13,
-    background: "transparent",
-    boxSizing: "border-box",
-  },
-  cellTextArea: {
-    width: "100%",
-    minHeight: 52,
-    padding: "7px 9px",
-    border: "none",
-    outline: "none",
-    resize: "vertical",
-    fontSize: 13,
-    background: "transparent",
-    boxSizing: "border-box",
-  },
-  multiSelect: {
-    width: "100%",
-    minHeight: 52,
-    padding: 8,
-    border: "none",
-    outline: "none",
-    fontSize: 13,
-    background: "transparent",
-  },
-  timeEditor: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-    padding: 6,
-  },
-  timeLine: {
-    display: "grid",
-    gridTemplateColumns: "72px 1fr",
-    gap: 6,
-    alignItems: "center",
-  },
-  dayTag: {
-    fontSize: 12,
-    fontWeight: 800,
-    color: "#334155",
-  },
-  emptyTag: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 36,
-    color: "#94a3b8",
-    fontSize: 12,
-    fontWeight: 700,
-  },
-  weekChip: {
-    display: "inline-flex",
-    margin: "0 8px 8px",
-    padding: "4px 8px",
-    borderRadius: 999,
-    background: "#eff6ff",
-    color: "#1d4ed8",
-    border: "1px solid #bfdbfe",
-    fontSize: 11,
-    fontWeight: 800,
-  },
-  readonlyBox: {
-    width: "100%",
-    minHeight: 36,
-    padding: "7px 9px",
-    boxSizing: "border-box",
-    display: "flex",
-    alignItems: "center",
-    color: "#0f172a",
-    background: "#f8fafc",
-    fontSize: 13,
-    fontWeight: 700,
-  },
-  statusSelect: (status) => {
-    const meta = getStatusMeta(status);
-    return {
-      width: "100%",
-      minHeight: 36,
-      padding: "7px 9px",
-      border: "none",
-      outline: "none",
-      fontSize: 13,
-      fontWeight: 700,
-      background: meta.background,
-      color: meta.color,
-    };
-  },
-  actionBtn: {
-    width: "100%",
-    minHeight: 36,
-    border: "none",
-    background: "#1d4ed8",
-    color: "#fff",
-    fontWeight: 900,
-    cursor: "pointer",
-  },
-  deleteBtn: {
-    width: "100%",
-    minHeight: 36,
-    border: "none",
-    background: "#ef4444",
-    color: "#fff",
-    fontWeight: 900,
-    cursor: "pointer",
-  },
-  sectionGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: 14,
-    marginBottom: 16,
-  },
-  statCard: {
-    background: "#fff",
-    border: "1px solid #e5e7eb",
-    borderRadius: 18,
-    padding: 16,
-  },
-  statTitle: { margin: 0, fontSize: 14, fontWeight: 800, color: "#334155" },
-  statValue: { marginTop: 10, fontSize: 28, fontWeight: 900, color: "#16a34a" },
-  reportTable: {
-    width: "100%",
-    borderCollapse: "collapse",
-    background: "#fff",
-    minWidth: 900,
-  },
-  reportTh: {
-    background: "#f8fafc",
-    border: "1px solid #e5e7eb",
-    padding: 10,
-    fontSize: 12,
-    fontWeight: 900,
-    textTransform: "uppercase",
-    color: "#334155",
-    whiteSpace: "nowrap",
-  },
-  reportTd: {
-    border: "1px solid #e5e7eb",
-    padding: 10,
-    fontSize: 13,
-    color: "#0f172a",
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-    verticalAlign: "top",
-  },
-  pagination: {
-    marginTop: 12,
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 12,
-    flexWrap: "wrap",
-  },
-  paginationMeta: { fontSize: 12, color: "#64748b", fontWeight: 700 },
-  paginationBtns: { display: "flex", gap: 8, alignItems: "center" },
-  pageBtn: {
-    border: "1px solid #dbe4ee",
-    background: "#fff",
-    borderRadius: 10,
-    padding: "8px 12px",
-    fontSize: 12,
-    fontWeight: 800,
-    cursor: "pointer",
-  },
-  pageText: {
-    fontSize: 12,
-    fontWeight: 800,
-    color: "#475569",
-  },
-  empty: {
-    padding: "30px 20px",
-    textAlign: "center",
-    color: "#64748b",
-    background: "#f8fafc",
-    borderRadius: "16px",
-    border: "1px dashed #cbd5e1",
-    margin: "20px",
-  },
-};
 
 export default function OtmPortalSheet({
   user,
@@ -774,21 +227,25 @@ export default function OtmPortalSheet({
   onReorderEntries,
   onDeleteEntry,
   onAdminUserChange,
-  onBackToDirectory,
 }) {
   const dayOptions = meta.dayOptions?.length ? meta.dayOptions : DEFAULT_DAY_OPTIONS;
   const statusOptions = meta.statusOptions?.length ? meta.statusOptions : DEFAULT_STATUS_OPTIONS;
-  const durationOptions = meta.durationOptions?.length ? meta.durationOptions : DEFAULT_DURATION_OPTIONS;
-  const timeOptions = meta.classTimes?.length ? meta.classTimes.map((item) => item.label || item.startTime) : [];
-  const portalUsers = meta.portalUsers?.length ? meta.portalUsers : meta.otmUsers || [];
+  const durationOptions =
+    meta.durationOptions?.length ? meta.durationOptions : DEFAULT_DURATION_OPTIONS;
+  const timeOptions = meta.classTimes?.length
+    ? meta.classTimes.map((item) => item.label || item.startTime)
+    : [];
   const displayName = useMemo(() => getDisplayName(portalUser || user), [portalUser, user]);
 
   const [tab, setTab] = useState("tuitions");
   const [entries, setEntries] = useState([]);
   const [draft, setDraft] = useState(() => makeEmptyDraft(durationOptions));
   const [creating, setCreating] = useState(false);
-  const [savingRowId, setSavingRowId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [activeCellPrefix, setActiveCellPrefix] = useState("");
+  const saveTimeoutsRef = useRef(new Map());
+  const entriesRef = useRef([]);
+  const editorRegistryRef = useRef(new Map());
   const [searchByTab, setSearchByTab] = useState({ tuitions: "", reports: "", totalClass: "" });
   const [filtersByTab, setFiltersByTab] = useState({
     tuitions: { day: "", month: "", year: "", status: "" },
@@ -797,14 +254,28 @@ export default function OtmPortalSheet({
   });
   const [pageByTab, setPageByTab] = useState({ tuitions: 1, reports: 1, totalClass: 1 });
   const [pageSizeByTab, setPageSizeByTab] = useState({ tuitions: 20, reports: 20, totalClass: 20 });
-  const [zoomPercent, setZoomPercent] = useState(100);
-
-  const sheetViewportRef = useRef(null);
 
   useEffect(() => {
-    setEntries((Array.isArray(initialEntries) ? initialEntries : []).map((row) => computeRow(row, durationOptions)));
-    setSelectedIds([]);
+    const nextEntries = (Array.isArray(initialEntries) ? initialEntries : []).map((row) =>
+      computeRow(row, durationOptions)
+    );
+
+    setEntries((prev) => (areRowListsEqual(prev, nextEntries) ? prev : nextEntries));
+    setSelectedIds((prev) => {
+      const validIds = new Set(nextEntries.map((row) => row.id));
+      const filtered = prev.filter((id) => validIds.has(id));
+      return filtered.length === prev.length ? prev : filtered;
+    });
   }, [initialEntries, durationOptions]);
+
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
+
+  useEffect(() => () => {
+    saveTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+    saveTimeoutsRef.current.clear();
+  }, []);
 
   useEffect(() => {
     setDraft(makeEmptyDraft(durationOptions));
@@ -812,7 +283,6 @@ export default function OtmPortalSheet({
 
   const currentSearch = searchByTab[tab] || "";
   const currentFilters = filtersByTab[tab];
-  const currentPage = pageByTab[tab] || 1;
   const currentPageSize = pageSizeByTab[tab] || 20;
 
   const yearOptions = useMemo(() => {
@@ -825,31 +295,234 @@ export default function OtmPortalSheet({
   }, [entries, reportRows, totalClassRows]);
 
   const filteredEntries = useMemo(
-    () => entries.filter((row) => matchesSearch(row, searchByTab.tuitions) && matchesFilters(row, filtersByTab.tuitions)),
+    () =>
+      entries.filter(
+        (row) => matchesSearch(row, searchByTab.tuitions) && matchesFilters(row, filtersByTab.tuitions)
+      ),
     [entries, searchByTab.tuitions, filtersByTab.tuitions]
   );
 
   const filteredReportRows = useMemo(
-    () => reportRows.filter((row) => matchesSearch(row, searchByTab.reports) && matchesFilters(row, filtersByTab.reports)),
+    () =>
+      (reportRows || []).filter(
+        (row) => matchesSearch(row, searchByTab.reports) && matchesFilters(row, filtersByTab.reports)
+      ),
     [reportRows, searchByTab.reports, filtersByTab.reports]
   );
 
   const filteredTotalClassRows = useMemo(
-    () => totalClassRows.filter((row) => matchesSearch(row, searchByTab.totalClass) && matchesFilters(row, filtersByTab.totalClass)),
+    () =>
+      (totalClassRows || []).filter(
+        (row) =>
+          matchesSearch(row, searchByTab.totalClass) &&
+          matchesFilters(row, filtersByTab.totalClass)
+      ),
     [totalClassRows, searchByTab.totalClass, filtersByTab.totalClass]
   );
 
-  const pagedEntries = useMemo(() => paginate(filteredEntries, pageByTab.tuitions, pageSizeByTab.tuitions), [filteredEntries, pageByTab.tuitions, pageSizeByTab.tuitions]);
-  const pagedReportRows = useMemo(() => paginate(filteredReportRows, pageByTab.reports, pageSizeByTab.reports), [filteredReportRows, pageByTab.reports, pageSizeByTab.reports]);
-  const pagedTotalClassRows = useMemo(() => paginate(filteredTotalClassRows, pageByTab.totalClass, pageSizeByTab.totalClass), [filteredTotalClassRows, pageByTab.totalClass, pageSizeByTab.totalClass]);
+  const pagedEntries = useMemo(
+    () => paginate(filteredEntries, pageByTab.tuitions, pageSizeByTab.tuitions),
+    [filteredEntries, pageByTab.tuitions, pageSizeByTab.tuitions]
+  );
+  const pagedReportRows = useMemo(
+    () => paginate(filteredReportRows, pageByTab.reports, pageSizeByTab.reports),
+    [filteredReportRows, pageByTab.reports, pageSizeByTab.reports]
+  );
+  const pagedTotalClassRows = useMemo(
+    () => paginate(filteredTotalClassRows, pageByTab.totalClass, pageSizeByTab.totalClass),
+    [filteredTotalClassRows, pageByTab.totalClass, pageSizeByTab.totalClass]
+  );
+
+  const registerEditor = useCallback((editorKey, node) => {
+    if (!editorKey) return;
+    if (node) {
+      editorRegistryRef.current.set(editorKey, node);
+    } else {
+      editorRegistryRef.current.delete(editorKey);
+    }
+  }, []);
+
+  const getEditorSnapshotList = useCallback(() => {
+    return Array.from(editorRegistryRef.current.entries())
+      .map(([key, element]) => getElementSnapshot(key, element))
+      .filter(Boolean)
+      .sort((a, b) => {
+        if (Math.abs(a.top - b.top) > 8) return a.top - b.top;
+        if (Math.abs(a.left - b.left) > 8) return a.left - b.left;
+        return a.area - b.area;
+      });
+  }, []);
+
+  const focusEditorByKey = useCallback((editorKey) => {
+    const element = editorRegistryRef.current.get(editorKey);
+    if (!element?.focus) return;
+    element.focus({ preventScroll: true });
+    element.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, []);
+
+  const focusSequentialEditor = useCallback(
+    (currentKey, direction = 1) => {
+      const items = getEditorSnapshotList();
+      const currentIndex = items.findIndex((item) => item.key === currentKey);
+      if (currentIndex === -1) return;
+      const nextIndex = currentIndex + direction;
+      if (nextIndex < 0 || nextIndex >= items.length) return;
+      focusEditorByKey(items[nextIndex].key);
+    },
+    [focusEditorByKey, getEditorSnapshotList]
+  );
+
+  const focusDirectionalCell = useCallback(
+    (currentKey, direction) => {
+      const items = getEditorSnapshotList();
+      const currentIndex = items.findIndex((item) => item.key === currentKey);
+      if (currentIndex === -1) return;
+      const current = items[currentIndex];
+      let candidate = null;
+      let bestScore = Number.POSITIVE_INFINITY;
+
+      for (const item of items) {
+        if (item.key === current.key) continue;
+
+        let isMatch = false;
+        let score = Number.POSITIVE_INFINITY;
+
+        if (direction === "left") {
+          isMatch = item.right <= current.left + 2;
+          if (isMatch) {
+            score = (current.left - item.right) * 8 + Math.abs(item.centerY - current.centerY);
+          }
+        } else if (direction === "right") {
+          isMatch = item.left >= current.right - 2;
+          if (isMatch) {
+            score = (item.left - current.right) * 8 + Math.abs(item.centerY - current.centerY);
+          }
+        } else if (direction === "up") {
+          isMatch = item.bottom <= current.top + 2;
+          if (isMatch) {
+            score = (current.top - item.bottom) * 8 + Math.abs(item.centerX - current.centerX);
+          }
+        } else if (direction === "down") {
+          isMatch = item.top >= current.bottom - 2;
+          if (isMatch) {
+            score = (item.top - current.bottom) * 8 + Math.abs(item.centerX - current.centerX);
+          }
+        }
+
+        if (isMatch && score < bestScore) {
+          bestScore = score;
+          candidate = item;
+        }
+      }
+
+      if (!candidate) {
+        if (direction === "left" || direction === "up") {
+          candidate = items[currentIndex - 1] || null;
+        } else if (direction === "right" || direction === "down") {
+          candidate = items[currentIndex + 1] || null;
+        }
+      }
+
+      if (candidate) {
+        focusEditorByKey(candidate.key);
+      }
+    },
+    [focusEditorByKey, getEditorSnapshotList]
+  );
+
+  function getRowIdFromEditorKey(editorKey) {
+    return String(editorKey || "").split("::")[0] || "";
+  }
+
+  const handleGridEditorKeyDown = useCallback(
+    (event, editorKey, { multiline = false } = {}) => {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+
+      if (event.key === "ArrowLeft" && shouldNavigateHorizontally(event)) {
+        event.preventDefault();
+        focusDirectionalCell(editorKey, "left");
+        return;
+      }
+
+      if (event.key === "ArrowRight" && shouldNavigateHorizontally(event)) {
+        event.preventDefault();
+        focusDirectionalCell(editorKey, "right");
+        return;
+      }
+
+      if (event.key === "ArrowUp" && shouldNavigateVertically(event)) {
+        event.preventDefault();
+        focusDirectionalCell(editorKey, "up");
+        return;
+      }
+
+      if (event.key === "ArrowDown" && shouldNavigateVertically(event)) {
+        event.preventDefault();
+        focusDirectionalCell(editorKey, "down");
+        return;
+      }
+
+      if (event.key === "Enter" && !multiline) {
+        event.preventDefault();
+        const rowId = getRowIdFromEditorKey(editorKey);
+
+        const persistAndMove = async () => {
+          if (rowId && onUpdateEntry) {
+            const timeoutId = saveTimeoutsRef.current.get(rowId);
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+              saveTimeoutsRef.current.delete(rowId);
+            }
+
+            const sourceRow = entriesRef.current.find((item) => item.id === rowId);
+            if (sourceRow) {
+              try {
+                await onUpdateEntry(rowId, buildEntryPayload(sourceRow));
+              } catch (error) {
+                console.error("Failed to update row", error);
+              }
+            }
+          }
+
+          focusSequentialEditor(editorKey, event.shiftKey ? -1 : 1);
+        };
+
+        void persistAndMove();
+      }
+    },
+    [focusDirectionalCell, focusSequentialEditor, onUpdateEntry]
+  );
+
+  const getCellClassName = useCallback(
+    (rowId, columnKey) => {
+      const cellPrefix = buildCellPrefix(rowId, columnKey);
+      return `otm-grid-cell ${activeCellPrefix === cellPrefix ? "otm-grid-cell--active" : ""}`;
+    },
+    [activeCellPrefix]
+  );
+
+  const getGridEditorBindings = useCallback(
+    (rowId, columnKey, editorSubKey = "main", options = {}) => {
+      const cellPrefix = buildCellPrefix(rowId, columnKey);
+      const editorKey = buildEditorKey(rowId, columnKey, editorSubKey);
+      return {
+        ref: (node) => registerEditor(editorKey, node),
+        onFocus: () => setActiveCellPrefix(cellPrefix),
+        onKeyDown: (event) => handleGridEditorKeyDown(event, editorKey, options),
+        "data-grid-editor": "true",
+        "data-grid-key": editorKey,
+      };
+    },
+    [handleGridEditorKeyDown, registerEditor]
+  );
 
   function setSearchValue(value) {
     setSearchByTab((prev) => ({ ...prev, [tab]: value }));
     setPageByTab((prev) => ({ ...prev, [tab]: 1 }));
   }
 
-  function setFilterValue(field, value) {
-    setFiltersByTab((prev) => ({ ...prev, [tab]: { ...prev[tab], [field]: value } }));
+  function setFilterValue(nextFilters) {
+    setFiltersByTab((prev) => ({ ...prev, [tab]: nextFilters }));
     setPageByTab((prev) => ({ ...prev, [tab]: 1 }));
   }
 
@@ -858,30 +531,60 @@ export default function OtmPortalSheet({
     setPageByTab((prev) => ({ ...prev, [tab]: 1 }));
   }
 
+  const flushRowSave = useCallback(
+    async (rowId, overrideRow = null) => {
+      if (!onUpdateEntry || !rowId) return;
+
+      const timeoutId = saveTimeoutsRef.current.get(rowId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        saveTimeoutsRef.current.delete(rowId);
+      }
+
+      const sourceRow = overrideRow || entriesRef.current.find((item) => item.id === rowId);
+      if (!sourceRow) return;
+
+      try {
+        await onUpdateEntry(rowId, buildEntryPayload(sourceRow));
+      } catch (error) {
+        console.error("Failed to update row", error);
+      }
+    },
+    [onUpdateEntry]
+  );
+
+  const scheduleRowSave = useCallback(
+    (rowId, overrideRow = null, delay = 350) => {
+      if (!onUpdateEntry || !rowId) return;
+
+      const existingTimeout = saveTimeoutsRef.current.get(rowId);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+      }
+
+      const timeoutId = window.setTimeout(() => {
+        flushRowSave(rowId, overrideRow);
+      }, delay);
+
+      saveTimeoutsRef.current.set(rowId, timeoutId);
+    },
+    [flushRowSave, onUpdateEntry]
+  );
+
   function updateDraftField(field, value) {
     setDraft((prev) => {
       const next = { ...prev, [field]: value };
       if (field === "days") {
         const sorted = sortDays(value);
-        const assignments = {};
+        const nextAssignments = {};
         sorted.forEach((day) => {
-          assignments[day] = prev.timeAssignments?.[day] || "";
+          nextAssignments[day] = prev.timeAssignments?.[day] || "";
         });
         next.days = sorted;
-        next.timeAssignments = assignments;
+        next.timeAssignments = nextAssignments;
       }
       if (field === "durationMinutes") {
         next.durationMinutes = Number(value || 60);
-      }
-      if (field === "tuitionStartDate" || field === "status") {
-        const calendar = deriveCalendar(field === "tuitionStartDate" ? value : prev.tuitionStartDate, field === "status" ? value : prev.status);
-        next.tuitionStartDate = calendar.tuitionStartDate;
-        next.tuitionStartWeek = calendar.tuitionStartWeek;
-        next.tuitionStartMonth = calendar.tuitionStartMonth;
-        next.tuitionEndMonth = calendar.tuitionEndMonth;
-      }
-      if (field === "newTuition") {
-        next.newTuition = parseNewTuitionValue(value);
       }
       return next;
     });
@@ -897,23 +600,67 @@ export default function OtmPortalSheet({
     }));
   }
 
-  function updateRow(rowId, field, value) {
-    setEntries((prev) =>
-      prev.map((row) => {
-        if (row.id !== rowId) return row;
-        const updatedValue = field === "newTuition" ? parseNewTuitionValue(value) : value;
-        const next = computeRow({ ...row, [field]: updatedValue }, durationOptions);
-        if (field === "day") next.days = next.day ? [next.day] : [];
-        if (field === "time") next.time = normalizeTimeText(value);
-        return next;
-      })
-    );
-  }
+  const updateRow = useCallback(
+    (rowId, field, value, options = {}) => {
+      let nextRowSnapshot = null;
+
+      setEntries((prev) =>
+        prev.map((row) => {
+          if (row.id !== rowId) return row;
+
+          let nextRow = row;
+
+          if (field === "days") {
+            const nextDays = sortDays(value);
+            const nextAssignments = buildTimeAssignments(
+              nextDays,
+              row.timeAssignments || {},
+              row.day,
+              row.time
+            );
+            nextRow = computeRow(
+              {
+                ...row,
+                day: nextDays[0] || "",
+                days: nextDays,
+                timeAssignments: nextAssignments,
+                timeSlots: nextDays.map((day) => nextAssignments[day]).filter(Boolean),
+                time: getPrimaryTime(nextDays, nextAssignments),
+              },
+              durationOptions
+            );
+          } else if (field === "timeAssignments") {
+            const nextAssignments = buildTimeAssignments(row.days || [], value, row.day, row.time);
+            nextRow = computeRow(
+              {
+                ...row,
+                timeAssignments: nextAssignments,
+                timeSlots: (row.days || []).map((day) => nextAssignments[day]).filter(Boolean),
+                time: getPrimaryTime(row.days || [], nextAssignments),
+              },
+              durationOptions
+            );
+          } else {
+            nextRow = computeRow({ ...row, [field]: value }, durationOptions);
+          }
+
+          nextRowSnapshot = nextRow;
+          return nextRow;
+        })
+      );
+
+      if (options.save !== false && nextRowSnapshot) {
+        scheduleRowSave(rowId, nextRowSnapshot, options.delay ?? 350);
+      }
+
+      return nextRowSnapshot;
+    },
+    [durationOptions, scheduleRowSave]
+  );
 
   async function createRow() {
     if (!onCreateEntry) return;
     const validDays = sortDays(draft.days);
-
     if (!draft.tuitionName || validDays.length === 0) {
       alert("Please add tuition name and select at least one day.");
       return;
@@ -927,12 +674,16 @@ export default function OtmPortalSheet({
 
     try {
       setCreating(true);
-      await onCreateEntry({
-        ...draft,
-        days: validDays,
-        timeAssignments: Object.fromEntries(validDays.map((day) => [day, normalizeTimeText(draft.timeAssignments?.[day])])),
-        newTuition: draft.newTuition,
-      });
+      await onCreateEntry(
+        buildEntryPayload({
+          ...draft,
+          day: validDays[0] || "",
+          days: validDays,
+          timeAssignments: Object.fromEntries(
+            validDays.map((day) => [day, normalizeTimeText(draft.timeAssignments?.[day])])
+          ),
+        })
+      );
       setDraft(makeEmptyDraft(durationOptions));
     } catch (error) {
       alert(error?.response?.data?.message || "Failed to create rows");
@@ -941,32 +692,16 @@ export default function OtmPortalSheet({
     }
   }
 
-  async function saveRow(rowId) {
-    if (!onUpdateEntry) return;
-    const row = entries.find((item) => item.id === rowId);
-    if (!row) return;
-
-    try {
-      setSavingRowId(rowId);
-      await onUpdateEntry(rowId, {
-        ...row,
-        day: row.day,
-        days: [row.day],
-        time: normalizeTimeText(row.time),
-        timeSlots: row.time ? [normalizeTimeText(row.time)] : [],
-        newTuition: row.newTuition,
-      });
-    } catch (error) {
-      alert(error?.response?.data?.message || "Failed to update row");
-    } finally {
-      setSavingRowId(null);
-    }
-  }
+  const saveRow = useCallback(
+    async (rowId) => {
+      await flushRowSave(rowId);
+    },
+    [flushRowSave]
+  );
 
   async function deleteRow(rowId) {
     if (!onDeleteEntry) return;
     if (!window.confirm("Delete this row?")) return;
-
     try {
       await onDeleteEntry(rowId);
     } catch (error) {
@@ -975,7 +710,9 @@ export default function OtmPortalSheet({
   }
 
   function toggleSelectRow(rowId) {
-    setSelectedIds((prev) => (prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]));
+    setSelectedIds((prev) =>
+      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
+    );
   }
 
   async function moveSelected(direction) {
@@ -1006,47 +743,82 @@ export default function OtmPortalSheet({
     }
   }
 
-  function scrollSheet(direction) {
-    const node = sheetViewportRef.current;
-    if (!node) return;
-    node.scrollBy({ left: direction === "left" ? -320 : 320, behavior: "smooth" });
-  }
+  function renderTextInput(row, field, isDraft = false, readOnly = false, textarea = false) {
+    const value = row[field] || "";
+    const editorBindings = !isDraft ? getGridEditorBindings(row.id, field, "main", { multiline: textarea }) : {};
 
-  function focusCell(rowIndex, colIndex) {
-    const selector = `[data-grid-row="${rowIndex}"][data-grid-col="${colIndex}"]`;
-    const element = sheetViewportRef.current?.querySelector(selector) || document.querySelector(selector);
-    if (element && typeof element.focus === "function") element.focus();
-  }
+    if (readOnly) {
+      return <div style={styles.readOnlyCell}>{value || "--"}</div>;
+    }
 
-  function handleGridKeyDown(rowIndex, colIndex) {
-    return (event) => {
-      let nextRow = rowIndex;
-      let nextCol = colIndex;
-
-      if (event.key === "ArrowRight") nextCol += 1;
-      else if (event.key === "ArrowLeft") nextCol -= 1;
-      else if (event.key === "ArrowDown") nextRow += 1;
-      else if (event.key === "ArrowUp") nextRow -= 1;
-      else return;
-
-      event.preventDefault();
-      focusCell(nextRow, nextCol);
+    const commonProps = {
+      className: "otm-grid-editor",
+      value,
+      onChange: (event) => {
+        if (isDraft) updateDraftField(field, event.target.value);
+        else updateRow(row.id, field, event.target.value);
+      },
+      onBlur: () => {
+        if (!isDraft) saveRow(row.id);
+      },
+      ...editorBindings,
     };
+
+    if (textarea) {
+      return <textarea style={styles.cellTextArea} {...commonProps} />;
+    }
+
+    return <input style={styles.cellInput} {...commonProps} />;
   }
 
-  function renderCellInput({ rowIndex, colIndex, value, onChange, onBlur, type = "text", readOnly = false }) {
+  function renderExistingRowDayTimeDuration(row) {
     return (
-      <input
-        data-grid-row={rowIndex}
-        data-grid-col={colIndex}
-        onKeyDown={handleGridKeyDown(rowIndex, colIndex)}
-        type={type}
-        readOnly={readOnly}
-        style={styles.cellInput}
-        value={value}
-        onChange={onChange}
-        onBlur={onBlur}
-      />
+      <>
+        <td className={getCellClassName(row.id, "days")} style={{ ...styles.td, width: GRID_DIMENSIONS.days, position: "relative" }}>
+          <MultiSelectCell
+            value={row.days || []}
+            options={dayOptions}
+            placeholder="Select days"
+            onChange={(next) => updateRow(row.id, "days", next)}
+            triggerProps={getGridEditorBindings(row.id, "days")}
+            onRequestMove={(direction) => focusDirectionalCell(row.id + "::days::main", direction)}
+          />
+        </td>
+
+        <td className={getCellClassName(row.id, "timeAssignments")} style={{ ...styles.td, width: GRID_DIMENSIONS.time }}>
+          <DayTimeAssignmentsEditor
+            days={row.days || []}
+            assignments={row.timeAssignments || {}}
+            timeOptions={timeOptions}
+            listId={`time-options-${row.id}`}
+            compact
+            getEditorProps={(day) => getGridEditorBindings(row.id, "timeAssignments", day)}
+            onChange={(day, value) => {
+              updateRow(row.id, "timeAssignments", {
+                ...(row.timeAssignments || {}),
+                [day]: value,
+              });
+            }}
+          />
+        </td>
+
+        <td className={getCellClassName(row.id, "durationMinutes")} style={{ ...styles.td, width: GRID_DIMENSIONS.duration }}>
+          <select
+            className="otm-grid-editor"
+            style={styles.select}
+            value={row.durationMinutes || durationOptions[0]?.value || 60}
+            onChange={(event) => updateRow(row.id, "durationMinutes", Number(event.target.value))}
+            onBlur={() => saveRow(row.id)}
+            {...getGridEditorBindings(row.id, "durationMinutes")}
+          >
+            {durationOptions.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </td>
+      </>
     );
   }
 
@@ -1063,12 +835,17 @@ export default function OtmPortalSheet({
 
           {isAdmin && (
             <div style={styles.adminBar}>
-              {onBackToDirectory && <button type="button" style={styles.backBtn} onClick={onBackToDirectory}>← Back to users</button>}
               <div style={styles.adminLabel}>Admin portal switcher</div>
-              <select style={{ ...styles.select, maxWidth: 360 }} value={portalUser?.id || ""} onChange={(event) => onAdminUserChange?.(event.target.value)}>
-                <option value="">Select user</option>
-                {portalUsers.map((item) => (
-                  <option key={item.id} value={item.id}>{item.name} - {item.email}</option>
+              <select
+                style={{ ...styles.select, maxWidth: 360 }}
+                value={portalUser?.id || ""}
+                onChange={(event) => onAdminUserChange?.(event.target.value)}
+              >
+                <option value="">Select OTM user</option>
+                {(meta.otmUsers || []).map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} - {item.email}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1076,15 +853,62 @@ export default function OtmPortalSheet({
         </div>
 
         <div style={styles.tabsWrap}>
-          <button style={styles.tabBtn(tab === "tuitions")} onClick={() => setTab("tuitions")}>{displayName} Tuitions</button>
-          <button style={styles.tabBtn(tab === "reports")} onClick={() => setTab("reports")}>Reports</button>
-          <button style={styles.tabBtn(tab === "totalClass")} onClick={() => setTab("totalClass")}>Total Classes</button>
+          <button style={styles.tabBtn(tab === "tuitions")} onClick={() => setTab("tuitions")}>
+            {displayName} Tuitions
+          </button>
+          <button style={styles.tabBtn(tab === "reports")} onClick={() => setTab("reports")}>
+            Reports
+          </button>
+          <button style={styles.tabBtn(tab === "totalClass")} onClick={() => setTab("totalClass")}>
+            Total Classes
+          </button>
         </div>
 
         <div style={styles.body}>
           {tab === "tuitions" && (
             <>
+              <style>{`
+                .otm-grid-row:hover td {
+                  background: #f8fafc;
+                }
+                .otm-grid-cell {
+                  position: relative;
+                  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+                }
+                .otm-grid-cell--active {
+                  background: #ecfdf5 !important;
+                  box-shadow: inset 0 0 0 2px #16a34a;
+                  z-index: 2;
+                }
+                .otm-grid-editor {
+                  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+                }
+                .otm-grid-editor:focus {
+                  outline: none;
+                  border-color: #16a34a !important;
+                  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.15);
+                }
+                .otm-grid-checkbox {
+                  width: 14px;
+                  height: 14px;
+                  cursor: pointer;
+                }
+              `}</style>
+
+              <OtmPortalEntryForm
+                draft={draft}
+                dayOptions={dayOptions}
+                timeOptions={timeOptions}
+                durationOptions={durationOptions}
+                statusOptions={statusOptions}
+                creating={creating}
+                onDraftFieldChange={updateDraftField}
+                onDraftTimeChange={updateDraftTime}
+                onCreateEntry={createRow}
+              />
+
               <Toolbar
+                title="Spreadsheet Controls"
                 search={currentSearch}
                 onSearch={setSearchValue}
                 filters={currentFilters}
@@ -1097,182 +921,156 @@ export default function OtmPortalSheet({
                 dayOptions={dayOptions}
                 yearOptions={yearOptions}
                 statusOptions={statusOptions}
-                zoomPercent={zoomPercent}
-                onZoomChange={(delta) => setZoomPercent((prev) => Math.max(70, Math.min(140, prev + delta)))}
-                onScrollLeft={() => scrollSheet("left")}
-                onScrollRight={() => scrollSheet("right")}
               />
 
               <div style={styles.sheetWrap}>
-                <div style={{ ...styles.sheetViewport, zoom: `${zoomPercent}%` }} ref={sheetViewportRef}>
-                  <datalist id="otm-time-options">
-                    {timeOptions.map((item) => <option key={item} value={item} />)}
-                  </datalist>
-
+                <div style={styles.sheetViewport}>
                   <table style={styles.table}>
                     <thead>
                       <tr>
                         <th style={{ ...styles.th, ...styles.checkCell }}>Sel</th>
                         <th style={{ ...styles.th, ...styles.numberCell }}>#</th>
-                        <th style={{ ...styles.th, width: 140 }}>Days</th>
-                        <th style={{ ...styles.th, width: 110 }}>Time</th>
-                        <th style={{ ...styles.th, width: 160 }}>Tuition Name</th>
-                        <th style={{ ...styles.th, width: 150 }}>Tutor Name</th>
-                        <th style={{ ...styles.th, width: 150 }}>Group Name</th>
-                        <th style={{ ...styles.th, width: 110 }}>Class Start</th>
-                        <th style={{ ...styles.th, width: 110 }}>Class End</th>
-                        <th style={{ ...styles.th, width: 140 }}>Status</th>
-                        <th style={{ ...styles.th, width: 180 }}>Notes</th>
-                        <th style={{ ...styles.th, width: 110 }}>New Tuition</th>
-                        <th style={{ ...styles.th, width: 145 }}>Start Month</th>
-                        <th style={{ ...styles.th, width: 110 }}>Duration</th>
-                        <th style={{ ...styles.th, width: 90 }}>Action</th>
-                      </tr>
-
-                      <tr>
-                        <td style={{ ...styles.addRowCell, ...styles.checkCell }}>New</td>
-                        <td style={{ ...styles.addRowCell, ...styles.numberCell }}>+</td>
-                        <td style={{ ...styles.addRowCell, width: 140 }}>
-                          <select
-                            multiple
-                            style={styles.multiSelect}
-                            value={draft.days}
-                            onChange={(event) => updateDraftField("days", Array.from(event.target.selectedOptions).map((item) => item.value))}
-                          >
-                            {dayOptions.map((item) => <option key={item} value={item}>{item}</option>)}
-                          </select>
-                        </td>
-                        <td style={{ ...styles.addRowCell, width: 110 }}>
-                          {draft.days.length === 0 ? (
-                            <div style={styles.emptyTag}>Select days</div>
-                          ) : (
-                            <div style={styles.timeEditor}>
-                              {draft.days.map((day) => (
-                                <div key={day} style={styles.timeLine}>
-                                  <span style={styles.dayTag}>{day}</span>
-                                  <input
-                                    list="otm-time-options"
-                                    style={styles.cellInput}
-                                    value={draft.timeAssignments?.[day] || ""}
-                                    onChange={(event) => updateDraftTime(day, event.target.value)}
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </td>
-                        <td style={{ ...styles.addRowCell, width: 160 }}>{renderCellInput({ rowIndex: 0, colIndex: 2, value: draft.tuitionName, onChange: (e) => updateDraftField("tuitionName", e.target.value) })}</td>
-                        <td style={{ ...styles.addRowCell, width: 150 }}>{renderCellInput({ rowIndex: 0, colIndex: 3, value: draft.tutorName, onChange: (e) => updateDraftField("tutorName", e.target.value) })}</td>
-                        <td style={{ ...styles.addRowCell, width: 150 }}>{renderCellInput({ rowIndex: 0, colIndex: 4, value: draft.groupName, onChange: (e) => updateDraftField("groupName", e.target.value) })}</td>
-                        <td style={{ ...styles.addRowCell, width: 110 }}>{renderCellInput({ rowIndex: 0, colIndex: 5, value: draft.days[0] ? normalizeTimeText(draft.timeAssignments?.[draft.days[0]]) : "", readOnly: true })}</td>
-                        <td style={{ ...styles.addRowCell, width: 110 }}>{renderCellInput({ rowIndex: 0, colIndex: 6, value: draft.days[0] ? addMinutes(normalizeTimeText(draft.timeAssignments?.[draft.days[0]]), draft.durationMinutes) : "", readOnly: true })}</td>
-                        <td style={{ ...styles.addRowCell, width: 140 }}>
-                          <select data-grid-row={0} data-grid-col={7} onKeyDown={handleGridKeyDown(0, 7)} style={styles.statusSelect(draft.status)} value={draft.status} onChange={(event) => updateDraftField("status", event.target.value)}>
-                            {statusOptions.map((item) => <option key={item || "blank"} value={item}>{getStatusMeta(item).label}</option>)}
-                          </select>
-                        </td>
-                        <td style={{ ...styles.addRowCell, width: 180 }}>
-                          <textarea data-grid-row={0} data-grid-col={8} onKeyDown={handleGridKeyDown(0, 8)} style={styles.cellTextArea} value={draft.notes} onChange={(event) => updateDraftField("notes", event.target.value)} />
-                        </td>
-                        <td style={{ ...styles.addRowCell, width: 110 }}>
-                          <select data-grid-row={0} data-grid-col={9} onKeyDown={handleGridKeyDown(0, 9)} style={styles.select} value={formatNewTuitionValue(draft.newTuition)} onChange={(event) => updateDraftField("newTuition", event.target.value)}>
-                            {NEW_TUITION_OPTIONS.map((item) => <option key={item.label} value={item.value}>{item.label}</option>)}
-                          </select>
-                        </td>
-                        <td style={{ ...styles.addRowCell, width: 145 }}>
-                          {renderCellInput({ rowIndex: 0, colIndex: 10, value: draft.tuitionStartDate || "", type: "date", onChange: (e) => updateDraftField("tuitionStartDate", e.target.value) })}
-                          {draft.tuitionStartWeek ? <span style={styles.weekChip}>{draft.tuitionStartWeek}</span> : null}
-                        </td>
-                        <td style={{ ...styles.addRowCell, width: 110 }}>
-                          <select data-grid-row={0} data-grid-col={11} onKeyDown={handleGridKeyDown(0, 11)} style={styles.select} value={draft.durationMinutes} onChange={(event) => updateDraftField("durationMinutes", Number(event.target.value))}>
-                            {durationOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                          </select>
-                        </td>
-                        <td style={{ ...styles.addRowCell, width: 90 }}>
-                          <button type="button" style={styles.actionBtn} onClick={createRow}>{creating ? "Adding" : "Add"}</button>
-                        </td>
+                        <th style={{ ...styles.th, width: GRID_DIMENSIONS.days }}>Days</th>
+                        <th style={{ ...styles.th, width: GRID_DIMENSIONS.time }}>Time</th>
+                        <th style={{ ...styles.th, width: GRID_DIMENSIONS.duration }}>Duration</th>
+                        <th style={{ ...styles.th, width: GRID_DIMENSIONS.startMonth }}>Month</th>
+                        {TEXT_COLUMNS.map((column) => (
+                          <th key={column.key} style={{ ...styles.th, width: column.width }}>
+                            {column.label}
+                          </th>
+                        ))}
+                        <th style={{ ...styles.th, width: GRID_DIMENSIONS.status }}>Status</th>
+                        <th style={{ ...styles.th, width: GRID_DIMENSIONS.newTuition }}>New Tuition</th>
+                        <th style={{ ...styles.th, width: GRID_DIMENSIONS.action }}>Action</th>
                       </tr>
                     </thead>
 
                     <tbody>
                       {pagedEntries.length === 0 ? (
                         <tr>
-                          <td colSpan={15} style={{ padding: 24, textAlign: "center", color: "#64748b" }}>No entries found.</td>
+                          <td colSpan={10 + TEXT_COLUMNS.length} style={{ padding: 24, textAlign: "center", color: "#64748b" }}>
+                            No entries found.
+                          </td>
                         </tr>
                       ) : (
-                        pagedEntries.map((row, index) => {
-                          const rowIndex = index + 1;
-                          return (
-                            <tr key={row.id}>
-                              <td style={{ ...styles.td, ...styles.checkCell }}>
-                                <input type="checkbox" checked={selectedIds.includes(row.id)} onChange={() => toggleSelectRow(row.id)} />
+                        pagedEntries.map((row, index) => (
+                          <tr key={row.id} className="otm-grid-row">
+                            <td
+                              className="otm-grid-cell"
+                              style={{ ...styles.td, ...styles.checkCell, textAlign: "center", verticalAlign: "middle" }}
+                            >
+                              <input
+                                className="otm-grid-checkbox"
+                                type="checkbox"
+                                checked={selectedIds.includes(row.id)}
+                                onChange={() => toggleSelectRow(row.id)}
+                              />
+                            </td>
+                            <td
+                              className="otm-grid-cell"
+                              style={{ ...styles.td, ...styles.numberCell, verticalAlign: "middle" }}
+                            >
+                              {(pageByTab.tuitions - 1) * pageSizeByTab.tuitions + index + 1}
+                            </td>
+
+                            {renderExistingRowDayTimeDuration(row)}
+
+                            <td className={getCellClassName(row.id, "tuitionStartMonth")} style={{ ...styles.td, width: GRID_DIMENSIONS.startMonth }}>
+                              <input
+                                className="otm-grid-editor"
+                                type="month"
+                                style={styles.cellInput}
+                                value={row.tuitionStartMonth || ""}
+                                onChange={(event) => updateRow(row.id, "tuitionStartMonth", event.target.value)}
+                                onBlur={() => saveRow(row.id)}
+                                {...getGridEditorBindings(row.id, "tuitionStartMonth")}
+                              />
+                            </td>
+
+                            {TEXT_COLUMNS.map((column) => (
+                              <td className={getCellClassName(row.id, column.key)} key={column.key} style={{ ...styles.td, width: column.width }}>
+                                {renderTextInput(row, column.key, false, column.readOnly, column.textarea)}
                               </td>
-                              <td style={{ ...styles.td, ...styles.numberCell }}>{(pageByTab.tuitions - 1) * pageSizeByTab.tuitions + index + 1}</td>
-                              <td style={{ ...styles.td, width: 140 }}>
-                                <select data-grid-row={rowIndex} data-grid-col={0} onKeyDown={handleGridKeyDown(rowIndex, 0)} style={styles.select} value={row.day || ""} onChange={(event) => updateRow(row.id, "day", event.target.value)} onBlur={() => saveRow(row.id)}>
-                                  <option value="">Select day</option>
-                                  {dayOptions.map((item) => <option key={item} value={item}>{item}</option>)}
-                                </select>
-                              </td>
-                              <td style={{ ...styles.td, width: 110 }}>
-                                <input data-grid-row={rowIndex} data-grid-col={1} onKeyDown={handleGridKeyDown(rowIndex, 1)} list={`time-options-${row.id}`} style={styles.cellInput} value={row.time || ""} onChange={(event) => updateRow(row.id, "time", event.target.value)} onBlur={(event) => { updateRow(row.id, "time", normalizeTimeText(event.target.value)); setTimeout(() => saveRow(row.id), 0); }} />
-                                <datalist id={`time-options-${row.id}`}>
-                                  {timeOptions.map((item) => <option key={item} value={item} />)}
-                                </datalist>
-                              </td>
-                              <td style={{ ...styles.td, width: 160 }}>{renderCellInput({ rowIndex, colIndex: 2, value: row.tuitionName || "", onChange: (e) => updateRow(row.id, "tuitionName", e.target.value), onBlur: () => saveRow(row.id) })}</td>
-                              <td style={{ ...styles.td, width: 150 }}>{renderCellInput({ rowIndex, colIndex: 3, value: row.tutorName || "", onChange: (e) => updateRow(row.id, "tutorName", e.target.value), onBlur: () => saveRow(row.id) })}</td>
-                              <td style={{ ...styles.td, width: 150 }}>{renderCellInput({ rowIndex, colIndex: 4, value: row.groupName || "", onChange: (e) => updateRow(row.id, "groupName", e.target.value), onBlur: () => saveRow(row.id) })}</td>
-                              <td style={{ ...styles.td, width: 110 }}>{renderCellInput({ rowIndex, colIndex: 5, value: row.classStartTime || "", readOnly: true })}</td>
-                              <td style={{ ...styles.td, width: 110 }}>{renderCellInput({ rowIndex, colIndex: 6, value: row.classEndTime || "", readOnly: true })}</td>
-                              <td style={{ ...styles.td, width: 140 }}>
-                                <select data-grid-row={rowIndex} data-grid-col={7} onKeyDown={handleGridKeyDown(rowIndex, 7)} style={styles.statusSelect(row.status)} value={row.status || ""} onChange={(event) => updateRow(row.id, "status", event.target.value)} onBlur={() => saveRow(row.id)}>
-                                  {statusOptions.map((item) => <option key={item || "blank"} value={item}>{getStatusMeta(item).label}</option>)}
-                                </select>
-                              </td>
-                              <td style={{ ...styles.td, width: 180 }}>
-                                <textarea data-grid-row={rowIndex} data-grid-col={8} onKeyDown={handleGridKeyDown(rowIndex, 8)} style={styles.cellTextArea} value={row.notes || ""} onChange={(event) => updateRow(row.id, "notes", event.target.value)} onBlur={() => saveRow(row.id)} />
-                              </td>
-                              <td style={{ ...styles.td, width: 110 }}>
-                                <select data-grid-row={rowIndex} data-grid-col={9} onKeyDown={handleGridKeyDown(rowIndex, 9)} style={styles.select} value={formatNewTuitionValue(row.newTuition)} onChange={(event) => updateRow(row.id, "newTuition", event.target.value)} onBlur={() => saveRow(row.id)}>
-                                  {NEW_TUITION_OPTIONS.map((item) => <option key={item.label} value={item.value}>{item.label}</option>)}
-                                </select>
-                              </td>
-                              <td style={{ ...styles.td, width: 145 }}>
-                                {renderCellInput({ rowIndex, colIndex: 10, value: row.tuitionStartDate || "", type: "date", onChange: (e) => updateRow(row.id, "tuitionStartDate", e.target.value), onBlur: () => saveRow(row.id) })}
-                                {row.tuitionStartWeek ? <span style={styles.weekChip}>{row.tuitionStartWeek}</span> : null}
-                              </td>
-                              <td style={{ ...styles.td, width: 110 }}>
-                                <select data-grid-row={rowIndex} data-grid-col={11} onKeyDown={handleGridKeyDown(rowIndex, 11)} style={styles.select} value={row.durationMinutes || durationOptions[0]?.value || 60} onChange={(event) => updateRow(row.id, "durationMinutes", Number(event.target.value))} onBlur={() => saveRow(row.id)}>
-                                  {durationOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                                </select>
-                              </td>
-                              <td style={{ ...styles.td, width: 90 }}>
-                                <button type="button" style={styles.deleteBtn} onClick={() => deleteRow(row.id)}>{savingRowId === row.id ? "Save" : "Delete"}</button>
-                              </td>
-                            </tr>
-                          );
-                        })
+                            ))}
+
+                            <td className={getCellClassName(row.id, "status")} style={{ ...styles.td, width: GRID_DIMENSIONS.status }}>
+                              <select
+                                className="otm-grid-editor"
+                                style={styles.statusSelect(row.status)}
+                                value={row.status || ""}
+                                onChange={(event) => updateRow(row.id, "status", event.target.value)}
+                                onBlur={() => saveRow(row.id)}
+                                {...getGridEditorBindings(row.id, "status")}
+                              >
+                                {statusOptions.map((item) => (
+                                  <option key={item} value={item}>
+                                    {getStatusMeta(item).label}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+
+                            <td className={getCellClassName(row.id, "newTuitionName")} style={{ ...styles.td, width: GRID_DIMENSIONS.newTuition }}>
+                              <input
+                                className="otm-grid-editor"
+                                type="text"
+                                style={styles.cellInput}
+                                value={row.newTuitionName || ""}
+                                onChange={(event) => updateRow(row.id, "newTuitionName", event.target.value)}
+                                onBlur={() => saveRow(row.id)}
+                                placeholder="Monthly tuition name"
+                                {...getGridEditorBindings(row.id, "newTuitionName")}
+                              />
+                            </td>
+
+                            <td className="otm-grid-cell" style={{ ...styles.td, width: GRID_DIMENSIONS.action, padding: 4, verticalAlign: "middle" }}>
+                              <button type="button" style={styles.deleteBtn} onClick={() => deleteRow(row.id)}>
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))
                       )}
                     </tbody>
                   </table>
                 </div>
               </div>
 
-              <Pagination totalItems={filteredEntries.length} page={pageByTab.tuitions} pageSize={pageSizeByTab.tuitions} onPageChange={(nextPage) => setPageByTab((prev) => ({ ...prev, tuitions: nextPage }))} />
+              <Pagination
+                totalItems={filteredEntries.length}
+                page={pageByTab.tuitions}
+                pageSize={pageSizeByTab.tuitions}
+                onPageChange={(nextPage) => setPageByTab((prev) => ({ ...prev, tuitions: nextPage }))}
+              />
             </>
           )}
 
           {tab === "reports" && (
             <>
               <div style={styles.sectionGrid}>
-                <div style={styles.statCard}><h3 style={styles.statTitle}>Total Entries</h3><div style={styles.statValue}>{reportSummary?.totalEntries || 0}</div></div>
-                <div style={styles.statCard}><h3 style={styles.statTitle}>Class Done</h3><div style={styles.statValue}>{reportSummary?.byStatus?.["class done"] || 0}</div></div>
-                <div style={styles.statCard}><h3 style={styles.statTitle}>Class Pending</h3><div style={styles.statValue}>{reportSummary?.byStatus?.["class pending"] || 0}</div></div>
-                <div style={styles.statCard}><h3 style={styles.statTitle}>Tuition Pause</h3><div style={styles.statValue}>{reportSummary?.byStatus?.["tuition pause"] || 0}</div></div>
+                <div style={styles.statCard}>
+                  <h3 style={styles.statTitle}>Total Entries</h3>
+                  <div style={styles.statValue}>{reportSummary?.totalEntries || 0}</div>
+                </div>
+                <div style={styles.statCard}>
+                  <h3 style={styles.statTitle}>Class Done</h3>
+                  <div style={styles.statValue}>{reportSummary?.byStatus?.["class done"] || 0}</div>
+                </div>
+                <div style={styles.statCard}>
+                  <h3 style={styles.statTitle}>Class Pending</h3>
+                  <div style={styles.statValue}>{reportSummary?.byStatus?.["class pending"] || 0}</div>
+                </div>
+                <div style={styles.statCard}>
+                  <h3 style={styles.statTitle}>Missed Total</h3>
+                  <div style={styles.statValue}>
+                    {(reportSummary?.byStatus?.["missed by teacher"] || 0) +
+                      (reportSummary?.byStatus?.["missed by student"] || 0)}
+                  </div>
+                </div>
               </div>
 
               <Toolbar
+                title="Report Summary"
                 search={currentSearch}
                 onSearch={setSearchValue}
                 filters={currentFilters}
@@ -1285,10 +1083,6 @@ export default function OtmPortalSheet({
                 dayOptions={dayOptions}
                 yearOptions={yearOptions}
                 statusOptions={statusOptions}
-                zoomPercent={zoomPercent}
-                onZoomChange={(delta) => setZoomPercent((prev) => Math.max(70, Math.min(140, prev + delta)))}
-                onScrollLeft={() => {}}
-                onScrollRight={() => {}}
               />
 
               <div style={styles.sheetWrap}>
@@ -1300,7 +1094,6 @@ export default function OtmPortalSheet({
                         <th style={styles.reportTh}>Tuition</th>
                         <th style={styles.reportTh}>Days</th>
                         <th style={styles.reportTh}>Start Month</th>
-                        <th style={styles.reportTh}>Week</th>
                         <th style={styles.reportTh}>End Month</th>
                         <th style={styles.reportTh}>Total Classes</th>
                         <th style={styles.reportTh}>Class Done</th>
@@ -1312,15 +1105,20 @@ export default function OtmPortalSheet({
                     </thead>
                     <tbody>
                       {pagedReportRows.length === 0 ? (
-                        <tr><td colSpan={12} style={styles.reportTd}>No report rows found.</td></tr>
+                        <tr>
+                          <td colSpan={11} style={styles.reportTd}>
+                            No report rows found.
+                          </td>
+                        </tr>
                       ) : (
                         pagedReportRows.map((row, index) => (
-                          <tr key={`${row.teacherName}-${row.tuitionName}-${index}`}>
+                          <tr key={`${row.teacherName}-${row.tuitionName}-${index}`} style={{ background: row.rowColor || "#fff" }}>
                             <td style={styles.reportTd}>{row.teacherName}</td>
                             <td style={styles.reportTd}>{row.tuitionName}</td>
-                            <td style={styles.reportTd}>{Array.isArray(row.days) ? row.days.join(", ") : row.day || row.days || "--"}</td>
+                            <td style={styles.reportTd}>
+                              {Array.isArray(row.days) ? row.days.join(", ") : row.day || row.days || "--"}
+                            </td>
                             <td style={styles.reportTd}>{row.tuitionStartMonth || "--"}</td>
-                            <td style={styles.reportTd}>{row.tuitionStartWeek || "--"}</td>
                             <td style={styles.reportTd}>{row.tuitionEndMonth || "--"}</td>
                             <td style={styles.reportTd}>{row.totalClasses}</td>
                             <td style={styles.reportTd}>{row.classDoneCount}</td>
@@ -1336,18 +1134,26 @@ export default function OtmPortalSheet({
                 </div>
               </div>
 
-              <Pagination totalItems={filteredReportRows.length} page={pageByTab.reports} pageSize={pageSizeByTab.reports} onPageChange={(nextPage) => setPageByTab((prev) => ({ ...prev, reports: nextPage }))} />
+              <Pagination
+                totalItems={filteredReportRows.length}
+                page={pageByTab.reports}
+                pageSize={pageSizeByTab.reports}
+                onPageChange={(nextPage) => setPageByTab((prev) => ({ ...prev, reports: nextPage }))}
+              />
             </>
           )}
 
           {tab === "totalClass" && (
             <>
               <div style={styles.sectionGrid}>
-                <div style={styles.statCard}><h3 style={styles.statTitle}>Total Rows</h3><div style={styles.statValue}>{filteredTotalClassRows.length}</div></div>
-                <div style={styles.statCard}><h3 style={styles.statTitle}>Paused</h3><div style={styles.statValue}>{totalClassSummary?.byStatus?.["tuition pause"] || 0}</div></div>
+                <div style={styles.statCard}>
+                  <h3 style={styles.statTitle}>Total Done Classes</h3>
+                  <div style={styles.statValue}>{totalClassSummary?.totalClasses || 0}</div>
+                </div>
               </div>
 
               <Toolbar
+                title="Done Classes Summary"
                 search={currentSearch}
                 onSearch={setSearchValue}
                 filters={currentFilters}
@@ -1360,10 +1166,6 @@ export default function OtmPortalSheet({
                 dayOptions={dayOptions}
                 yearOptions={yearOptions}
                 statusOptions={statusOptions}
-                zoomPercent={zoomPercent}
-                onZoomChange={(delta) => setZoomPercent((prev) => Math.max(70, Math.min(140, prev + delta)))}
-                onScrollLeft={() => {}}
-                onScrollRight={() => {}}
               />
 
               <div style={styles.sheetWrap}>
@@ -1376,7 +1178,6 @@ export default function OtmPortalSheet({
                         <th style={styles.reportTh}>Day</th>
                         <th style={styles.reportTh}>Time</th>
                         <th style={styles.reportTh}>Duration</th>
-                        <th style={styles.reportTh}>Week</th>
                         <th style={styles.reportTh}>Start Month</th>
                         <th style={styles.reportTh}>End Month</th>
                         <th style={styles.reportTh}>Status</th>
@@ -1386,19 +1187,40 @@ export default function OtmPortalSheet({
                     </thead>
                     <tbody>
                       {pagedTotalClassRows.length === 0 ? (
-                        <tr><td colSpan={11} style={styles.reportTd}>No total class rows found.</td></tr>
+                        <tr>
+                          <td colSpan={10} style={styles.reportTd}>
+                            No total class rows found.
+                          </td>
+                        </tr>
                       ) : (
                         pagedTotalClassRows.map((row, index) => (
-                          <tr key={`${row.tuitionName}-${row.tutorName}-${index}`}>
+                          <tr key={`${row.tuitionName}-${row.tutorName}-${index}`} style={{ background: row.rowColor || "#fff" }}>
                             <td style={styles.reportTd}>{row.tuitionName}</td>
                             <td style={styles.reportTd}>{row.tutorName}</td>
                             <td style={styles.reportTd}>{row.days}</td>
                             <td style={styles.reportTd}>{row.time}</td>
                             <td style={styles.reportTd}>{row.duration}</td>
-                            <td style={styles.reportTd}>{row.tuitionStartWeek || "--"}</td>
                             <td style={styles.reportTd}>{row.tuitionStartMonth || "--"}</td>
                             <td style={styles.reportTd}>{row.tuitionEndMonth || "--"}</td>
-                            <td style={styles.reportTd}><span style={{ padding: "6px 10px", borderRadius: 999, display: "inline-block", border: `1px solid ${getStatusMeta(row.status).border}`, background: getStatusMeta(row.status).background, color: getStatusMeta(row.status).color }}>{getStatusMeta(row.status).label}</span></td>
+                            <td style={styles.reportTd}>
+                              {(() => {
+                                const statusMeta = getStatusMeta(row.status);
+                                return (
+                                  <span
+                                    style={{
+                                      padding: "6px 10px",
+                                      borderRadius: 999,
+                                      display: "inline-block",
+                                      border: `1px solid ${statusMeta.border}`,
+                                      background: statusMeta.background,
+                                      color: statusMeta.color,
+                                    }}
+                                  >
+                                    {statusMeta.label}
+                                  </span>
+                                );
+                              })()}
+                            </td>
                             <td style={styles.reportTd}>{row.totalClasses}</td>
                             <td style={styles.reportTd}>{row.newTuitionCount}</td>
                           </tr>
@@ -1409,7 +1231,12 @@ export default function OtmPortalSheet({
                 </div>
               </div>
 
-              <Pagination totalItems={filteredTotalClassRows.length} page={pageByTab.totalClass} pageSize={pageSizeByTab.totalClass} onPageChange={(nextPage) => setPageByTab((prev) => ({ ...prev, totalClass: nextPage }))} />
+              <Pagination
+                totalItems={filteredTotalClassRows.length}
+                page={pageByTab.totalClass}
+                pageSize={pageSizeByTab.totalClass}
+                onPageChange={(nextPage) => setPageByTab((prev) => ({ ...prev, totalClass: nextPage }))}
+              />
             </>
           )}
         </div>

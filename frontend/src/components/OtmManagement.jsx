@@ -195,13 +195,13 @@ function UserDirectory({ users, search, onSearch, onOpen }) {
             ) : (
               filteredUsers.map((user) => (
                 <tr key={user.id}>
-                  <td style={styles.td}><strong>{user.name || "Unnamed User"}</strong></td>
+                  <td style={styles.td}><u onClick={() => onOpen(user.id)} style={{cursor:'pointer'}}>{user.name || "Unnamed User"}</u></td>
                   <td style={styles.td}>{user.email}</td>
                   <td style={styles.td}><span style={styles.roleBadge(user.role)}>{user.role}</span></td>
                   <td style={styles.td}><span style={styles.accessBadge(Boolean(user.access_otm_management || user.role === "admin" || user.role === "otm"))}>{Boolean(user.access_otm_management || user.role === "admin" || user.role === "otm") ? "Enabled" : "Disabled"}</span></td>
                   <td style={styles.td}>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "--"}</td>
                   <td style={styles.td}>
-                    <button type="button" style={styles.openBtn} onClick={() => onOpen(user.id)}>
+                    <button type="button" className="bg-theme text-light shadow rounded-pill" onClick={() => onOpen(user.id)}>
                       Open Portal
                     </button>
                   </td>

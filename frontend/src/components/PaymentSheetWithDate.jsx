@@ -850,7 +850,7 @@ function resolveCurrentUserRole(me) {
     return "";
   }
 }
-export default function PaymentSheetWithDate({ me }) {
+export default function PaymentSheetWithDate({ me, isActive = true, onCountChange }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -1035,16 +1035,24 @@ export default function PaymentSheetWithDate({ me }) {
 
   useEffect(() => {
     mountedRef.current = true;
-    loadRows({ initial: true });
+    if (isActive) {
+      loadRows({ initial: true });
+    }
 
     return () => {
       mountedRef.current = false;
     };
-  }, []);
+  }, [isActive]);
 
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
+
+  useEffect(() => {
+    if (typeof onCountChange === "function") {
+      onCountChange(items.length);
+    }
+  }, [items.length, onCountChange]);
 
   useEffect(() => {
     editingCellRef.current = editingCell;

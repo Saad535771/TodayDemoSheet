@@ -118,6 +118,13 @@ function hasStatus(value, target) {
   return normalizeMultiValue(value).includes(target);
 }
 
+
+function normalizeText(value) {
+  if (value === null || value === undefined) return null;
+  const cleaned = String(value).trim();
+  return cleaned || null;
+}
+
 function setApprovalPending(item) {
   item.paymentApprovalStatus = PAYMENT_APPROVAL_PENDING;
   item.paymentApprovalRequestedAt = item.paymentApprovalRequestedAt || new Date();
@@ -162,7 +169,119 @@ function requireHodOrAdmin(req, res) {
   return true;
 }
 
-export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
+export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTuitionEntry }) {
+  const getDisplayName = (user) => {
+    const explicit = normalizeText(user?.name);
+    if (explicit) return explicit;
+    const prefix = String(user?.email || "").split("@")[0] || "User";
+    return prefix.charAt(0).toUpperCase() + prefix.slice(1);
+  };
+
+  async function listAvailableOtmUsers() {
+    if (!User || typeof User.findAll !== "function") return [];
+    const users = await User.findAll({
+      where: { role: "otm" },
+      attributes: ["id", "name", "email", "role"],
+      order: [["name", "ASC"], ["email", "ASC"]],
+    });
+
+    return users.map((user) => ({
+      id: user.id,
+      name: getDisplayName(user),
+      email: user.email,
+      role: user.role,
+    }));
+  }
+
+  async function findOtmUserByName(otmName) {
+    const needle = normalizeText(otmName)?.toLowerCase();
+    if (!needle) return null;
+
+    const users = await listAvailableOtmUsers();
+    return (
+      users.find((user) => String(user.name || "").toLowerCase() === needle) ||
+      users.find((user) => String(user.email || "").toLowerCase() === needle) ||
+      users.find((user) => String(user.name || "").toLowerCase().includes(needle)) ||
+      null
+    );
+  }
+
+  async function getNextPortalSortOrder(userId) {
+    if (!OtmTuitionEntry || typeof OtmTuitionEntry.findOne !== "function") return 1;
+
+    const lastEntry = await OtmTuitionEntry.findOne({
+      where: { userId },
+      order: [["sortOrder", "DESC"], ["id", "DESC"]],
+    });
+
+    return Number(lastEntry?.sortOrder || 0) + 1;
+  }
+
+  async function syncLinkedOtmPortalEntry({ tuition }) {
+    if (!OtmTuitionEntry || typeof OtmTuitionEntry.findOne !== "function") return;
+
+    const sourceTuitionId = normalizeTuitionId(tuition?.tuitionId);
+    if (!sourceTuitionId) return;
+
+    const targetUser = await findOtmUserByName(tuition?.otmName);
+    const existingEntry = await OtmTuitionEntry.findOne({ where: { sourceTuitionId } });
+
+    if (!targetUser) {
+      if (existingEntry) {
+        await existingEntry.destroy();
+      }
+      return;
+    }
+
+    const nextTuitionName = normalizeText(tuition?.tuitionName);
+    const basePatch = {
+      userId: Number(targetUser.id),
+      sourceTuitionId,
+      tuitionName: nextTuitionName || existingEntry?.tuitionName || "",
+      newTuition: Boolean(nextTuitionName),
+      newTuitionName: nextTuitionName,
+    };
+
+    if (existingEntry) {
+      const nextSortOrder =
+        Number(existingEntry.userId) === Number(targetUser.id)
+          ? Number(existingEntry.sortOrder || 0)
+          : await getNextPortalSortOrder(Number(targetUser.id));
+
+      await existingEntry.update({
+        ...basePatch,
+        sortOrder: nextSortOrder,
+      });
+      return;
+    }
+
+    const nextSortOrder = await getNextPortalSortOrder(Number(targetUser.id));
+    await OtmTuitionEntry.create({
+      userId: Number(targetUser.id),
+      day: "",
+      days: [],
+      time: "",
+      timeSlots: [],
+      durationLabel: "1 hour",
+      durationMinutes: 60,
+      tuitionName: nextTuitionName || "",
+      tutorName: null,
+      groupName: null,
+      studentName: null,
+      classStartTime: "",
+      classStartTimes: [],
+      classEndTime: "",
+      classEndTimes: [],
+      status: "",
+      reportStatus: null,
+      notes: "",
+      newTuition: Boolean(nextTuitionName),
+      newTuitionName: nextTuitionName,
+      sourceTuitionId,
+      sortOrder: nextSortOrder,
+    });
+  }
+
   return {
     async list(req, res) {
       const q = (req.query.q || "").toString().trim();
@@ -270,6 +389,16 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
       } catch (error) {
         console.error("SEARCH ERROR:", error);
         return res.status(500).json({ message: "Error performing search", error: error.message });
+      }
+    },
+
+    async listOtmUsers(req, res) {
+      try {
+        const users = await listAvailableOtmUsers();
+        return res.json({ users });
+      } catch (error) {
+        console.error("OTM USER LIST ERROR:", error);
+        return res.status(500).json({ message: "Failed to fetch OTM users", error: error.message });
       }
     },
 
@@ -419,6 +548,7 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
           ...initialApproval
         });
 
+        await syncLinkedOtmPortalEntry({ tuition: item.toJSON() });
         await upsertTodayDemoFromTuition({ TodayDemo, item: item.toJSON() });
         await syncPaymentByApprovalState({ Payment, item: item.toJSON() });
         res.status(201).json({ item });
@@ -435,6 +565,8 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
         if (!item) return res.status(404).json({ message: "Not found" });
 
         const previousHadTuitionDone = hasStatus(item.status, "Tuition Done");
+        const previousOtmName = item.otmName;
+        const previousTuitionName = item.tuitionName;
 
         const body = req.body || {};
         const source = (body._source || "").toString().toLowerCase();
@@ -487,6 +619,7 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
         }
 
         await item.save();
+        await syncLinkedOtmPortalEntry({ tuition: item.toJSON() });
         await upsertTodayDemoFromTuition({ TodayDemo, item: item.toJSON() });
         await syncPaymentByApprovalState({ Payment, item: item.toJSON() });
         res.json({ item });
@@ -501,6 +634,9 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
       const result = await Tuition.update({ isDeleted: 1 }, { where: { tuitionId } });
       if (result[0] === 0) return res.status(404).json({ message: "Not found" });
 
+      if (OtmTuitionEntry) {
+        await OtmTuitionEntry.destroy({ where: { sourceTuitionId: tuitionId } });
+      }
       await removeTodayDemoByTuitionId({ TodayDemo, tuitionId });
       await removePaymentByTuitionId({ Payment, tuitionId });
       res.json({ ok: true, message: "Moved to Recycle Bin" });
@@ -529,6 +665,7 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
           await item.save();
         }
 
+        await syncLinkedOtmPortalEntry({ tuition: item.toJSON() });
         await upsertTodayDemoFromTuition({ TodayDemo, item: item.toJSON() });
         await syncPaymentByApprovalState({ Payment, item: item.toJSON() });
       }
@@ -542,6 +679,10 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment }) {
       }
 
       const { id } = req.params;
+      const item = await Tuition.findByPk(id);
+      if (item?.tuitionId && OtmTuitionEntry) {
+        await OtmTuitionEntry.destroy({ where: { sourceTuitionId: item.tuitionId } });
+      }
       await Tuition.destroy({ where: { id } });
       res.json({ success: true, message: "Permanently deleted" });
     },

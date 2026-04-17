@@ -704,7 +704,7 @@ function tryOpenPicker(el, col) {
   });
 }
 
-export default function PaymentSheet({ me }) {
+export default function PaymentSheet({ me, onCountChange, isActive = true }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -900,6 +900,17 @@ const gridColumns = useMemo(() => {
   useEffect(() => {
     mountedRef.current = true;
 
+    if (!isActive) {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      return () => {
+        mountedRef.current = false;
+        if (pollingRef.current) clearInterval(pollingRef.current);
+      };
+    }
+
     loadPayments({ initial: true });
 
     pollingRef.current = setInterval(() => {
@@ -909,13 +920,22 @@ const gridColumns = useMemo(() => {
 
     return () => {
       mountedRef.current = false;
-      if (pollingRef.current) clearInterval(pollingRef.current);
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
     };
-  }, []);
+  }, [isActive]);
 
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
+
+  useEffect(() => {
+    if (typeof onCountChange === "function") {
+      onCountChange(items.length);
+    }
+  }, [items.length, onCountChange]);
 
   useEffect(() => {
     editingCellRef.current = editingCell;
@@ -2893,7 +2913,7 @@ async function applyColorToSelectedRows(field, colorValue) {
           </div>
         </div>
       </div>
-      <PaymentSheetWithDate/> 
+      <PaymentSheetWithDate isActive={isActive} /> 
     </div>
   );
 }

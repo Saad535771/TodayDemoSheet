@@ -250,7 +250,7 @@ function EnhancedSlotShell({ children }) {
   );
 }
 
-export default function TargetBoard() {
+export default function TargetBoard({ onCountChange, isActive = true }) {
   const [slots, setSlots] = useState([]);
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(false);
@@ -317,10 +317,13 @@ export default function TargetBoard() {
   );
 
   useEffect(() => {
+    if (!isActive) return;
     load();
-  }, [load]);
+  }, [isActive, load]);
 
   useEffect(() => {
+    if (!isActive) return;
+
     const tick = () => {
       if (document.visibilityState !== "visible") return;
       load({ silent: true });
@@ -335,7 +338,7 @@ export default function TargetBoard() {
       window.removeEventListener("focus", tick);
       document.removeEventListener("visibilitychange", tick);
     };
-  }, [load]);
+  }, [isActive, load]);
 
   const requestChildRefresh = useCallback(async () => {
     const now = Date.now();
@@ -348,6 +351,21 @@ export default function TargetBoard() {
     () => `${slots.length} slot${slots.length === 1 ? "" : "s"}`,
     [slots.length]
   );
+
+  const totalRecordCount = useMemo(
+    () =>
+      slots.reduce(
+        (sum, slot) => sum + (Array.isArray(slot?.items) ? slot.items.length : 0),
+        0
+      ),
+    [slots]
+  );
+
+  useEffect(() => {
+    if (typeof onCountChange === "function") {
+      onCountChange(totalRecordCount);
+    }
+  }, [onCountChange, totalRecordCount]);
 
   return (
     <div className="">

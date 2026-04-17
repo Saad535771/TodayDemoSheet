@@ -72,24 +72,17 @@ export function normalizeBoolean(value) {
   return ["true", "yes", "y", "on"].includes(cleaned);
 }
 
-export function normalizeNullableBoolean(value) {
-  if (value === undefined || value === null || value === "") return null;
-  if (value === true || value === false) return value;
-  if (value === 1 || value === "1") return true;
-  if (value === 0 || value === "0") return false;
-  const cleaned = String(value || "").trim().toLowerCase();
-  if (["true", "yes", "y", "on"].includes(cleaned)) return true;
-  if (["false", "no", "n", "off"].includes(cleaned)) return false;
-  return null;
-}
-
 export function uniqueArray(values = []) {
   return [...new Set(values.filter(Boolean))];
 }
 
 export function normalizeArrayInput(value) {
   if (Array.isArray(value)) {
-    return uniqueArray(value.map((item) => normalizeString(item)).filter(Boolean));
+    return uniqueArray(
+      value
+        .map((item) => normalizeString(item))
+        .filter(Boolean)
+    );
   }
 
   const cleaned = normalizeString(value);
@@ -191,26 +184,9 @@ export function joinLabels(values = []) {
 export function normalizeMonthValue(value) {
   const cleaned = normalizeString(value);
   if (!cleaned) return null;
-
-  const monthMatch = cleaned.match(/^(\d{4})-(\d{2})$/);
-  if (monthMatch) {
-    return `${monthMatch[1]}-${monthMatch[2]}`;
-  }
-
-  const dateMatch = cleaned.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (dateMatch) {
-    return `${dateMatch[1]}-${dateMatch[2]}`;
-  }
-
-  return null;
-}
-
-export function normalizeDateValue(value) {
-  const cleaned = normalizeString(value);
-  if (!cleaned) return null;
-  const match = cleaned.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const match = cleaned.match(/^(\d{4})-(\d{2})$/);
   if (!match) return null;
-  return `${match[1]}-${match[2]}-${match[3]}`;
+  return `${match[1]}-${match[2]}`;
 }
 
 export function extractYearFromMonth(value) {
@@ -267,61 +243,9 @@ export function buildScheduleFields({ days, timeSlots, durationMinutes }) {
   };
 }
 
-export function getWeekLabelFromDate(dateValue) {
-  const normalized = normalizeDateValue(dateValue);
-  if (!normalized) return null;
-  const dayOfMonth = Number(normalized.slice(8, 10));
-  if (dayOfMonth <= 7) return "Week1";
-  if (dayOfMonth <= 14) return "Week2";
-  if (dayOfMonth <= 21) return "Week3";
-  return "Week4";
-}
-
-export function addDaysToDateValue(dateValue, daysToAdd = 0) {
-  const normalized = normalizeDateValue(dateValue);
-  if (!normalized) return null;
-  const date = new Date(`${normalized}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return null;
-  date.setDate(date.getDate() + Number(daysToAdd || 0));
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-}
-
-export function deriveTuitionCalendarFields({
-  tuitionStartDate,
-  tuitionStartMonth,
-  status,
-}) {
-  let startDate = normalizeDateValue(tuitionStartDate);
-
-  if (!startDate) {
-    const monthOnly = normalizeMonthValue(tuitionStartMonth);
-    if (monthOnly) {
-      startDate = `${monthOnly}-01`;
-    }
-  }
-
-  const startMonth = normalizeMonthValue(startDate || tuitionStartMonth);
-  const startWeek = getWeekLabelFromDate(startDate);
-  const normalizedStatus = (normalizeString(status) || "").toLowerCase();
-  const pauseNextCycle = normalizedStatus === "tuition pause";
-  const endDate = startDate
-    ? pauseNextCycle
-      ? startDate
-      : addDaysToDateValue(startDate, 30)
-    : null;
-
-  return {
-    tuitionStartDate: startDate,
-    tuitionStartWeek: startWeek,
-    tuitionStartMonth: startMonth,
-    tuitionEndMonth: normalizeMonthValue(endDate),
-    pauseNextCycle,
-  };
-}
-
 export function countBy(values = []) {
   return values.reduce((acc, value) => {
-    const key = normalizeString(value) || "Blank";
+    const key = normalizeString(value) || "Unknown";
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import PaymentCloneTrashTable from "./PaymentCloneTrashTable.jsx";
 import MonthlyTrashBin from "./MonthlyTrashBin.jsx";
 
@@ -29,8 +29,15 @@ const styles = {
   },
 };
 
-export default function TrashBin() {
+export default function TrashBin({ onCountChange, isActive = true }) {
   const [activeTab, setActiveTab] = useState("monthly");
+  const [paymentCloneCount, setPaymentCloneCount] = useState(0);
+
+  useEffect(() => {
+    if (typeof onCountChange === "function") {
+      onCountChange(paymentCloneCount);
+    }
+  }, [activeTab, onCountChange, paymentCloneCount]);
 
   return (
     <div style={styles.page}>
@@ -57,9 +64,9 @@ export default function TrashBin() {
       </div>
 
       {activeTab === "monthly" ? (
-        <MonthlyTrashBin />
+        <MonthlyTrashBin isActive={isActive && activeTab === "monthly"} />
       ) : (
-        <PaymentCloneTrashTable />
+        <PaymentCloneTrashTable isActive={isActive && activeTab === "paymentClone"} onCountChange={setPaymentCloneCount} />
       )}
     </div>
   );

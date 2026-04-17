@@ -10,16 +10,22 @@ import { api, clearToken, getStoredToken, setAuthToken } from "../api/api.js";
 import Logo from "../assets/Logo-1-Blue.png";
 import OtmManagement from "../components/OtmManagement.jsx";
 
-// Agar ye components project me already mojood hain to uncomment kar den:
-// import TutorShare from "../components/TutorShare.jsx";
-// import LacasShare from "../components/LacasShare.jsx";
-// import TotalFees from "../components/TotalFees.jsx";
-
 const LAST_TAB_KEY = "dashboard_active_tab";
 const TAB_SCROLL_KEY = "dashboard_tab_scroll_positions";
 const SESSION_KEY = "dashboard_session_id";
 const HEARTBEAT_MS = 20000;
 const BADGE_POLL_MS = 15000;
+const BADGE_META_KEY = "dashboard_badge_meta_v2";
+
+const DEFAULT_BADGE_META = {
+  hod_approvals: { total: 0, newCount: 0 },
+  main: { total: 0, newCount: 0 },
+  target: { total: 0, newCount: 0 },
+  payment: { total: 0, newCount: 0 },
+  trash: { total: 0, newCount: 0 },
+  staff: { total: 0, newCount: 0 },
+  otm_management: { total: 0, newCount: 0 },
+};
 
 function getOrCreateSessionId() {
   let sessionId = sessionStorage.getItem(SESSION_KEY);
@@ -28,6 +34,122 @@ function getOrCreateSessionId() {
     sessionStorage.setItem(SESSION_KEY, sessionId);
   }
   return sessionId;
+}
+
+function getSavedScrollPositions() {
+  try {
+    const raw = sessionStorage.getItem(TAB_SCROLL_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function getSavedBadgeMeta() {
+  try {
+    const raw = localStorage.getItem(BADGE_META_KEY);
+    if (!raw) return { ...DEFAULT_BADGE_META };
+    return { ...DEFAULT_BADGE_META, ...JSON.parse(raw) };
+  } catch {
+    return { ...DEFAULT_BADGE_META };
+  }
+}
+
+function normalizeRole(role) {
+  return String(role || "").trim().toLowerCase();
+}
+
+function hasAccessByRoleOrFlag(userData, permissionKey) {
+  const role = normalizeRole(userData?.role);
+  if (role === "admin") return true;
+  return Number(userData?.[permissionKey] || 0) === 1;
+}
+
+function readCountFromResponse(data) {
+  if (typeof data === "number") return data;
+  if (typeof data?.count === "number") return data.count;
+  if (typeof data?.total === "number") return data.total;
+  if (Array.isArray(data)) return data.length;
+  if (Array.isArray(data?.items)) return data.items.length;
+  if (Array.isArray(data?.rows)) return data.rows.length;
+  if (Array.isArray(data?.slots)) {
+    return data.slots.reduce(
+      (sum, slot) => sum + (Array.isArray(slot?.items) ? slot.items.length : 0),
+      0
+    );
+  }
+  if (Array.isArray(data?.users)) return data.users.length;
+  if (Array.isArray(data?.entries)) return data.entries.length;
+  if (Array.isArray(data?.otmUsers)) return data.otmUsers.length;
+  return 0;
+}
+
+async function fetchBadgeCountByKey(key) {
+  switch (key) {
+    case "hod_approvals": {
+      const { data } = await api.get("/tuitions/payment-approvals/count");
+      return readCountFromResponse(data);
+    }
+    case "main": {
+      const { data } = await api.get("/tuitions");
+      return readCountFromResponse(data);
+    }
+    case "target": {
+      const { data } = await api.get("/target");
+      return readCountFromResponse(data);
+    }
+    case "payment": {
+      const { data } = await api.get("/payments");
+      return readCountFromResponse(data);
+    }
+    case "trash": {
+      const [monthlyTrashResult, paymentTrashResult] = await Promise.allSettled([
+        api.get("/tuitions/trash"),
+        api.get("/payments-clone/trash/all"),
+      ]);
+
+      const monthlyCount =
+        monthlyTrashResult.status === "fulfilled"
+          ? readCountFromResponse(monthlyTrashResult.value?.data)
+          : 0;
+
+      const paymentCount =
+        paymentTrashResult.status === "fulfilled"
+          ? readCountFromResponse(paymentTrashResult.value?.data)
+          : 0;
+
+      return monthlyCount + paymentCount;
+    }
+    case "staff": {
+      const { data } = await api.get("/auth/active-users");
+      return readCountFromResponse(data);
+    }
+    case "otm_management": {
+      const { data } = await api.get("/otm-management/entries");
+      return readCountFromResponse(data);
+    }
+    default:
+      return 0;
+  }
+}
+
+
+function DashboardFallback({ title }) {
+  return (
+    <div
+      style={{
+        margin: "24px",
+        background: "#fff",
+        border: "1px solid #e5e7eb",
+        borderRadius: "14px",
+        padding: "20px",
+        boxShadow: "0 6px 20px rgba(0,0,0,0.04)",
+      }}
+    >
+      <h3 style={{ marginTop: 0 }}>{title}</h3>
+      <p style={{ marginBottom: 0, color: "#666" }}>Is tab ka component available nahin hai.</p>
+    </div>
+  );
 }
 
 const styles = {
@@ -50,7 +172,6 @@ const styles = {
     alignItems: "center",
     gap: "16px",
     flexWrap: "wrap",
-    transition: "all 0.3s ease",
   },
   logoSection: {
     display: "flex",
@@ -105,6 +226,8 @@ const styles = {
     gap: "8px",
     whiteSpace: "nowrap",
     userSelect: "none",
+    position: "relative",
+    border: "none",
   }),
   badge: {
     minWidth: "20px",
@@ -119,6 +242,14 @@ const styles = {
     fontWeight: "700",
     padding: "0 6px",
   },
+  notificationDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    background: "#ef4444",
+    boxShadow: "0 0 0 2px rgba(255,255,255,0.75)",
+    flexShrink: 0,
+  },
   actionSection: {
     display: "flex",
     alignItems: "center",
@@ -130,159 +261,43 @@ const styles = {
     textAlign: "right",
     lineHeight: "1.2",
   },
-  userEmail: {
-    display: "block",
-    fontSize: "13px",
-    fontWeight: "600",
-    color: "#333",
+  userName: {
+    fontWeight: 700,
+    color: "#1f2937",
+    fontSize: 14,
   },
   userRole: {
-    display: "block",
-    fontSize: "11px",
-    color: "#888",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-  },
-  iconBtn: {
-    background: "#fff",
-    border: "1px solid #e1e4e8",
-    borderRadius: "8px",
-    padding: "8px 12px",
-    cursor: "pointer",
-    color: "#555",
-    transition: "0.2s",
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    fontSize: "13px",
-    fontWeight: "500",
+    color: "#6b7280",
+    fontSize: 12,
+    textTransform: "capitalize",
   },
   logoutBtn: {
-    background: "#fee2e2",
-    color: "#b91c1c",
     border: "none",
-    padding: "8px 16px",
-    borderRadius: "8px",
-    fontSize: "13px",
-    fontWeight: "600",
+    background: "#ef4444",
+    color: "#fff",
+    borderRadius: 10,
+    padding: "10px 14px",
+    fontWeight: 700,
     cursor: "pointer",
   },
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "rgba(0,0,0,0.5)",
-    zIndex: 1000,
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    backdropFilter: "blur(4px)",
-    padding: "16px",
+  contentWrap: {
+    padding: 18,
   },
-  modalCard: {
-    background: "white",
-    width: "100%",
-    maxWidth: "400px",
-    padding: "24px",
-    borderRadius: "16px",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-    animation: "fadeIn 0.2s ease-out",
-  },
-  inputGroup: {
-    marginBottom: "16px",
-  },
-  label: {
-    display: "block",
-    fontSize: "12px",
-    fontWeight: "600",
-    marginBottom: "6px",
-    color: "#555",
-  },
-  input: {
-    width: "100%",
-    padding: "10px",
-    borderRadius: "8px",
-    border: "1px solid #ddd",
-    fontSize: "14px",
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  primaryBtn: {
-    width: "100%",
-    padding: "12px",
-    background: "#1e3c72",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontWeight: "600",
-    cursor: "pointer",
-    marginTop: "10px",
-  },
-  fallbackCard: {
-    margin: "24px",
-    background: "#fff",
-    border: "1px solid #e5e7eb",
-    borderRadius: "14px",
-    padding: "20px",
-    boxShadow: "0 6px 20px rgba(0,0,0,0.04)",
+  contentCard: {
+    background: "#ffffff",
+    borderRadius: 18,
+    boxShadow: "0 8px 30px rgba(15, 23, 42, 0.06)",
+    overflow: "hidden",
+    minHeight: "calc(100vh - 120px)",
   },
 };
-
-function getSavedScrollPositions() {
-  try {
-    const raw = sessionStorage.getItem(TAB_SCROLL_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function normalizeRole(role) {
-  return String(role || "").trim().toLowerCase();
-}
-
-function hasAccessByRoleOrFlag(userData, permissionKey) {
-  const role = normalizeRole(userData?.role);
-
-  if (role === "admin") return true;
-
-  return Number(userData?.[permissionKey] || 0) === 1;
-}
-function DashboardFallback({ title }) {
-  return (
-    <div style={styles.fallbackCard}>
-      <h3 style={{ marginTop: 0 }}>{title}</h3>
-      <p style={{ marginBottom: 0, color: "#666" }}>
-        Is tab ka access aur topbar ab enable hai. Ab yahan aap apna actual component mount kar sakte hain.
-      </p>
-    </div>
-  );
-}
 
 export default function Dashboard() {
   const [tab, setTab] = useState("target");
   const [me, setMe] = useState(null);
-  const [mountedTabs, setMountedTabs] = useState({});
-  const [badgeCounts, setBadgeCounts] = useState({
-    hod_approvals: 0,
-    main: 0,
-    target: 0,
-    payment: 0,
-    trash: 0,
-    tutor_share: 0,
-    lacas_share: 0,
-    total_fees: 0,
-    staff: 0,
-    otm_management: 0,
-  });
+  const [badgeMeta, setBadgeMeta] = useState(getSavedBadgeMeta);
 
-  const [showRegModal, setShowRegModal] = useState(false);
-  const [regData, setRegData] = useState({ email: "", password: "", role: "staff" });
-  const [regLoading, setRegLoading] = useState(false);
-  const [regMsg, setRegMsg] = useState("");
-
+  const badgeMetaRef = useRef(getSavedBadgeMeta());
   const contentRefs = useRef({});
   const scrollPositionsRef = useRef(getSavedScrollPositions());
   const heartbeatIntervalRef = useRef(null);
@@ -290,184 +305,114 @@ export default function Dashboard() {
 
   const role = normalizeRole(me?.role);
 
-const tabsConfig = useMemo(() => {
-  const base = [
-    {
-      key: "main",
-      label: "📅 Monthly Tuitions",
-      permissionKey: "access_monthly",
-      component: <MainTuitions />,
-    },
-    {
-      key: "target",
-      label: "🔥 Today Demo",
-      permissionKey: "access_demo",
-      component: <TargetBoard />,
-    },
-    {
-      key: "payment",
-      label: "💳 Payment Sheet",
-      permissionKey: "access_payment_sheet",
-      component: <PaymentSheet me={me} />,
-    },
-    {
-      key: "hod_approvals",
-      label: "✅ HOD Approvals",
-      permissionKey: "access_hod_approvals",
-      component: (
-        <HodApprovals
-          me={me}
-          onCountChange={(count) => updateSingleBadge("hod_approvals", count)}
-        />
-      ),
-    },
-    {
-      key: "trash",
-      label: "🗑️ Recycle Bin",
-      permissionKey: "access_trash",
-      component: <TrashBin />,
-    },
-    {
-      key: "staff",
-      label: "👥 Staff",
-      permissionKey: "access_staff",
-      component: (
-        <div style={{ padding: "24px" }}>
-          <ActiveUsersPanel />
-          <StaffManager />
-        </div>
-      ),
-    },
-    {
-      key: "otm_management",
-      label: "📘 Management Portal",
-      permissionKey: "access_otm_management",
-      component: <OtmManagement />,
-    },
-  ];
-
-  return base.map((item) => ({
-    ...item,
-    allowed: hasAccessByRoleOrFlag(me, item.permissionKey),
-  }));
-}, [me]);
-  const allowedTabs = useMemo(() => tabsConfig.filter((tabItem) => tabItem.allowed), [tabsConfig]);
-function getPreferredTab(userData) {
-  const savedTab = sessionStorage.getItem(LAST_TAB_KEY);
-
-  const nextAllowedTabs = tabsConfig
-    .filter((t) => hasAccessByRoleOrFlag(userData, t.permissionKey))
-    .map((t) => t.key);
-
-  if (savedTab && nextAllowedTabs.includes(savedTab)) {
-    return savedTab;
+  function persistBadgeMeta(next) {
+    badgeMetaRef.current = next;
+    setBadgeMeta(next);
+    localStorage.setItem(BADGE_META_KEY, JSON.stringify(next));
   }
 
-  return nextAllowedTabs[0] || "no_access";
-}
+  function syncTabCount(key, total) {
+    const safeTotal = Math.max(0, Number(total || 0));
+    const prev = badgeMetaRef.current[key] || { total: 0, newCount: 0 };
+    const increment = safeTotal > prev.total ? safeTotal - prev.total : 0;
+    const shouldResetNew = tab === key;
 
-  function updateSingleBadge(key, count) {
-    setBadgeCounts((prev) => ({
-      ...prev,
-      [key]: Number(count || 0),
-    }));
+    const next = {
+      ...badgeMetaRef.current,
+      [key]: {
+        total: safeTotal,
+        newCount: shouldResetNew ? 0 : prev.newCount + increment,
+      },
+    };
+
+    persistBadgeMeta(next);
   }
 
-  async function loadAllTabBadges() {
-    if (!me) return;
+  function clearTabNewCount(key) {
+    const prev = badgeMetaRef.current[key] || { total: 0, newCount: 0 };
+    persistBadgeMeta({
+      ...badgeMetaRef.current,
+      [key]: {
+        total: prev.total,
+        newCount: 0,
+      },
+    });
+  }
 
-    const requests = [
+  const tabsConfig = useMemo(() => {
+    const base = [
+      {
+        key: "main",
+        label: "📅 Monthly Tuitions",
+        permissionKey: "access_monthly",
+        component: <MainTuitions isActive={tab === "main"} onCountChange={(count) => syncTabCount("main", count)} />,
+      },
+      {
+        key: "target",
+        label: "🔥 Today Demo",
+        permissionKey: "access_demo",
+        component: <TargetBoard isActive={tab === "target"} onCountChange={(count) => syncTabCount("target", count)} />,
+      },
+      {
+        key: "payment",
+        label: "💳 Payment Sheet",
+        permissionKey: "access_payment_sheet",
+        component: <PaymentSheet me={me} isActive={tab === "payment"} onCountChange={(count) => syncTabCount("payment", count)} />,
+      },
       {
         key: "hod_approvals",
-        enabled: allowedTabs.some((t) => t.key === "hod_approvals"),
-        url: "/tuitions/payment-approvals/count",
-        map: (data) => Number(data?.count || 0),
+        label: "✅ HOD Approvals",
+        permissionKey: "access_hod_approvals",
+        component: <HodApprovals me={me} onCountChange={(count) => syncTabCount("hod_approvals", count)} />,
       },
-
-      // Neeche apne existing APIs laga den:
-      // {
-      //   key: "main",
-      //   enabled: allowedTabs.some((t) => t.key === "main"),
-      //   url: "/tuitions/monthly/count",
-      //   map: (data) => Number(data?.count || 0),
-      // },
-      // {
-      //   key: "target",
-      //   enabled: allowedTabs.some((t) => t.key === "target"),
-      //   url: "/tuitions/demo/count",
-      //   map: (data) => Number(data?.count || 0),
-      // },
-      // {
-      //   key: "payment",
-      //   enabled: allowedTabs.some((t) => t.key === "payment"),
-      //   url: "/payment-sheet/count",
-      //   map: (data) => Number(data?.count || 0),
-      // },
-      // {
-      //   key: "trash",
-      //   enabled: allowedTabs.some((t) => t.key === "trash"),
-      //   url: "/trash/count",
-      //   map: (data) => Number(data?.count || 0),
-      // },
-      // {
-      //   key: "tutor_share",
-      //   enabled: allowedTabs.some((t) => t.key === "tutor_share"),
-      //   url: "/tutor-share/count",
-      //   map: (data) => Number(data?.count || 0),
-      // },
-      // {
-      //   key: "lacas_share",
-      //   enabled: allowedTabs.some((t) => t.key === "lacas_share"),
-      //   url: "/lacas-share/count",
-      //   map: (data) => Number(data?.count || 0),
-      // },
-      // {
-      //   key: "total_fees",
-      //   enabled: allowedTabs.some((t) => t.key === "total_fees"),
-      //   url: "/total-fees/count",
-      //   map: (data) => Number(data?.count || 0),
-      // },
+      {
+        key: "trash",
+        label: "🗑️ Recycle Bin",
+        permissionKey: "access_trash",
+        component: <TrashBin isActive={tab === "trash"} onCountChange={(count) => syncTabCount("trash", count)} />,
+      },
+      {
+        key: "staff",
+        label: "👥 Staff",
+        permissionKey: "access_staff",
+        component: (
+          <div style={{ padding: "24px" }}>
+            <ActiveUsersPanel />
+            <StaffManager />
+          </div>
+        ),
+      },
+      {
+        key: "otm_management",
+        label: "📘 Management Portal",
+        permissionKey: "access_otm_management",
+        component: <OtmManagement isActive={tab === "otm_management"} onCountChange={(count) => syncTabCount("otm_management", count)} />,
+      },
     ];
 
-    const enabledRequests = requests.filter((r) => r.enabled);
+    return base;
+  }, [me, tab]);
 
-    if (!enabledRequests.length) return;
+  const allowedTabs = useMemo(() => {
+    return tabsConfig.filter((item) => hasAccessByRoleOrFlag(me, item.permissionKey));
+  }, [me, tabsConfig]);
 
-    await Promise.all(
-      enabledRequests.map(async (item) => {
-        try {
-          const { data } = await api.get(item.url);
-          updateSingleBadge(item.key, item.map(data));
-        } catch (error) {
-          console.error(`Failed to load badge count for ${item.key}:`, error?.response?.data || error.message);
-        }
-      })
-    );
-  }
+  const activeTabConfig = useMemo(
+    () => allowedTabs.find((item) => item.key === tab) || allowedTabs[0] || null,
+    [allowedTabs, tab]
+  );
 
-  async function sendHeartbeat(currentTab) {
-    try {
-      const session_id = getOrCreateSessionId();
-      await api.put("/auth/presence/heartbeat", {
-        session_id,
-        current_sheet: currentTab || "dashboard",
-      });
-    } catch (err) {
-      console.error("Heartbeat failed:", err?.response?.data || err.message);
+  function getPreferredTab(userData) {
+    const savedTab = sessionStorage.getItem(LAST_TAB_KEY);
+    const nextAllowedTabs = tabsConfig
+      .filter((t) => hasAccessByRoleOrFlag(userData, t.permissionKey))
+      .map((t) => t.key);
+
+    if (savedTab && nextAllowedTabs.includes(savedTab)) {
+      return savedTab;
     }
-  }
 
-  async function markOffline() {
-    try {
-      const session_id = sessionStorage.getItem(SESSION_KEY);
-      if (!session_id) return;
-
-      await api.post("/auth/presence/logout", {
-        session_id,
-      });
-    } catch (err) {
-      console.error("Presence logout failed:", err?.response?.data || err.message);
-    }
+    return nextAllowedTabs[0] || "no_access";
   }
 
   function saveTabPosition(tabKey) {
@@ -490,7 +435,30 @@ function getPreferredTab(userData) {
   function handleTabChange(nextTab) {
     if (nextTab === tab) return;
     saveTabPosition(tab);
+    clearTabNewCount(nextTab);
     setTab(nextTab);
+  }
+
+  async function sendHeartbeat(currentTab) {
+    try {
+      const session_id = getOrCreateSessionId();
+      await api.put("/auth/presence/heartbeat", {
+        session_id,
+        current_sheet: currentTab || "dashboard",
+      });
+    } catch (err) {
+      console.error("Heartbeat failed:", err?.response?.data || err.message);
+    }
+  }
+
+  async function markOffline() {
+    try {
+      const session_id = sessionStorage.getItem(SESSION_KEY);
+      if (!session_id) return;
+      await api.post("/auth/presence/logout", { session_id });
+    } catch (err) {
+      console.error("Presence logout failed:", err?.response?.data || err.message);
+    }
   }
 
   async function logout() {
@@ -500,40 +468,46 @@ function getPreferredTab(userData) {
     window.location.href = "/login";
   }
 
-  async function handleRegister(e) {
-    e.preventDefault();
-    setRegLoading(true);
-    setRegMsg("");
+  async function loadAllTabBadges() {
+    if (!me) return;
 
-    try {
-      await api.post("/auth/register", regData);
-      setRegMsg("✅ User created successfully!");
-      setRegData({ email: "", password: "", role: "staff" });
+    const requests = [
+      { key: "hod_approvals", enabled: allowedTabs.some((t) => t.key === "hod_approvals") },
+      { key: "main", enabled: allowedTabs.some((t) => t.key === "main") },
+      { key: "target", enabled: allowedTabs.some((t) => t.key === "target") },
+      { key: "payment", enabled: allowedTabs.some((t) => t.key === "payment") },
+      { key: "trash", enabled: allowedTabs.some((t) => t.key === "trash") },
+      { key: "staff", enabled: allowedTabs.some((t) => t.key === "staff") },
+      { key: "otm_management", enabled: allowedTabs.some((t) => t.key === "otm_management") },
+    ].filter((item) => item.enabled);
 
-      setTimeout(() => {
-        setShowRegModal(false);
-        setRegMsg("");
-        if (tab === "staff") {
-          window.location.reload();
+    await Promise.all(
+      requests.map(async (item) => {
+        try {
+          const count = await fetchBadgeCountByKey(item.key);
+          syncTabCount(item.key, count);
+        } catch (error) {
+          console.error(
+            `Failed to load badge count for ${item.key}:`,
+            error?.response?.data || error.message
+          );
         }
-      }, 1500);
-    } catch (err) {
-      setRegMsg(`❌ ${err?.response?.data?.message || "Failed to create user"}`);
-    } finally {
-      setRegLoading(false);
-    }
+      })
+    );
   }
 
   useEffect(() => {
     const token = getStoredToken();
     if (token) setAuthToken(token);
 
-    api.get("/auth/me")
+    api
+      .get("/auth/me")
       .then((r) => {
         const userData = r.data.user || {};
         setMe(userData);
         const firstTab = getPreferredTab(userData);
         setTab(firstTab);
+        clearTabNewCount(firstTab);
       })
       .catch((err) => {
         console.log("ME ERROR:", err.response?.data || err.message);
@@ -544,21 +518,11 @@ function getPreferredTab(userData) {
   useEffect(() => {
     if (!tab) return;
 
-    setMountedTabs((prev) => {
-      if (prev[tab]) return prev;
-      return { ...prev, [tab]: true };
-    });
-  }, [tab]);
-
-  useEffect(() => {
-    if (!tab) return;
-
     const restore = () => {
       const saved = scrollPositionsRef.current[tab];
       if (!saved) return;
 
       const wrapper = contentRefs.current[tab];
-
       if (wrapper && typeof saved.innerScroll === "number") {
         wrapper.scrollTop = saved.innerScroll;
       }
@@ -584,248 +548,97 @@ function getPreferredTab(userData) {
   }, [tab]);
 
   useEffect(() => {
+    if (!me || !tab) return;
+
+    void sendHeartbeat(tab);
+    void loadAllTabBadges();
+
+    heartbeatIntervalRef.current = window.setInterval(() => {
+      void sendHeartbeat(tab);
+    }, HEARTBEAT_MS);
+
+    badgeIntervalRef.current = window.setInterval(() => {
+      if (document.hidden) return;
+      void loadAllTabBadges();
+    }, BADGE_POLL_MS);
+
     const handleBeforeUnload = () => {
       saveTabPosition(tab);
+      void markOffline();
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [tab]);
-
-  useEffect(() => {
-    if (!me || !tab || tab === "no_access") return;
-    sendHeartbeat(tab);
-  }, [me, tab]);
-
-  useEffect(() => {
-    if (!me) return;
-
-    if (heartbeatIntervalRef.current) {
-      clearInterval(heartbeatIntervalRef.current);
-    }
-
-    heartbeatIntervalRef.current = setInterval(() => {
-      sendHeartbeat(tab);
-    }, HEARTBEAT_MS);
 
     return () => {
-      if (heartbeatIntervalRef.current) {
-        clearInterval(heartbeatIntervalRef.current);
-      }
+      if (heartbeatIntervalRef.current) window.clearInterval(heartbeatIntervalRef.current);
+      if (badgeIntervalRef.current) window.clearInterval(badgeIntervalRef.current);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [me, tab]);
+  }, [me, tab, allowedTabs]);
 
-  useEffect(() => {
-    if (!me) return;
-
-    loadAllTabBadges();
-
-    if (badgeIntervalRef.current) {
-      clearInterval(badgeIntervalRef.current);
-    }
-
-    badgeIntervalRef.current = setInterval(() => {
-      loadAllTabBadges();
-    }, BADGE_POLL_MS);
-
-    return () => {
-      if (badgeIntervalRef.current) {
-        clearInterval(badgeIntervalRef.current);
-      }
-    };
-  }, [me, role, allowedTabs.length]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && me) {
-        sendHeartbeat(tab);
-        loadAllTabBadges();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [me, tab]);
+  const currentTitle = activeTabConfig?.label || "Dashboard";
 
   return (
     <div style={styles.dashboardContainer}>
       <div style={styles.topbar}>
-        <a href="/" style={styles.logoSection}>
+        <div style={styles.logoSection}>
           <div style={styles.logoIcon}>
-            <img src={Logo} alt="Logo" className="w-100 h-100 img-fluid" />
+            <img src={Logo} alt="LACAS" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 999 }} />
           </div>
-        </a>
+          <div>LACAS Dashboard</div>
+        </div>
 
         <div style={styles.tabsWrap}>
           <div style={styles.tabsContainer}>
-            {allowedTabs.map((item) => (
-              <div
-                key={item.key}
-                style={styles.tab(tab === item.key)}
-                onClick={() => handleTabChange(item.key)}
-              >
-                <span>{item.label}</span>
-                {badgeCounts[item.key] > 0 && (
-                  <span style={styles.badge}>{badgeCounts[item.key]}</span>
-                )}
-              </div>
-            ))}
+            {allowedTabs.map((item) => {
+              const meta = badgeMeta[item.key] || DEFAULT_BADGE_META[item.key] || { total: 0, newCount: 0 };
+              const isActive = item.key === tab;
+              const tooltip = meta.newCount > 0 ? `${meta.newCount} new record(s) added` : `${meta.total} total record(s)`;
+
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  style={styles.tab(isActive)}
+                  onClick={() => handleTabChange(item.key)}
+                  title={tooltip}
+                  aria-label={`${item.label} - ${tooltip}`}
+                >
+                  <span>{item.label}</span>
+                  <span style={styles.badge}>{meta.total}</span>
+                  {meta.newCount > 0 ? <span style={styles.notificationDot} /> : null}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         <div style={styles.actionSection}>
-          {role === "admin" && (
-            <button
-              style={styles.iconBtn}
-              onClick={() => setShowRegModal(true)}
-              title="Add New Staff"
-            >
-              <span>➕ New Staff</span>
-            </button>
-          )}
-
-          <div style={{ width: 1, height: 24, background: "#ddd" }} />
-
           <div style={styles.userInfo}>
-            <span style={styles.userEmail}>{me?.email || "Guest"}</span>
-            <span style={styles.userRole}>{me?.role || "Admin"}</span>
+            <div style={styles.userName}>{me?.email || "User"}</div>
+            <div style={styles.userRole}>{role || "staff"}</div>
           </div>
-
-          <button style={styles.logoutBtn} onClick={logout}>
+          <button type="button" style={styles.logoutBtn} onClick={logout}>
             Logout
           </button>
         </div>
       </div>
 
-      <div className="overflow-auto">
-        {allowedTabs.map((item) => (
-          mountedTabs[item.key] && (
-            <div
-              key={item.key}
-              ref={(el) => {
-                contentRefs.current[item.key] = el;
-              }}
-              className="fade-in"
-              style={{ display: tab === item.key ? "block" : "none" }}
-            >
-              {item.component}
-            </div>
-          )
-        ))}
-
-        {tab === "no_access" && (
-          <div className="fade-in" style={{ textAlign: "center", padding: 40, color: "#666" }}>
-            <h3>⛔ Access Restricted</h3>
-            <p>You do not have permission to view any sheets. Please contact the Admin.</p>
-          </div>
-        )}
-      </div>
-
-      {showRegModal && (
-        <div style={styles.modalOverlay} onClick={() => setShowRegModal(false)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 20,
-              }}
-            >
-              <h3 style={{ margin: 0 }}>Register New Staff</h3>
-              <button
-                onClick={() => setShowRegModal(false)}
-                style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleRegister}>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Email Address</label>
-                <input
-                  required
-                  type="email"
-                  style={styles.input}
-                  placeholder="staff@portal.com"
-                  value={regData.email}
-                  onChange={(e) => setRegData({ ...regData, email: e.target.value })}
-                />
-              </div>
-
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Password</label>
-                <input
-                  required
-                  type="password"
-                  style={styles.input}
-                  placeholder="Create a password"
-                  value={regData.password}
-                  onChange={(e) => setRegData({ ...regData, password: e.target.value })}
-                />
-              </div>
-
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Role</label>
-                <select
-                  style={styles.input}
-                  value={regData.role}
-                  onChange={(e) => setRegData({ ...regData, role: e.target.value })}>
-                  <option value="staff">Staff</option>
-                  <option value="admin">Admin</option>
-                  <option value="hod">Hod</option>
-                  <option value="otm">Management Portals</option>
-                </select>
-              </div>
-              {regMsg && (
-                <div
-                  style={{
-                    padding: 10,
-                    borderRadius: 6,
-                    fontSize: 13,
-                    marginBottom: 10,
-                    background: regMsg.includes("✅") ? "#e6fffa" : "#fff5f5",
-                    color: regMsg.includes("✅") ? "#2c7a7b" : "#c53030",
-                  }}
-                >
-                  {regMsg}
-                </div>
-              )}
-
-              <button type="submit" style={styles.primaryBtn} disabled={regLoading}>
-                {regLoading ? "Creating..." : "Create Account"}
-              </button>
-            </form>
+      <div style={styles.contentWrap}>
+        <div style={styles.contentCard}>
+          <div style={{ padding: "16px 20px 0", fontWeight: 800, color: "#1f2937" }}>{currentTitle}</div>
+          <div
+            ref={(node) => {
+              if (activeTabConfig?.key) {
+                contentRefs.current[activeTabConfig.key] = node;
+              }
+            }}
+            style={{ minHeight: "calc(100vh - 180px)" }}
+          >
+            {activeTabConfig ? activeTabConfig.component : <DashboardFallback title="No access" />}
           </div>
         </div>
-      )}
-
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        .fade-in {
-          animation: fadeIn 0.4s ease-out;
-        }
-
-        @media (max-width: 1024px) {
-          .overflow-auto {
-            overflow-x: hidden;
-          }
-        }
-
-        @media (max-width: 768px) {
-          .topbar {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 12px;
-            padding: 12px;
-          }
-        }
-      `}</style>
+      </div>
     </div>
   );
 }

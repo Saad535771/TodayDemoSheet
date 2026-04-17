@@ -298,6 +298,7 @@ export default function MonthlyTuition({ onLoad }) {
   const [focusedField, setFocusedField] = useState("tuitionId");
   const [openDropdown, setOpenDropdown] = useState(null);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [otmUserOptions, setOtmUserOptions] = useState([""]);
 
   const rootRef = useRef(null);
   const dropdownPortalRef = useRef(null);
@@ -345,6 +346,58 @@ export default function MonthlyTuition({ onLoad }) {
     };
   }, []);
 
+
+  useEffect(() => {
+    let mounted = true;
+
+    function extractOtmUserOptions(payload) {
+      const directUsers = Array.isArray(payload?.users) ? payload.users : [];
+      const metaUsers = Array.isArray(payload?.otmUsers) ? payload.otmUsers : [];
+
+      return [
+        "",
+        ...new Set(
+          [...directUsers, ...metaUsers]
+            .map((user) => String(user?.name || user?.email || "").trim())
+            .filter(Boolean)
+        ),
+      ];
+    }
+
+    async function loadOtmUsers() {
+      const endpoints = [
+        "/tuitions/otm-users",
+        "/otm-management/meta",
+        "/otm-management/users",
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          const response = await api.get(endpoint);
+          if (!mounted) return;
+
+          const options = extractOtmUserOptions(response.data);
+          if (options.length > 1) {
+            setOtmUserOptions(options);
+            return;
+          }
+        } catch (error) {
+          console.warn(`Failed to load OTM users from ${endpoint}`, error?.response?.status || error?.message || error);
+        }
+      }
+
+      if (mounted) {
+        setOtmUserOptions([""]);
+      }
+    }
+
+    loadOtmUsers();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   function setCreateField(key, val) {
     setForm((prev) => ({ ...prev, [key]: val }));
   }
@@ -353,6 +406,7 @@ export default function MonthlyTuition({ onLoad }) {
     if (fieldName === "source") return sourcesList;
     if (fieldName === "status") return statusList;
     if (fieldName === "demoRating") return demoRatings;
+    if (fieldName === "otmName") return otmUserOptions;
     return [];
   }
 
@@ -370,7 +424,7 @@ export default function MonthlyTuition({ onLoad }) {
         openNativePicker(el);
       }
 
-      if (fieldName === "source" || fieldName === "status" || fieldName === "demoRating") {
+      if (fieldName === "source" || fieldName === "status" || fieldName === "demoRating" || fieldName === "otmName") {
         const options = getOptionsByField(fieldName);
         const currentIndex = Math.max(options.indexOf(form[fieldName]), 0);
         setHighlightedIndex(currentIndex);
@@ -646,18 +700,20 @@ export default function MonthlyTuition({ onLoad }) {
           inputStyle={getInputStyle("country")}
         />
 
-        <CreateField
+        <DropdownField
           label="OTM Name"
-          val={form.otmName}
-          onChange={(v) => setCreateField("otmName", v)}
-          width="120px"
-          inputRef={(el) => (fieldRefs.current.otmName = el)}
-          onFocus={() => {
-            setFocusedField("otmName");
-            setOpenDropdown(null);
-          }}
-          onKeyDown={(e) => handleTextLikeKeyDown("otmName", e)}
-          inputStyle={getInputStyle("otmName")}
+          fieldName="otmName"
+          value={form.otmName}
+          width="140px"
+          options={otmUserOptions}
+          openDropdown={openDropdown}
+          highlightedIndex={highlightedIndex}
+          triggerStyle={getDropdownTriggerStyle("otmName")}
+          setFieldRef={(el) => (fieldRefs.current.otmName = el)}
+          onFocus={() => handleDropdownFocus("otmName")}
+          onKeyDown={(e) => handleDropdownKeyDown("otmName", e)}
+          onSelect={(value) => selectDropdownValue("otmName", value)}
+          menuRef={dropdownPortalRef}
         />
 
         <CreateField

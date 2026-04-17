@@ -136,13 +136,20 @@ function renderValue(value) {
   return value === null || value === undefined || value === "" ? "-" : value;
 }
 
-export default function PaymentCloneTrashTable() {
+export default function PaymentCloneTrashTable({ onCountChange, isActive = true }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!isActive) return;
     fetchTrash();
-  }, []);
+  }, [isActive]);
+
+  useEffect(() => {
+    if (typeof onCountChange === "function") {
+      onCountChange(items.length);
+    }
+  }, [items.length, onCountChange]);
 
   async function fetchTrash() {
     try {

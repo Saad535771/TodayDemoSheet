@@ -173,7 +173,7 @@ const gridColumns = [
   { id: "rejectedTutor", label: "Rejected Tutor", width: 140, editable: true, field: "rejectedTutor" },
   { id: "feedback", label: "Feedback", width: 200, editable: true, field: "feedback" },
   { id: "country", label: "Country", width: 100, editable: true, field: "country" },
-  { id: "otmName", label: "OTM Name", width: 120, editable: true, field: "otmName" },
+  { id: "otmName", label: "OTM Name", width: 140, editable: true, field: "otmName", kind: "select", options: [] },
   { id: "className", label: "Class", width: 100, editable: true, field: "className" },
   { id: "subjects", label: "Subject", width: 140, editable: true, field: "subjects" },
   { id: "daysPerWeek", label: "Days per week", width: 100, editable: true, field: "daysPerWeek" },
@@ -612,6 +612,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const [sortDir, setSortDir] = useState("ASC");
   const [assignedFilter, setAssignedFilter] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const [otmUserOptions, setOtmUserOptions] = useState([""]);
 
   const [selectedCell, setSelectedCell] = useState(null);
   const [anchorCell, setAnchorCell] = useState(null);
@@ -660,6 +661,59 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       setStatusEditorSearch("");
     }
   }, [editingCell]);
+
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadOtmUsers() {
+      try {
+        let users = [];
+
+        try {
+          const response = await api.get("/tuitions/otm-users");
+          users = Array.isArray(response.data?.users) ? response.data.users : [];
+        } catch (error) {
+          if (error?.response?.status !== 404) {
+            throw error;
+          }
+
+          const fallbackResponse = await api.get("/otm-management/meta");
+          users = Array.isArray(fallbackResponse.data?.otmUsers)
+            ? fallbackResponse.data.otmUsers
+            : [];
+        }
+
+        if (!mounted) return;
+
+        const options = [
+          "",
+          ...new Set(
+            users
+              .map((user) => String(user?.name || "").trim())
+              .filter(Boolean)
+          ),
+        ];
+
+        setOtmUserOptions(options);
+      } catch (error) {
+        if (mounted) {
+          setOtmUserOptions([""]);
+        }
+      }
+    }
+
+    loadOtmUsers();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const getColumnOptions = (col) => {
+    if (col?.id === "otmName") return otmUserOptions;
+    return col?.options || [];
+  };
 
   const filteredBaseItems = useMemo(() => {
     const allItems = Array.isArray(items) ? items : [];
@@ -2097,7 +2151,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
             onBlur={() => commitEdit({ rowIndex, colId: col.id })}
             onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
           >
-            {col.options.map((o) => (
+            {getColumnOptions(col).map((o) => (
               <option key={o} value={o}>
                 {o || "--"}
               </option>
