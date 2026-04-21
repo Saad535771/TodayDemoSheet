@@ -30,35 +30,28 @@ function stableSerialize(value) {
   if (Array.isArray(value)) {
     return `[${value.map((entry) => stableSerialize(entry)).join(",")}]`;
   }
-
   if (value && typeof value === "object") {
     return `{${Object.keys(value)
       .sort()
       .map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`)
       .join(",")}}`;
   }
-
   return JSON.stringify(value ?? null);
 }
-
 function areRowListsEqual(prevRows, nextRows) {
   if (prevRows === nextRows) return true;
   if (!Array.isArray(prevRows) || !Array.isArray(nextRows)) return false;
   if (prevRows.length !== nextRows.length) return false;
-
   for (let index = 0; index < prevRows.length; index += 1) {
     if (stableSerialize(prevRows[index]) !== stableSerialize(nextRows[index])) {
       return false;
     }
   }
-
   return true;
 }
-
 function buildTimeAssignments(days = [], assignments = {}, fallbackDay = "", fallbackTime = "") {
   const safeDays = sortDays(days);
   const normalizedFallbackTime = normalizeTimeText(fallbackTime);
-
   return Object.fromEntries(
     safeDays.map((day) => {
       const directValue = assignments?.[day];
@@ -67,7 +60,6 @@ function buildTimeAssignments(days = [], assignments = {}, fallbackDay = "", fal
     })
   );
 }
-
 function getPrimaryTime(days = [], assignments = {}) {
   const firstDay = sortDays(days)[0];
   if (!firstDay) return "";
