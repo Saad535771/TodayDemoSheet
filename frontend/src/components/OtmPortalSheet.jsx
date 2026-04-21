@@ -54,15 +54,12 @@ function buildDayTimeSummary(days = [], assignments = {}) {
     })
     .join(" • ");
 }
-
 function computeRow(row, durationOptions) {
   const legacyDay = normalizeString(row.day);
   const legacyTime = normalizeTimeText(row.time || normalizeArray(row.timeSlots)[0] || "");
   const providedDays = normalizeArray(row.days);
   const assignmentDays =
-    row.timeAssignments && typeof row.timeAssignments === "object"
-      ? Object.keys(row.timeAssignments)
-      : [];
+    row.timeAssignments && typeof row.timeAssignments === "object" ? Object.keys(row.timeAssignments): [];
   const days = sortDays(providedDays.length ? providedDays : legacyDay ? [legacyDay] : assignmentDays);
   const durationMinutes = Number(row.durationMinutes || 60);
   const timeAssignments = buildTimeAssignments(days, row.timeAssignments || {}, legacyDay, legacyTime);
