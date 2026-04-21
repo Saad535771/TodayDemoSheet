@@ -67,9 +67,7 @@ function computeRow(row, durationOptions) {
   const time = getPrimaryTime(days, timeAssignments) || legacyTime;
   const classStartTime = time || normalizeString(row.classStartTime);
   const classEndTime = classStartTime
-    ? addMinutes(classStartTime, durationMinutes)
-    : normalizeString(row.classEndTime);
-
+    ? addMinutes(classStartTime, durationMinutes) : normalizeString(row.classEndTime);
   return {
     ...row,
     day: days[0] || legacyDay,
@@ -92,7 +90,6 @@ function computeRow(row, durationOptions) {
     status: normalizeString(row.status).toLowerCase() || "",
   };
 }
-
 function buildEntryPayload(row) {
   const normalizedDays = sortDays(row.days || []);
   const normalizedAssignments = buildTimeAssignments(
@@ -103,7 +100,6 @@ function buildEntryPayload(row) {
   );
   const primaryTime = getPrimaryTime(normalizedDays, normalizedAssignments);
   const { tuitionEndMonth, ...safeRow } = row || {};
-
   return {
     ...safeRow,
     day: normalizedDays[0] || "",
@@ -117,7 +113,6 @@ function buildEntryPayload(row) {
     classEndTime: primaryTime ? addMinutes(primaryTime, row.durationMinutes) : "",
   };
 }
-
 function makeEmptyDraft(durationOptions) {
   return {
     days: [],
@@ -135,15 +130,12 @@ function makeEmptyDraft(durationOptions) {
     newTuitionName: "",
   };
 }
-
 function buildCellPrefix(rowId, columnKey) {
   return `${rowId}::${columnKey}`;
 }
-
 function buildEditorKey(rowId, columnKey, editorKey = "main") {
   return `${buildCellPrefix(rowId, columnKey)}::${editorKey}`;
 }
-
 function getElementSnapshot(key, element) {
   if (!element?.isConnected || element.disabled) return null;
   const rect = element.getBoundingClientRect();
@@ -161,7 +153,6 @@ function getElementSnapshot(key, element) {
     area: rect.width * rect.height,
   };
 }
-
 function isTextInputLike(element) {
   if (!element) return false;
   if (element.tagName === "TEXTAREA") return true;
