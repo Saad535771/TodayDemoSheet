@@ -133,7 +133,6 @@ async function fetchBadgeCountByKey(key) {
   }
 }
 
-
 function DashboardFallback({ title }) {
   return (
     <div
@@ -147,7 +146,9 @@ function DashboardFallback({ title }) {
       }}
     >
       <h3 style={{ marginTop: 0 }}>{title}</h3>
-      <p style={{ marginBottom: 0, color: "#666" }}>Is tab ka component available nahin hai.</p>
+      <p style={{ marginBottom: 0, color: "#666" }}>
+        Is tab ka component available nahin hai.
+      </p>
     </div>
   );
 }
@@ -219,7 +220,9 @@ const styles = {
     cursor: "pointer",
     transition: "all 0.3s ease",
     color: isActive ? "#fff" : "#666",
-    background: isActive ? "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)" : "transparent",
+    background: isActive
+      ? "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)"
+      : "transparent",
     boxShadow: isActive ? "0 4px 12px rgba(30, 60, 114, 0.2)" : "none",
     display: "inline-flex",
     alignItems: "center",
@@ -241,14 +244,6 @@ const styles = {
     fontSize: "11px",
     fontWeight: "700",
     padding: "0 6px",
-  },
-  notificationDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 999,
-    background: "#ef4444",
-    boxShadow: "0 0 0 2px rgba(255,255,255,0.75)",
-    flexShrink: 0,
   },
   actionSection: {
     display: "flex",
@@ -302,6 +297,7 @@ export default function Dashboard() {
   const scrollPositionsRef = useRef(getSavedScrollPositions());
   const heartbeatIntervalRef = useRef(null);
   const badgeIntervalRef = useRef(null);
+  const hasBadgeBaselineRef = useRef(false);
 
   const role = normalizeRole(me?.role);
 
@@ -340,36 +336,62 @@ export default function Dashboard() {
   }
 
   const tabsConfig = useMemo(() => {
-    const base = [
+    return [
       {
         key: "main",
         label: "📅 Monthly Tuitions",
         permissionKey: "access_monthly",
-        component: <MainTuitions isActive={tab === "main"} onCountChange={(count) => syncTabCount("main", count)} />,
+        component: (
+          <MainTuitions
+            isActive={tab === "main"}
+            onCountChange={(count) => syncTabCount("main", count)}
+          />
+        ),
       },
       {
         key: "target",
         label: "🔥 Today Demo",
         permissionKey: "access_demo",
-        component: <TargetBoard isActive={tab === "target"} onCountChange={(count) => syncTabCount("target", count)} />,
+        component: (
+          <TargetBoard
+            isActive={tab === "target"}
+            onCountChange={(count) => syncTabCount("target", count)}
+          />
+        ),
       },
       {
         key: "payment",
         label: "💳 Payment Sheet",
         permissionKey: "access_payment_sheet",
-        component: <PaymentSheet me={me} isActive={tab === "payment"} onCountChange={(count) => syncTabCount("payment", count)} />,
+        component: (
+          <PaymentSheet
+            me={me}
+            isActive={tab === "payment"}
+            onCountChange={(count) => syncTabCount("payment", count)}
+          />
+        ),
       },
       {
         key: "hod_approvals",
         label: "✅ HOD Approvals",
         permissionKey: "access_hod_approvals",
-        component: <HodApprovals me={me} onCountChange={(count) => syncTabCount("hod_approvals", count)} />,
+        component: (
+          <HodApprovals
+            me={me}
+            onCountChange={(count) => syncTabCount("hod_approvals", count)}
+          />
+        ),
       },
       {
         key: "trash",
         label: "🗑️ Recycle Bin",
         permissionKey: "access_trash",
-        component: <TrashBin isActive={tab === "trash"} onCountChange={(count) => syncTabCount("trash", count)} />,
+        component: (
+          <TrashBin
+            isActive={tab === "trash"}
+            onCountChange={(count) => syncTabCount("trash", count)}
+          />
+        ),
       },
       {
         key: "staff",
@@ -386,11 +408,14 @@ export default function Dashboard() {
         key: "otm_management",
         label: "📘 Management Portal",
         permissionKey: "access_otm_management",
-        component: <OtmManagement isActive={tab === "otm_management"} onCountChange={(count) => syncTabCount("otm_management", count)} />,
+        component: (
+          <OtmManagement
+            isActive={tab === "otm_management"}
+            onCountChange={(count) => syncTabCount("otm_management", count)}
+          />
+        ),
       },
     ];
-
-    return base;
   }, [me, tab]);
 
   const allowedTabs = useMemo(() => {
@@ -401,6 +426,12 @@ export default function Dashboard() {
     () => allowedTabs.find((item) => item.key === tab) || allowedTabs[0] || null,
     [allowedTabs, tab]
   );
+
+  function getAllowedTabKeys(userData) {
+    return tabsConfig
+      .filter((item) => hasAccessByRoleOrFlag(userData, item.permissionKey))
+      .map((item) => item.key);
+  }
 
   function getPreferredTab(userData) {
     const savedTab = sessionStorage.getItem(LAST_TAB_KEY);
@@ -413,6 +444,59 @@ export default function Dashboard() {
     }
 
     return nextAllowedTabs[0] || "no_access";
+  }
+
+  async function loadAllTabBadgesForUser(userData, activeTabKey, options = {}) {
+    if (!userData) return;
+
+    const { initialize = false } = options;
+    const allowedKeys = getAllowedTabKeys(userData);
+
+    const requests = [
+      "hod_approvals",
+      "main",
+      "target",
+      "payment",
+      "trash",
+      "staff",
+      "otm_management",
+    ].filter((key) => allowedKeys.includes(key));
+
+    await Promise.all(
+      requests.map(async (key) => {
+        try {
+          const count = await fetchBadgeCountByKey(key);
+          const safeTotal = Math.max(0, Number(count || 0));
+          const prev = badgeMetaRef.current[key] || { total: 0, newCount: 0 };
+
+          if (initialize) {
+            persistBadgeMeta({
+              ...badgeMetaRef.current,
+              [key]: {
+                total: safeTotal,
+                newCount: 0,
+              },
+            });
+            return;
+          }
+
+          const increment = safeTotal > prev.total ? safeTotal - prev.total : 0;
+
+          persistBadgeMeta({
+            ...badgeMetaRef.current,
+            [key]: {
+              total: safeTotal,
+              newCount: activeTabKey === key ? 0 : prev.newCount + increment,
+            },
+          });
+        } catch (error) {
+          console.error(
+            `Failed to load badge count for ${key}:`,
+            error?.response?.data || error.message
+          );
+        }
+      })
+    );
   }
 
   function saveTabPosition(tabKey) {
@@ -468,46 +552,24 @@ export default function Dashboard() {
     window.location.href = "/login";
   }
 
-  async function loadAllTabBadges() {
-    if (!me) return;
-
-    const requests = [
-      { key: "hod_approvals", enabled: allowedTabs.some((t) => t.key === "hod_approvals") },
-      { key: "main", enabled: allowedTabs.some((t) => t.key === "main") },
-      { key: "target", enabled: allowedTabs.some((t) => t.key === "target") },
-      { key: "payment", enabled: allowedTabs.some((t) => t.key === "payment") },
-      { key: "trash", enabled: allowedTabs.some((t) => t.key === "trash") },
-      { key: "staff", enabled: allowedTabs.some((t) => t.key === "staff") },
-      { key: "otm_management", enabled: allowedTabs.some((t) => t.key === "otm_management") },
-    ].filter((item) => item.enabled);
-
-    await Promise.all(
-      requests.map(async (item) => {
-        try {
-          const count = await fetchBadgeCountByKey(item.key);
-          syncTabCount(item.key, count);
-        } catch (error) {
-          console.error(
-            `Failed to load badge count for ${item.key}:`,
-            error?.response?.data || error.message
-          );
-        }
-      })
-    );
-  }
-
   useEffect(() => {
     const token = getStoredToken();
     if (token) setAuthToken(token);
 
     api
       .get("/auth/me")
-      .then((r) => {
+      .then(async (r) => {
         const userData = r.data.user || {};
-        setMe(userData);
         const firstTab = getPreferredTab(userData);
+
+        setMe(userData);
         setTab(firstTab);
+
+        hasBadgeBaselineRef.current = false;
         clearTabNewCount(firstTab);
+
+        await loadAllTabBadgesForUser(userData, firstTab, { initialize: true });
+        hasBadgeBaselineRef.current = true;
       })
       .catch((err) => {
         console.log("ME ERROR:", err.response?.data || err.message);
@@ -551,7 +613,6 @@ export default function Dashboard() {
     if (!me || !tab) return;
 
     void sendHeartbeat(tab);
-    void loadAllTabBadges();
 
     heartbeatIntervalRef.current = window.setInterval(() => {
       void sendHeartbeat(tab);
@@ -559,7 +620,8 @@ export default function Dashboard() {
 
     badgeIntervalRef.current = window.setInterval(() => {
       if (document.hidden) return;
-      void loadAllTabBadges();
+      if (!hasBadgeBaselineRef.current) return;
+      void loadAllTabBadgesForUser(me, tab);
     }, BADGE_POLL_MS);
 
     const handleBeforeUnload = () => {
@@ -570,11 +632,15 @@ export default function Dashboard() {
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
-      if (heartbeatIntervalRef.current) window.clearInterval(heartbeatIntervalRef.current);
-      if (badgeIntervalRef.current) window.clearInterval(badgeIntervalRef.current);
+      if (heartbeatIntervalRef.current) {
+        window.clearInterval(heartbeatIntervalRef.current);
+      }
+      if (badgeIntervalRef.current) {
+        window.clearInterval(badgeIntervalRef.current);
+      }
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [me, tab, allowedTabs]);
+  }, [me, tab]);
 
   const currentTitle = activeTabConfig?.label || "Dashboard";
 
@@ -583,7 +649,16 @@ export default function Dashboard() {
       <div style={styles.topbar}>
         <div style={styles.logoSection}>
           <div style={styles.logoIcon}>
-            <img src={Logo} alt="LACAS" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 999 }} />
+            <img
+              src={Logo}
+              alt="LACAS"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                borderRadius: 999,
+              }}
+            />
           </div>
           <div>LACAS Dashboard</div>
         </div>
@@ -591,9 +666,16 @@ export default function Dashboard() {
         <div style={styles.tabsWrap}>
           <div style={styles.tabsContainer}>
             {allowedTabs.map((item) => {
-              const meta = badgeMeta[item.key] || DEFAULT_BADGE_META[item.key] || { total: 0, newCount: 0 };
+              const meta =
+                badgeMeta[item.key] ||
+                DEFAULT_BADGE_META[item.key] ||
+                { total: 0, newCount: 0 };
+
               const isActive = item.key === tab;
-              const tooltip = meta.newCount > 0 ? `${meta.newCount} new record(s) added` : `${meta.total} total record(s)`;
+              const shouldShowBadge = !isActive && meta.newCount > 0;
+              const tooltip = shouldShowBadge
+                ? `${meta.newCount} new record(s) added`
+                : "No new records";
 
               return (
                 <button
@@ -605,8 +687,9 @@ export default function Dashboard() {
                   aria-label={`${item.label} - ${tooltip}`}
                 >
                   <span>{item.label}</span>
-                  <span style={styles.badge}>{meta.total}</span>
-                  {meta.newCount > 0 ? <span style={styles.notificationDot} /> : null}
+                  {shouldShowBadge ? (
+                    <span style={styles.badge}>{meta.newCount}</span>
+                  ) : null}
                 </button>
               );
             })}
@@ -626,7 +709,10 @@ export default function Dashboard() {
 
       <div style={styles.contentWrap}>
         <div style={styles.contentCard}>
-          <div style={{ padding: "16px 20px 0", fontWeight: 800, color: "#1f2937" }}>{currentTitle}</div>
+          <div style={{ padding: "16px 20px 0", fontWeight: 800, color: "#1f2937" }}>
+            {currentTitle}
+          </div>
+
           <div
             ref={(node) => {
               if (activeTabConfig?.key) {
@@ -635,7 +721,11 @@ export default function Dashboard() {
             }}
             style={{ minHeight: "calc(100vh - 180px)" }}
           >
-            {activeTabConfig ? activeTabConfig.component : <DashboardFallback title="No access" />}
+            {activeTabConfig ? (
+              activeTabConfig.component
+            ) : (
+              <DashboardFallback title="No access" />
+            )}
           </div>
         </div>
       </div>

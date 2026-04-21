@@ -16,7 +16,6 @@ export const DEFAULT_STATUS_OPTIONS = [
   "missed by teacher",
   "missed by student",
 ];
-
 export const DEFAULT_DURATION_OPTIONS = [
   { value: 60, label: "1 hour" },
   { value: 90, label: "1.5 hours" },
@@ -24,7 +23,6 @@ export const DEFAULT_DURATION_OPTIONS = [
   { value: 150, label: "2.5 hours" },
   { value: 180, label: "3 hours" },
 ];
-
 export const GRID_DIMENSIONS = {
   days: 136,
   time: 140,
@@ -34,7 +32,6 @@ export const GRID_DIMENSIONS = {
   newTuition: 130,
   action: 104,
 };
-
 export const TEXT_COLUMNS = [
   { key: "tuitionName", label: "Tuition Name", width: 118 },
   { key: "tutorName", label: "Tutor Name", width: 118 },
@@ -43,9 +40,7 @@ export const TEXT_COLUMNS = [
   { key: "classEndTime", label: "Class End", width: 92, readOnly: true },
   { key: "notes", label: "Notes", width: 132 },
 ];
-
 export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100, 200, 500];
-
 export const MONTH_OPTIONS = [
   { value: "01", label: "January" },
   { value: "02", label: "February" },
@@ -60,17 +55,14 @@ export const MONTH_OPTIONS = [
   { value: "11", label: "November" },
   { value: "12", label: "December" },
 ];
-
 export const DAY_INDEX = DEFAULT_DAY_OPTIONS.reduce((acc, day, index) => {
   acc[day.toLowerCase()] = index;
   return acc;
 }, {});
-
 export function normalizeString(value) {
   if (value === undefined || value === null) return "";
   return String(value).trim();
 }
-
 export function normalizeArray(value) {
   if (Array.isArray(value)) {
     return [...new Set(value.map((item) => normalizeString(item)).filter(Boolean))];
@@ -79,7 +71,6 @@ export function normalizeArray(value) {
   if (!text) return [];
   return [...new Set(text.split(",").map((item) => item.trim()).filter(Boolean))];
 }
-
 export function sortDays(days = []) {
   return normalizeArray(days).sort(
     (a, b) => (DAY_INDEX[a.toLowerCase()] ?? 999) - (DAY_INDEX[b.toLowerCase()] ?? 999)
