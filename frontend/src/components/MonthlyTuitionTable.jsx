@@ -157,7 +157,7 @@ const statusList = [
   "Pending",
 ];
 const gridColumns = [
-  { id: "date", label: "Date", width: 130, editable: true, field: "date", type: "date" },
+  { id: "date", label: "Date", width: 100, editable: true, field: "date", type: "date" },
   { id: "demoTime", label: "Demo Time", width: 110, editable: true, field: "demoTime", type: "time" },
   { id: "tuitionName", label: "Tuition Name", width: 100, editable: true, field: "tuitionName", kind: "tuitionName" },
   { id: "status", label: "Status", width: 120, editable: true, field: "status", kind: "select", options: statusList, pill: "status" },
