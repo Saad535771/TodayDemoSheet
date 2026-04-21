@@ -4,18 +4,17 @@ import MonthlyTrashBin from "./MonthlyTrashBin.jsx";
 
 const styles = {
   page: {
-    padding: "20px",
     background: "#f4f6f8",
     minHeight: "100vh",
   },
   switcher: {
     display: "flex",
-    gap: "10px",
-    marginBottom: "16px",
+    gap: "5px",
+    marginBottom: "8px",
     flexWrap: "wrap",
   },
   tab: {
-    padding: "10px 16px",
+    padding: "4px 8px",
     borderRadius: "8px",
     border: "1px solid #1f2937",
     background: "#fff",
@@ -47,8 +46,7 @@ export default function TrashBin({ onCountChange, isActive = true }) {
             ...styles.tab,
             ...(activeTab === "monthly" ? styles.activeTab : {}),
           }}
-          onClick={() => setActiveTab("monthly")}
-        >
+          onClick={() => setActiveTab("monthly")}>
           MonthlySheet Trash
         </button>
 

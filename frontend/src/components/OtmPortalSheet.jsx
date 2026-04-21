@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import OtmPortalEntryForm from "./OtmPortalEntryForm.jsx";
-import {DEFAULT_DAY_OPTIONS,DEFAULT_DURATION_OPTIONS,DEFAULT_STATUS_OPTIONS,
-  GRID_DIMENSIONS,DayTimeAssignmentsEditor,Pagination,TEXT_COLUMNS,
-  Toolbar,MultiSelectCell,addMinutes,extractMonthYear,getDisplayName,
-  getDurationLabel,getStatusMeta,matchesFilters,matchesSearch,
-  normalizeArray,normalizeMonthValue,normalizeString,
-  normalizeTimeText,paginate,sortDays,styles,} from "./otmPortalShared.jsx";
+import {
+  DEFAULT_DAY_OPTIONS, DEFAULT_DURATION_OPTIONS, DEFAULT_STATUS_OPTIONS,
+  GRID_DIMENSIONS, DayTimeAssignmentsEditor, Pagination, TEXT_COLUMNS,
+  Toolbar, MultiSelectCell, addMinutes, extractMonthYear, getDisplayName,
+  getDurationLabel, getStatusMeta, matchesFilters, matchesSearch,
+  normalizeArray, normalizeMonthValue, normalizeString,
+  normalizeTimeText, paginate, sortDays, styles,
+} from "./otmPortalShared.jsx";
 function stableSerialize(value) {
   if (Array.isArray(value)) {
     return `[${value.map((entry) => stableSerialize(entry)).join(",")}]`;
@@ -59,7 +61,7 @@ function computeRow(row, durationOptions) {
   const legacyTime = normalizeTimeText(row.time || normalizeArray(row.timeSlots)[0] || "");
   const providedDays = normalizeArray(row.days);
   const assignmentDays =
-    row.timeAssignments && typeof row.timeAssignments === "object" ? Object.keys(row.timeAssignments): [];
+    row.timeAssignments && typeof row.timeAssignments === "object" ? Object.keys(row.timeAssignments) : [];
   const days = sortDays(providedDays.length ? providedDays : legacyDay ? [legacyDay] : assignmentDays);
   const durationMinutes = Number(row.durationMinutes || 60);
   const timeAssignments = buildTimeAssignments(days, row.timeAssignments || {}, legacyDay, legacyTime);
@@ -1038,8 +1040,8 @@ export default function OtmPortalSheet({
                 pageSize={currentPageSize}
                 onPageSizeChange={setPageSizeValue}
                 selectedCount={0}
-                onMoveUp={() => {}}
-                onMoveDown={() => {}}
+                onMoveUp={() => { }}
+                onMoveDown={() => { }}
                 dayOptions={dayOptions}
                 yearOptions={yearOptions}
                 statusOptions={statusOptions}
@@ -1121,8 +1123,8 @@ export default function OtmPortalSheet({
                 pageSize={currentPageSize}
                 onPageSizeChange={setPageSizeValue}
                 selectedCount={0}
-                onMoveUp={() => {}}
-                onMoveDown={() => {}}
+                onMoveUp={() => { }}
+                onMoveDown={() => { }}
                 dayOptions={dayOptions}
                 yearOptions={yearOptions}
                 statusOptions={statusOptions}

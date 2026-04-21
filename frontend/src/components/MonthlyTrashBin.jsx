@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import { api } from "../api/api.js";
 const styles = {
   page: {
-    padding: "20px",
     background: "#f4f6f8",
     minHeight: "100vh",
   },
@@ -19,7 +18,7 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "14px 18px",
+    padding: "4px 8px",
     background: "#1f2937",
     color: "#fff",
     borderBottom: "1px solid #2f3747",
@@ -37,7 +36,7 @@ const styles = {
     background: "#111827",
     border: "1px solid #4b5563",
     color: "#fff",
-    padding: "4px 10px",
+    padding: "4px 8px",
     borderRadius: "999px",
     fontSize: "12px",
     fontWeight: "600",
@@ -61,8 +60,6 @@ const styles = {
   },
 
   table: {
-    width: "100%",
-    minWidth: "1400px",
     borderCollapse: "collapse",
     tableLayout: "fixed",
   },
@@ -81,7 +78,7 @@ const styles = {
   td: {
     border: "1px solid #2f3747",
     padding: "10px 8px",
-    fontSize: "13px",
+    fontSize: "10px",
     color: "#111827",
     verticalAlign: "middle",
     textAlign: "center",
@@ -95,7 +92,7 @@ const styles = {
   },
 
   muted: {
-    fontSize: "12px",
+    fontSize: "0px",
     color: "#6b7280",
     marginTop: "4px",
   },
@@ -103,6 +100,7 @@ const styles = {
   statusBadge: {
     display: "inline-block",
     padding: "5px 10px",
+    width:'140px',
     borderRadius: "4px",
     border: "1px solid #2f3747",
     background: "#ecfdf5",
@@ -122,7 +120,6 @@ const styles = {
     background: "#16a34a",
     color: "#fff",
     border: "1px solid #166534",
-    padding: "7px 12px",
     borderRadius: "6px",
     cursor: "pointer",
     fontSize: "12px",
@@ -133,16 +130,15 @@ const styles = {
     background: "#dc2626",
     color: "#fff",
     border: "1px solid #7f1d1d",
-    padding: "7px 12px",
     borderRadius: "6px",
     cursor: "pointer",
-    fontSize: "12px",
+    fontSize: "10px",
     fontWeight: "600",
   },
 
   emptyState: {
     textAlign: "center",
-    padding: "40px 20px",
+    padding: "10px 10px",
     color: "#6b7280",
     background: "#fff",
   },
