@@ -255,7 +255,7 @@ export default function TargetBoard({ onCountChange, isActive = true }) {
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [globalZoom, setGlobalZoom] = useState(1);
+  const [globalZoom, setGlobalZoom] = useState(0.6);
 
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
@@ -267,7 +267,7 @@ export default function TargetBoard({ onCountChange, isActive = true }) {
       let next = prev + factor;
       if (next < 0.5) next = 0.5;
       if (next > 2) next = 2;
-      return Number(next.toFixed(2));
+      return Number(next.toFixed(1));
     });
   };
 
@@ -374,7 +374,6 @@ export default function TargetBoard({ onCountChange, isActive = true }) {
         style={{ alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}
       >
         <div className="mx-1">
-          <h5 style={{ margin: 0 }}>Today Demo + Feedback (Target)</h5>
           <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>{slotCountLabel}</div>
         </div>
 

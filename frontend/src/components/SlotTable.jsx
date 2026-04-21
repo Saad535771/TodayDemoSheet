@@ -547,17 +547,17 @@ function areItemListsEqual(left = [], right = []) {
 }
 const gridColumns = [
   { id: "demoTime", label: "Demo Time", width: 100, editable: true, field: "demoTime", type: "time" },
-  { id: "tuitionName", label: "Tuition Name", width: 100, editable: true, field: "tuitionName", kind: "tuitionName" },
-  { id: "source", label: "Source", width: 110, editable: true, field: "source", kind: "select", options: SOURCES_LIST, pill: "source" },
-  { id: "country", label: "Country", width: 100, editable: true, field: "country" },
+  { id: "tuitionName", label: "Tuition Name", width: 60, editable: true, field: "tuitionName", kind: "tuitionName" },
+  { id: "source", label: "Source", width: 70, editable: true, field: "source", kind: "select", options: SOURCES_LIST, pill: "source" },
+  { id: "country", label: "Country", width: 70, editable: true, field: "country" },
   { id: "parentsContact", label: "Parent Contact", width: 130, editable: true, field: "parentsContact" },
   { id: "className", label: "Class", width: 100, editable: true, field: "className" },
   { id: "subjects", label: "Subject", width: 120, editable: true, field: "subjects" },
-  { id: "daysPerWeek", label: "Days / Week", width: 110, editable: true, field: "daysPerWeek" },
-  { id: "tutorName", label: "Tutor Name", width: 140, editable: true, field: "tutorName" },
-  { id: "tutorFees", label: "Tutor Fees", width: 100, editable: true, field: "tutorFees" },
+  { id: "daysPerWeek", label: "Days / Week", width: 70, editable: true, field: "daysPerWeek" },
+  { id: "tutorName", label: "Tutor Name", width: 100, editable: true, field: "tutorName" },
+  { id: "tutorFees", label: "Tutor Fees", width: 70, editable: true, field: "tutorFees" },
   { id: "rejectedTutor", label: "Rejected Tutor", width: 120, editable: true, field: "rejectedTutor" },
-  { id: "status", label: "Status", width: 280, editable: true, field: "status", kind: "multiselect", options: STATUS_LIST, pill: "status" },
+  { id: "status", label: "Status", width: 180, editable: true, field: "status", kind: "multiselect", options: STATUS_LIST, pill: "status" },
   { id: "feedback", label: "Feedback", width: 240, editable: true, field: "feedback", kind: "textarea" },
   { id: "demoDate", label: "Demo Date", width: 120, editable: true, field: "demoDate", type: "date" },
   { id: "tuitionId", label: "Tuition Id", width: 120, editable: false, field: "tuitionId", kind: "readonly" },
@@ -2693,7 +2693,7 @@ const resetLocalZoom = (e) => {
                       </TH>
                     ))}
 
-                    <TH style={{ width: "88px", minWidth: "88px", textAlign: "center", background: "#e5e7eb" }}>Action</TH>
+                    <TH style={{ width: "8px", minWidth: "8px", textAlign: "center", background: "#e5e7eb" }}>Action</TH>
                   </tr>
                 </thead>
 
@@ -2736,7 +2736,7 @@ const resetLocalZoom = (e) => {
                               type="checkbox"
                               checked={selectedRows.has(it.tuitionId)}
                               onChange={() => toggleRowSelection(it.tuitionId)}
-                              style={{ cursor: "pointer", width: "18px", height: "18px" }}
+                              style={{ cursor: "pointer", width: "8px", height: "18px" }}
                             />
                           </td>
 

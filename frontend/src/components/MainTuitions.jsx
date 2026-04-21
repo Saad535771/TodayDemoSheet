@@ -6,7 +6,7 @@ import MonthlyTuitionTable from "./MonthlyTuitionTable";
 export default function MainTuitions() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0.6);
 
   const load = useCallback(async () => {
     setLoading(true);

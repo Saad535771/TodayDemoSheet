@@ -6,7 +6,7 @@ const styles = {
     borderRadius: "16px",
     boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
     marginTop: "150px",
-    marginBottom: "24px",
+    
     border: "1px solid #eef0f3",
   },
 
@@ -28,7 +28,6 @@ const styles = {
     border: "1px solid #000000",
   },
   table: {
-    width: "100%",
     fontSize: "12px",
     borderCollapse: "separate",
     borderSpacing: 0,
@@ -37,7 +36,6 @@ const styles = {
     background: "#000000",
     color: "#fdfdfd",
     fontWeight: "600",
-    padding: "8px 10px",
     textAlign: "center",
     border: "1px solid #000000",
     position: "sticky",
@@ -50,14 +48,12 @@ const styles = {
     border: "1px solid #000000",
     textAlign: "center",
     verticalAlign: "middle",
-    height: "35px",
-    width: "15px",
     backgroundClip: "padding-box",
   },
   inlineInput: {
-    width: "100%",
+    width: "90px",
     height: "100%",
-    padding: "8px 10px",
+  
     border: "none",
     borderRadius: "0",
     fontSize: "14px",
@@ -69,7 +65,6 @@ const styles = {
   inlineSelect: {
     width: "100%",
     height: "100%",
-    padding: "8px 10px",
     border: "none",
     borderRadius: "0",
     fontSize: "14px",
@@ -112,7 +107,7 @@ const styles = {
     top: "130px",
     background: "white",
     border: "1px solid #ccc",
-    padding: "10px",
+    padding: "5px",
     margin: "0px",
     borderRadius: "6px",
     boxShadow: "0 6px 16px rgba(0,0,0,0.15)",
@@ -164,25 +159,25 @@ const statusList = [
 const gridColumns = [
   { id: "date", label: "Date", width: 130, editable: true, field: "date", type: "date" },
   { id: "demoTime", label: "Demo Time", width: 110, editable: true, field: "demoTime", type: "time" },
-  { id: "tuitionName", label: "Tuition Name", width: 180, editable: true, field: "tuitionName", kind: "tuitionName" },
-  { id: "status", label: "Status", width: 220, editable: true, field: "status", kind: "select", options: statusList, pill: "status" },
-  { id: "paymentApprovalStatus", label: "Payment Approval", width: 180, editable: false, field: "paymentApprovalStatus", kind: "approvalStatus", pill: "paymentApprovalStatus" },
-  { id: "estimatedFee", label: "Estimated Fee", width: 120, editable: true, field: "estimatedFee" },
-  { id: "tutorName", label: "Tutor Name", width: 160, editable: true, field: "tutorName" },
-  { id: "tutorFees", label: "Tutor Fees", width: 120, editable: true, field: "tutorFees" },
-  { id: "rejectedTutor", label: "Rejected Tutor", width: 140, editable: true, field: "rejectedTutor" },
+  { id: "tuitionName", label: "Tuition Name", width: 100, editable: true, field: "tuitionName", kind: "tuitionName" },
+  { id: "status", label: "Status", width: 120, editable: true, field: "status", kind: "select", options: statusList, pill: "status" },
+  { id: "paymentApprovalStatus", label: "Payment Approval", width: 80, editable: false, field: "paymentApprovalStatus", kind: "approvalStatus", pill: "paymentApprovalStatus" },
+  { id: "estimatedFee", label: "Estimated Fee", width: 60, editable: true, field: "estimatedFee" },
+  { id: "tutorName", label: "Tutor Name", width: 100, editable: true, field: "tutorName" },
+  { id: "tutorFees", label: "Tutor Fees", width: 90, editable: true, field: "tutorFees" },
+  { id: "rejectedTutor", label: "Rejected Tutor", width: 80, editable: true, field: "rejectedTutor" },
   { id: "feedback", label: "Feedback", width: 200, editable: true, field: "feedback" },
   { id: "country", label: "Country", width: 100, editable: true, field: "country" },
-  { id: "otmName", label: "OTM Name", width: 140, editable: true, field: "otmName", kind: "select", options: [] },
+  { id: "otmName", label: "OTM Name", width: 70, editable: true, field: "otmName", kind: "select", options: [] },
   { id: "className", label: "Class", width: 100, editable: true, field: "className" },
-  { id: "subjects", label: "Subject", width: 140, editable: true, field: "subjects" },
-  { id: "daysPerWeek", label: "Days per week", width: 100, editable: true, field: "daysPerWeek" },
+  { id: "subjects", label: "Subject", width: 90, editable: true, field: "subjects" },
+  { id: "daysPerWeek", label: "Days per week", width: 70, editable: true, field: "daysPerWeek" },
   { id: "source", label: "Source", width: 120, editable: true, field: "source", kind: "select", options: sourcesList, pill: "source" },
-  { id: "demoDate", label: "Demo Date", width: 120, editable: true, field: "demoDate", type: "date" },
-  { id: "parentsContact", label: "Parent Contact", width: 140, editable: true, field: "parentsContact" },
-  { id: "demoRating", label: "Demo Rating", width: 140, editable: true, field: "demoRating", kind: "select", options: demoRatings, pill: "demoRating" },
-  { id: "tuitionId", label: "Tuition Id", width: 100, editable: false, field: "tuitionId", kind: "readonly" },
-  { id: "sync", label: "Sync", width: 80, editable: true, field: "sync" },
+  { id: "demoDate", label: "Demo Date", width: 100, editable: true, field: "demoDate", type: "date" },
+  { id: "parentsContact", label: "Parent Contact", width: 120, editable: true, field: "parentsContact" },
+  { id: "demoRating", label: "Demo Rating", width: 100, editable: true, field: "demoRating", kind: "select", options: demoRatings, pill: "demoRating" },
+  { id: "tuitionId", label: "Tuition Id", width: 70, editable: false, field: "tuitionId", kind: "readonly" },
+  { id: "sync", label: "Sync", width: 40, editable: true, field: "sync" },
 ];
 const gridColumnIds = gridColumns.map((c) => c.id);
 const gridColumnMap = Object.fromEntries(gridColumns.map((c) => [c.id, c]));
@@ -318,7 +313,7 @@ const renderPill = (val, styleFn, options = {}) => {
   return (
     <span
       style={{
-        padding: compact ? "2px 8px" : "4px 10px",
+        padding: compact ? "2px 4px" : "4px 5px",
         borderRadius: "999px",
         fontSize: compact ? "11px" : "12px",
         fontWeight: "bold",

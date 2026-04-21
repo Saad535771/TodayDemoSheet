@@ -18,20 +18,18 @@ const styles = {
     borderRadius: "16px",
     boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
    paddingTop: "14px",
-    marginBottom: "4px",
+   
     border: "1px solid #eef0f3",
     width: "100%",
     minWidth: 0,
     position:'fixed',
     zIndex:'99',
-    top:'70px',
+    top:'63px',
   },
   singleLineForm: {
     display: "flex",
     overflowX: "auto",
-    
-    width: "100%",
-    minWidth: 0,
+
     boxSizing: "border-box",
     WebkitOverflowScrolling: "touch",
     overscrollBehaviorX: "contain",
@@ -49,8 +47,8 @@ const styles = {
     flex: "0 0 auto",
   },
   createInput: {
-    width: "100%",
-    padding: "8px",
+    width: "80px",
+  
     border: "1px solid #c8c6c4",
     fontSize: "13px",
     boxSizing: "border-box",
@@ -66,7 +64,7 @@ const styles = {
   primaryBtn: {
     background: "#107c41",
     margin: "0px 5px",
-    fontSize: "15px",
+    fontSize: "10px",
     color: "white",
     border: "none",
     padding: "0px 16px",
@@ -74,7 +72,7 @@ const styles = {
     fontWeight: "600",
     cursor: "pointer",
     fontFamily: "'Calibri', sans-serif",
-    minWidth: "100px",
+  
     height: "34px",
     whiteSpace: "nowrap",
   },
@@ -86,10 +84,10 @@ const styles = {
     display: "block",
   },
   dropdownTrigger: {
-    width: "100%",
+   
     padding: "8px",
     border: "1px solid #c8c6c4",
-    fontSize: "13px",
+    fontSize: "12px",
     boxSizing: "border-box",
     fontFamily: "'Calibri', sans-serif",
     background: "white",
@@ -596,7 +594,7 @@ export default function MonthlyTuition({ onLoad }) {
           label="Tuition ID"
           val={form.tuitionId}
           onChange={(v) => setCreateField("tuitionId", v)}
-          width="100px"
+          width="80px"
           inputRef={(el) => (fieldRefs.current.tuitionId = el)}
           onFocus={() => {
             setFocusedField("tuitionId");
@@ -611,7 +609,7 @@ export default function MonthlyTuition({ onLoad }) {
           type="date"
           val={form.date}
           onChange={(v) => setCreateField("date", v)}
-          width="130px"
+          width="80px"
           inputRef={(el) => (fieldRefs.current.date = el)}
           onFocus={() => {
             setFocusedField("date");
@@ -628,7 +626,7 @@ export default function MonthlyTuition({ onLoad }) {
           val={form.demoTime}
           onChange={(v) => setCreateField("demoTime", v)}
           onBlur={() => setCreateField("demoTime", formatTo12Hour(form.demoTime))}
-          width="120px"
+          width="80px"
           placeholder="hh:mm AM/PM"
           inputRef={(el) => (fieldRefs.current.demoTime = el)}
           onFocus={() => {
@@ -643,7 +641,7 @@ export default function MonthlyTuition({ onLoad }) {
           label="Tuition Name"
           val={form.tuitionName}
           onChange={(v) => setCreateField("tuitionName", v)}
-          width="150px"
+          width="100px"
           inputRef={(el) => (fieldRefs.current.tuitionName = el)}
           onFocus={() => {
             setFocusedField("tuitionName");
@@ -657,7 +655,7 @@ export default function MonthlyTuition({ onLoad }) {
           label="Source"
           fieldName="source"
           value={form.source}
-          width="120px"
+          width="80px"
           options={sourcesList}
           openDropdown={openDropdown}
           highlightedIndex={highlightedIndex}
@@ -690,7 +688,7 @@ export default function MonthlyTuition({ onLoad }) {
           label="Country"
           val={form.country}
           onChange={(v) => setCreateField("country", v)}
-          width="100px"
+          width="80px"
           inputRef={(el) => (fieldRefs.current.country = el)}
           onFocus={() => {
             setFocusedField("country");
@@ -704,7 +702,7 @@ export default function MonthlyTuition({ onLoad }) {
           label="OTM Name"
           fieldName="otmName"
           value={form.otmName}
-          width="140px"
+          width="100px"
           options={otmUserOptions}
           openDropdown={openDropdown}
           highlightedIndex={highlightedIndex}
@@ -720,7 +718,7 @@ export default function MonthlyTuition({ onLoad }) {
           label="Class"
           val={form.className}
           onChange={(v) => setCreateField("className", v)}
-          width="100px"
+          width="70px"
           inputRef={(el) => (fieldRefs.current.className = el)}
           onFocus={() => {
             setFocusedField("className");
@@ -734,7 +732,7 @@ export default function MonthlyTuition({ onLoad }) {
           label="Subject"
           val={form.subjects}
           onChange={(v) => setCreateField("subjects", v)}
-          width="120px"
+          width="70px"
           inputRef={(el) => (fieldRefs.current.subjects = el)}
           onFocus={() => {
             setFocusedField("subjects");
@@ -748,7 +746,7 @@ export default function MonthlyTuition({ onLoad }) {
           label="Days/Week"
           val={form.daysPerWeek}
           onChange={(v) => setCreateField("daysPerWeek", v)}
-          width="90px"
+          width="70px"
           inputRef={(el) => (fieldRefs.current.daysPerWeek = el)}
           onFocus={() => {
             setFocusedField("daysPerWeek");
@@ -762,7 +760,7 @@ export default function MonthlyTuition({ onLoad }) {
           label="Estimated Fee"
           val={form.estimatedFee}
           onChange={(v) => setCreateField("estimatedFee", v)}
-          width="110px"
+          width="70px"
           inputRef={(el) => (fieldRefs.current.estimatedFee = el)}
           onFocus={() => {
             setFocusedField("estimatedFee");
@@ -776,7 +774,7 @@ export default function MonthlyTuition({ onLoad }) {
           label="Tutor Name"
           val={form.tutorName}
           onChange={(v) => setCreateField("tutorName", v)}
-          width="130px"
+          width="70px"
           inputRef={(el) => (fieldRefs.current.tutorName = el)}
           onFocus={() => {
             setFocusedField("tutorName");
@@ -790,7 +788,7 @@ export default function MonthlyTuition({ onLoad }) {
           label="Tutor Fees"
           val={form.tutorFees}
           onChange={(v) => setCreateField("tutorFees", v)}
-          width="100px"
+          width="80px"
           inputRef={(el) => (fieldRefs.current.tutorFees = el)}
           onFocus={() => {
             setFocusedField("tutorFees");
@@ -804,7 +802,7 @@ export default function MonthlyTuition({ onLoad }) {
           label="Rejected Tutor"
           val={form.rejectedTutor}
           onChange={(v) => setCreateField("rejectedTutor", v)}
-          width="130px"
+          width="80px"
           inputRef={(el) => (fieldRefs.current.rejectedTutor = el)}
           onFocus={() => {
             setFocusedField("rejectedTutor");
@@ -818,7 +816,7 @@ export default function MonthlyTuition({ onLoad }) {
           label="Feedback"
           val={form.feedback}
           onChange={(v) => setCreateField("feedback", v)}
-          width="150px"
+          width="80px"
           inputRef={(el) => (fieldRefs.current.feedback = el)}
           onFocus={() => {
             setFocusedField("feedback");
@@ -832,7 +830,7 @@ export default function MonthlyTuition({ onLoad }) {
           label="Status"
           fieldName="status"
           value={form.status}
-          width="135px"
+          width="90px"
           options={statusList}
           openDropdown={openDropdown}
           highlightedIndex={highlightedIndex}
@@ -852,7 +850,7 @@ export default function MonthlyTuition({ onLoad }) {
           type="date"
           val={form.demoDate}
           onChange={(v) => setCreateField("demoDate", v)}
-          width="130px"
+          width="100px"
           inputRef={(el) => (fieldRefs.current.demoDate = el)}
           onFocus={() => {
             setFocusedField("demoDate");
@@ -867,7 +865,7 @@ export default function MonthlyTuition({ onLoad }) {
           label="Demo Rating"
           fieldName="demoRating"
           value={form.demoRating}
-          width="130px"
+          width="100px"
           options={demoRatings}
           openDropdown={openDropdown}
           highlightedIndex={highlightedIndex}
@@ -886,7 +884,7 @@ export default function MonthlyTuition({ onLoad }) {
           label="Sync"
           val={form.sync}
           onChange={(v) => setCreateField("sync", v)}
-          width="100px"
+          width="20px"
           inputRef={(el) => (fieldRefs.current.sync = el)}
           onFocus={() => {
             setFocusedField("sync");
@@ -929,7 +927,7 @@ function CreateField({
   val,
   onChange,
   type = "text",
-  width = "120px",
+  width = "100px",
   inputRef,
   onFocus,
   onKeyDown,
@@ -938,7 +936,7 @@ function CreateField({
   placeholder = "",
 }) {
   return (
-    <div style={{ ...styles.fieldWrap, minWidth: width }}>
+    <div style={{ ...styles.fieldWrap }}>
       <label style={styles.label}>{label}</label>
       <input
         ref={inputRef}
