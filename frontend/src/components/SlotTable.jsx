@@ -37,15 +37,17 @@ const styles = {
     overflowX: "auto",
     overflowY: "auto",
     WebkitOverflowScrolling: "touch",
-    overscrollBehaviorX: "auto",
+    overscrollBehaviorX: "contain",
     overscrollBehaviorY: "auto",
+    touchAction: "pan-x pan-y",
+    position: "relative",
     background: "#ffffff",
     maxHeight: "500px",
- 
+    paddingBottom: "8px",
   },
   table: {
-    width: "max-content",
-    minWidth: "100%",
+    width: "auto",
+    minWidth: "auto",
     height: "100%",
     borderCollapse: "collapse",
     fontSize: "14px",
@@ -79,7 +81,7 @@ const styles = {
     fontSize: "14px",
     background: "transparent",
     outline: "none",
-    boxSizing: "border-box",
+  
     fontFamily: "'Calibri', sans-serif",
   },
   inlineSelect: {
@@ -91,7 +93,7 @@ const styles = {
     fontSize: "14px",
     background: "transparent",
     outline: "none",
-    boxSizing: "border-box",
+   
     fontFamily: "'Calibri', sans-serif",
     cursor: "pointer",
   },
@@ -104,7 +106,7 @@ const styles = {
     fontSize: "14px",
     background: "transparent",
     outline: "none",
-    boxSizing: "border-box",
+  
     fontFamily: "'Calibri', sans-serif",
     resize: "vertical",
     lineHeight: 1.4,
@@ -113,7 +115,7 @@ const styles = {
     width: "100%",
     minHeight: "76px",
     padding: "8px",
-    boxSizing: "border-box",
+   
     display: "flex",
     flexDirection: "column",
     gap: "8px",
@@ -564,6 +566,8 @@ const gridColumns = [
   { id: "demoRating", label: "Demo Rating", width: 130, editable: true, field: "demoRating", kind: "select", options: DEMO_RATING_VALUES, pill: "demoRating" },
   { id: "syncFlag", label: "Sync", width: 80, editable: true, field: "syncFlag" },
 ];
+
+const BASE_TABLE_MIN_WIDTH = gridColumns.reduce((sum, col) => sum + Number(col.width || 0), 0) + 120;
 
 const gridColumnIds = gridColumns.map((c) => c.id);
 const gridColumnMap = Object.fromEntries(gridColumns.map((c) => [c.id, c]));
@@ -1056,7 +1060,7 @@ const ColorSwatch = ({
    ========================= */
 export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,globalZoom = 1 }) {
  const [open, setOpen] = useState(true);
-  const [localZoom, setLocalZoom] = useState(1);
+  const [localZoom, setLocalZoom] = useState(0.6);
   const [localItems, setLocalItems] = useState([]);
   const [isUpdating, setIsUpdating] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -1152,22 +1156,27 @@ const effectiveZoom = useMemo(() => {
       const absX = Math.abs(e.deltaX);
       const absY = Math.abs(e.deltaY);
       const previousLeft = wrapper.scrollLeft;
+      const atLeft = wrapper.scrollLeft <= 0;
+      const atRight = wrapper.scrollLeft + wrapper.clientWidth >= wrapper.scrollWidth - 1;
 
       if (absX > 0) {
         wrapper.scrollLeft += e.deltaX;
-      } else if (absY > 0) {
+      } else if (e.shiftKey && absY > 0) {
+        wrapper.scrollLeft += e.deltaY;
+      } else if (absY > 0 && !(atLeft && e.deltaY < 0) && !(atRight && e.deltaY > 0)) {
         wrapper.scrollLeft += e.deltaY;
       }
 
       if (wrapper.scrollLeft !== previousLeft) {
         e.preventDefault();
+        e.stopPropagation();
       }
     };
 
-    wrapper.addEventListener("wheel", handleTrackpadHorizontalScroll, { passive: false });
+    wrapper.addEventListener("wheel", handleTrackpadHorizontalScroll, { passive: false, capture: true });
 
     return () => {
-      wrapper.removeEventListener("wheel", handleTrackpadHorizontalScroll);
+      wrapper.removeEventListener("wheel", handleTrackpadHorizontalScroll, { capture: true });
     };
  }, [open, effectiveZoom, localItems.length]);
 
@@ -2668,12 +2677,17 @@ const resetLocalZoom = (e) => {
 
             <div
               style={{
-                zoom: effectiveZoom,
-                width: "max-content",
-                minWidth: "100%",
+                display: "inline-block",
+                minWidth: `${Math.max(BASE_TABLE_MIN_WIDTH * effectiveZoom, 0)}px`,
               }}
             >
-              <table style={styles.table}>
+              <div
+                style={{
+                  zoom: effectiveZoom,
+                  width: "max-content",
+                }}
+              >
+              <table style={{ ...styles.table, minWidth: `${BASE_TABLE_MIN_WIDTH}px` }}>
                 <thead>
                   <tr>
                     <TH style={{ width: "42px", minWidth: "42px", textAlign: "center", background: "#e5e7eb" }}>✓</TH>
@@ -2802,6 +2816,7 @@ const resetLocalZoom = (e) => {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         ) : null}

@@ -7,22 +7,105 @@ function toPlain(instanceOrObject) {
   }
   return JSON.parse(JSON.stringify(instanceOrObject));
 }
+
 function valuesAreSame(a, b) {
   return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }
+
 function normalizeStatusValue(value) {
   if (Array.isArray(value)) {
     const clean = [...new Set(value.map((v) => String(v || "").trim()).filter(Boolean))];
     return clean.length ? clean.join(", ") : null;
   }
-  const clean = [...new Set(
-    String(value || "")
-      .split(/[|,]/)
-      .map((v) => v.trim())
-      .filter(Boolean)
-  )];
+
+  const clean = [
+    ...new Set(
+      String(value || "")
+        .split(/[|,]/)
+        .map((v) => v.trim())
+        .filter(Boolean)
+    ),
+  ];
+
   return clean.length ? clean.join(", ") : null;
 }
+
+const FIELD_ALIASES = {
+  paymentDate: "dateWithMonth",
+  date: "dateWithMonth",
+  dateWithMonth: "dateWithMonth",
+  className: "subjects",
+  subjects: "subjects",
+  tutorShare: "tutorFee",
+  tutorFee: "tutorFee",
+  lacasShare: "lacasShare",
+  totalFees: "totalFees",
+  tuitionName: "tuitionName",
+  totalStudents: "totalStudents",
+  country: "country",
+  tutorName: "tutorName",
+  status: "status",
+  feedback: "feedback",
+  notes: "notes",
+  tuitionId: "tuitionId",
+  rowColor: "rowColor",
+  tuitionNameColor: "tuitionNameColor",
+  daysPerWeek: "daysPerWeek",
+  orderIndex: "orderIndex",
+};
+
+function normalizeFieldKey(field) {
+  return FIELD_ALIASES[String(field || "").trim()] || String(field || "").trim();
+}
+
+function readCellValue(row, key) {
+  if (!row || !key) return null;
+  switch (key) {
+    case "dateWithMonth":
+      return row.dateWithMonth ?? row.paymentDate ?? row.date ?? null;
+    case "subjects":
+      return row.subjects ?? row.className ?? null;
+    case "tutorFee":
+      return row.tutorFee ?? row.tutorShare ?? null;
+    default:
+      return row[key] ?? null;
+  }
+}
+
+function buildRowSnapshot(actionType, beforeData = null, afterData = null) {
+  const action = String(actionType || "update").toLowerCase();
+
+  if (action === "delete") {
+    return beforeData ? { ...beforeData } : {};
+  }
+
+  if (action === "create") {
+    return afterData ? { ...afterData } : {};
+  }
+
+  return {
+    ...(beforeData || {}),
+    ...(afterData || {}),
+  };
+}
+
+function buildChangedCellDetails(beforeData = null, afterData = null, changedColumns = []) {
+  const details = {};
+
+  for (const rawKey of changedColumns) {
+    const key = normalizeFieldKey(rawKey);
+    if (!key || details[key]) continue;
+
+    details[key] = {
+      key,
+      before: readCellValue(beforeData, key),
+      after: readCellValue(afterData, key),
+    };
+  }
+
+  return details;
+}
+
 export function makePaymentCloneController({
   PaymentClone,
   PaymentCloneTrash,
@@ -38,10 +121,10 @@ export function makePaymentCloneController({
     "totalStudents",
     "country",
     "subjects",
-    "className",   // legacy support
+    "className",
     "tutorName",
     "tutorFee",
-    "tutorShare",  // legacy support
+    "tutorShare",
     "lacasShare",
     "totalFees",
     "status",
@@ -58,6 +141,7 @@ export function makePaymentCloneController({
     "tuitionNameColor",
     "daysPerWeek",
   ];
+
   function pickAllowed(body = {}) {
     const out = {};
     for (const key of allowedFields) {
@@ -67,38 +151,46 @@ export function makePaymentCloneController({
     }
     return out;
   }
+
   function normalizePayload(body = {}) {
     const data = { ...body };
+
     if (
       Object.prototype.hasOwnProperty.call(data, "tutorShare") &&
       !Object.prototype.hasOwnProperty.call(data, "tutorFee")
     ) {
       data.tutorFee = data.tutorShare;
     }
+
     if (
       Object.prototype.hasOwnProperty.call(data, "className") &&
       !Object.prototype.hasOwnProperty.call(data, "subjects")
     ) {
       data.subjects = data.className;
     }
+
     if (Object.prototype.hasOwnProperty.call(data, "subjects")) {
       data.className = data.subjects;
     }
+
     if (
       Object.prototype.hasOwnProperty.call(data, "date") &&
       !Object.prototype.hasOwnProperty.call(data, "paymentDate")
     ) {
       data.paymentDate = data.date;
     }
+
     if (
       Object.prototype.hasOwnProperty.call(data, "paymentDate") &&
       !Object.prototype.hasOwnProperty.call(data, "date")
     ) {
       data.date = data.paymentDate;
     }
+
     if (Object.prototype.hasOwnProperty.call(data, "status")) {
       data.status = normalizeStatusValue(data.status);
     }
+
     const nullIfEmpty = [
       "paymentDate",
       "date",
@@ -116,6 +208,7 @@ export function makePaymentCloneController({
       "rowColor",
       "tuitionNameColor",
     ];
+
     const numberNullIfEmpty = [
       "totalStudents",
       "tutorFee",
@@ -125,32 +218,40 @@ export function makePaymentCloneController({
       "orderIndex",
       "daysPerWeek",
     ];
+
     for (const key of nullIfEmpty) {
       if (data[key] === "") data[key] = null;
     }
+
     for (const key of numberNullIfEmpty) {
       if (data[key] === "") data[key] = null;
       if (data[key] !== null && data[key] !== undefined && data[key] !== "") {
         data[key] = Number(data[key]);
       }
     }
+
     if (Object.prototype.hasOwnProperty.call(data, "isDeleted")) {
       data.isDeleted = !!data.isDeleted;
     }
+
     if (Object.prototype.hasOwnProperty.call(data, "deletedFromTodayDemo")) {
       data.deletedFromTodayDemo = !!data.deletedFromTodayDemo;
     }
+
     delete data.tutorShare;
     return data;
   }
+
   function serializeRow(row) {
     const raw = toPlain(row);
     if (!raw) return null;
+
     const subjects = raw.subjects ?? raw.className ?? null;
     const tutorFee = raw.tutorFee ?? raw.tutorShare ?? null;
     const date = raw.date ?? raw.paymentDate ?? null;
     const paymentDate = raw.paymentDate ?? raw.date ?? null;
     const status = normalizeStatusValue(raw.status);
+
     return {
       id: raw.id ?? null,
       tuitionId: raw.tuitionId ?? null,
@@ -161,10 +262,10 @@ export function makePaymentCloneController({
       totalStudents: raw.totalStudents ?? null,
       country: raw.country ?? null,
       subjects,
-      className: subjects, // legacy response support
+      className: subjects,
       tutorName: raw.tutorName ?? null,
       tutorFee,
-      tutorShare: tutorFee, // legacy response support
+      tutorShare: tutorFee,
       lacasShare: raw.lacasShare ?? null,
       totalFees: raw.totalFees ?? null,
       status,
@@ -184,6 +285,7 @@ export function makePaymentCloneController({
       updatedAt: raw.updatedAt ?? raw.updated_at ?? null,
     };
   }
+
   function getChangedColumns(beforeData = null, afterData = null, explicitKeys = []) {
     const keys = new Set([
       ...allowedFields,
@@ -192,11 +294,12 @@ export function makePaymentCloneController({
       ...explicitKeys,
     ]);
 
-    return [...keys].filter((key) => {
-      if (key === "id") return false;
-      return !valuesAreSame(beforeData?.[key], afterData?.[key]);
-    });
+    return [...keys]
+      .filter((key) => key !== "id")
+      .filter((key) => !valuesAreSame(beforeData?.[key], afterData?.[key]))
+      .map((key) => normalizeFieldKey(key));
   }
+
   async function resolveActor(req) {
     const actor = {
       id: req.user?.id ?? null,
@@ -204,9 +307,11 @@ export function makePaymentCloneController({
       name: req.user?.name ?? null,
       email: req.user?.email ?? null,
     };
+
     if (!actor.id) return actor;
     if (actor.name && actor.email) return actor;
     if (!User) return actor;
+
     try {
       const dbUser = await User.findByPk(actor.id);
       if (dbUser) {
@@ -217,8 +322,10 @@ export function makePaymentCloneController({
     } catch (err) {
       console.error("AUDIT ACTOR RESOLVE ERROR:", err);
     }
+
     return actor;
   }
+
   async function createAuditLog({
     req,
     actionType,
@@ -229,8 +336,10 @@ export function makePaymentCloneController({
     metadata = null,
   }) {
     if (!PaymentChangeRequest) return;
+
     const actor = await resolveActor(req);
     if (!actor.id) return;
+
     try {
       await PaymentChangeRequest.create({
         moduleName: "payment_sheet_with_date",
@@ -251,6 +360,40 @@ export function makePaymentCloneController({
       console.error("PAYMENT AUDIT LOG ERROR:", err);
     }
   }
+
+  function buildAuditMetadata({ actionType, rowId = null, beforeData = null, afterData = null, message }) {
+    const snapshot = buildRowSnapshot(actionType, beforeData, afterData);
+    const changedColumns = getChangedColumns(beforeData, afterData, []);
+
+    return {
+      historyLabel:
+        actionType === "create"
+          ? "Create Row"
+          : actionType === "delete"
+            ? "Delete Row"
+            : actionType === "restore"
+              ? "Restore Row"
+              : actionType === "reorder"
+                ? "Reorder Rows"
+                : "Update Row",
+      message,
+      historyRowId: rowId,
+      originalPaymentCloneId: rowId,
+      tuitionId: snapshot?.tuitionId ?? beforeData?.tuitionId ?? afterData?.tuitionId ?? null,
+      tuitionName: snapshot?.tuitionName ?? beforeData?.tuitionName ?? afterData?.tuitionName ?? null,
+      dateWithMonth:
+        snapshot?.dateWithMonth ??
+        snapshot?.paymentDate ??
+        beforeData?.dateWithMonth ??
+        beforeData?.paymentDate ??
+        afterData?.dateWithMonth ??
+        afterData?.paymentDate ??
+        null,
+      rowSnapshot: snapshot,
+      changedCellDetails: buildChangedCellDetails(beforeData, afterData, changedColumns),
+    };
+  }
+
   return {
     async list(req, res) {
       try {
@@ -268,6 +411,7 @@ export function makePaymentCloneController({
         });
       }
     },
+
     async create(req, res) {
       try {
         const payload = normalizePayload(pickAllowed(req.body));
@@ -279,12 +423,15 @@ export function makePaymentCloneController({
           });
           orderIndex = lastRow ? Number(lastRow.orderIndex || 0) + 1 : 0;
         }
+
         payload.orderIndex = orderIndex;
         if (!payload.tuitionId) {
           payload.tuitionId = `manual-${Date.now()}`;
         }
+
         const item = await PaymentClone.create(payload);
         const afterData = serializeRow(item);
+
         await createAuditLog({
           req,
           actionType: "create",
@@ -292,11 +439,15 @@ export function makePaymentCloneController({
           changedColumns: getChangedColumns(null, afterData, Object.keys(payload)),
           beforeData: null,
           afterData,
-          metadata: {
-            historyLabel: "Create Row",
+          metadata: buildAuditMetadata({
+            actionType: "create",
+            rowId: item.id,
+            beforeData: null,
+            afterData,
             message: "Row created directly in payment sheet",
-          },
+          }),
         });
+
         return res.json({ item: afterData });
       } catch (err) {
         console.error("PAYMENT CLONE CREATE ERROR:", err);
@@ -331,10 +482,13 @@ export function makePaymentCloneController({
             changedColumns,
             beforeData,
             afterData,
-            metadata: {
-              historyLabel: "Update Row",
+            metadata: buildAuditMetadata({
+              actionType: "update",
+              rowId: row.id,
+              beforeData,
+              afterData,
               message: "Row updated directly in payment sheet",
-            },
+            }),
           });
         }
 
@@ -378,14 +532,17 @@ export function makePaymentCloneController({
         await createAuditLog({
           req,
           actionType: "delete",
-          paymentCloneId: row.id,
+          paymentCloneId: null,
           changedColumns: getChangedColumns(beforeData, null, Object.keys(beforeData || {})),
           beforeData,
           afterData: null,
-          metadata: {
-            historyLabel: "Delete Row",
+          metadata: buildAuditMetadata({
+            actionType: "delete",
+            rowId: row.id,
+            beforeData,
+            afterData: null,
             message: "Row deleted from payment sheet and moved to trash",
-          },
+          }),
         });
 
         return res.json({
@@ -500,6 +657,7 @@ export function makePaymentCloneController({
           totalStudents: trashRow.totalStudents ?? null,
           country: trashRow.country ?? null,
           subjects: trashRow.subjects ?? trashRow.className ?? null,
+          className: trashRow.subjects ?? trashRow.className ?? null,
           tutorName: trashRow.tutorName ?? null,
           tutorFee: trashRow.tutorFee ?? trashRow.tutorShare ?? null,
           lacasShare: trashRow.lacasShare ?? null,
@@ -510,7 +668,7 @@ export function makePaymentCloneController({
           otmName: trashRow.otmName ?? null,
           syncFlag: trashRow.syncFlag ?? null,
           assignedStaffId: trashRow.assignedStaffId ?? null,
-          deletedFromTodayDemo: trashRow.deletedFromTodayDemo ?? false,
+          deletedFromTodayDemo: !!trashRow.deletedFromTodayDemo,
           assignedTo: trashRow.assignedTo ?? null,
           orderIndex: trashRow.orderIndex ?? 0,
           rowColor: trashRow.rowColor ?? null,
@@ -520,7 +678,6 @@ export function makePaymentCloneController({
 
         const restored = await PaymentClone.create(payload, { transaction });
         await trashRow.destroy({ transaction });
-
         await transaction.commit();
 
         const afterData = serializeRow(restored);
@@ -533,25 +690,30 @@ export function makePaymentCloneController({
           beforeData: null,
           afterData,
           metadata: {
-            historyLabel: "Restore Row",
-            message: "Row restored from trash to payment sheet",
-            restoredFromTrashId: id,
+            ...buildAuditMetadata({
+              actionType: "restore",
+              rowId: restored.id,
+              beforeData: null,
+              afterData,
+              message: "Row restored from trash to payment sheet",
+            }),
+            restoredFromTrashId: trashRow.id,
           },
         });
 
         return res.json({
           success: true,
-          message: "Payment clone row restored",
           item: afterData,
+          message: "Trash row restored successfully",
         });
       } catch (err) {
         if (transaction && !transaction.finished) {
           await transaction.rollback();
         }
 
-        console.error("PAYMENT CLONE TRASH RESTORE ERROR:", err);
+        console.error("PAYMENT CLONE RESTORE ERROR:", err);
         return res.status(500).json({
-          message: err?.message || "Error restoring payment clone row",
+          message: err?.message || "Error restoring trash row",
         });
       }
     },
@@ -559,18 +721,20 @@ export function makePaymentCloneController({
     async forceDeleteTrash(req, res) {
       try {
         const { id } = req.params;
+        const row = await PaymentCloneTrash.findByPk(id);
 
-        const deleted = await PaymentCloneTrash.destroy({ where: { id } });
-        if (!deleted) {
+        if (!row) {
           return res.status(404).json({ message: "Trash row not found" });
         }
 
+        await row.destroy();
+
         return res.json({
           success: true,
-          message: "Payment clone trash row permanently deleted",
+          message: "Trash row permanently deleted",
         });
       } catch (err) {
-        console.error("PAYMENT CLONE FORCE DELETE ERROR:", err);
+        console.error("PAYMENT CLONE FORCE DELETE TRASH ERROR:", err);
         return res.status(500).json({
           message: err?.message || "Error deleting trash row permanently",
         });

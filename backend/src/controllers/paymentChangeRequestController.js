@@ -13,6 +13,16 @@ function toPlain(item) {
   return JSON.parse(JSON.stringify(item));
 }
 
+function safeJsonParse(value) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "object") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
 function normalizeActor(item) {
   const actorUser = item?.actorUser || null;
 
@@ -29,20 +39,50 @@ function normalizeActor(item) {
   };
 }
 
+function resolveHistoryRowId(row) {
+  const metadata = safeJsonParse(row?.metadata) || {};
+  const beforeData = safeJsonParse(row?.beforeData) || {};
+  const afterData = safeJsonParse(row?.afterData) || {};
+
+  return (
+    row?.paymentCloneId ??
+    metadata?.historyRowId ??
+    metadata?.originalPaymentCloneId ??
+    beforeData?.id ??
+    afterData?.id ??
+    null
+  );
+}
+
+function normalizeChangedColumns(value) {
+  const parsed = safeJsonParse(value);
+  if (Array.isArray(parsed)) return parsed;
+  return [];
+}
+
 function normalizeLog(item) {
   const row = toPlain(item);
   const actor = normalizeActor(row);
+  const metadata = safeJsonParse(row.metadata) || null;
+  const beforeData = safeJsonParse(row.beforeData) || null;
+  const afterData = safeJsonParse(row.afterData) || null;
 
   return {
     id: row.id,
     moduleName: row.moduleName,
     paymentCloneId: row.paymentCloneId,
+    historyRowId: resolveHistoryRowId({
+      paymentCloneId: row.paymentCloneId,
+      metadata,
+      beforeData,
+      afterData,
+    }),
     actionType: row.actionType,
     requestStatus: row.requestStatus,
-    changedColumns: Array.isArray(row.changedColumns) ? row.changedColumns : [],
-    beforeData: row.beforeData || null,
-    afterData: row.afterData || null,
-    metadata: row.metadata || null,
+    changedColumns: normalizeChangedColumns(row.changedColumns),
+    beforeData,
+    afterData,
+    metadata,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     actorUserId: row.actorUserId,
@@ -51,6 +91,33 @@ function normalizeLog(item) {
     actorRole: actor.role,
     actor,
   };
+}
+
+function filterByHistoryRowId(items = [], paymentCloneIdRaw) {
+  if (
+    paymentCloneIdRaw === undefined ||
+    paymentCloneIdRaw === null ||
+    paymentCloneIdRaw === ""
+  ) {
+    return items;
+  }
+
+  const wanted = String(paymentCloneIdRaw);
+
+  return items.filter((item) => {
+    const candidates = [
+      item?.paymentCloneId,
+      item?.historyRowId,
+      item?.metadata?.historyRowId,
+      item?.metadata?.originalPaymentCloneId,
+      item?.beforeData?.id,
+      item?.afterData?.id,
+    ]
+      .filter((value) => value !== undefined && value !== null && value !== "")
+      .map((value) => String(value));
+
+    return candidates.includes(wanted);
+  });
 }
 
 export function makePaymentChangeRequestController({
@@ -68,23 +135,22 @@ export function makePaymentChangeRequestController({
           req.query?.paymentCloneId ?? req.query?.payment_clone_id;
 
         const where = {
-          moduleName: DEFAULT_MODULE_NAME,
+          moduleName:
+            String(req.query?.moduleName || DEFAULT_MODULE_NAME).trim() ||
+            DEFAULT_MODULE_NAME,
         };
 
-        if (
-          paymentCloneIdRaw !== undefined &&
-          paymentCloneIdRaw !== null &&
-          paymentCloneIdRaw !== ""
-        ) {
-          const parsedId = Number(paymentCloneIdRaw);
-          where.paymentCloneId = Number.isFinite(parsedId)
-            ? parsedId
-            : paymentCloneIdRaw;
-        }
+        const rows = await PaymentChangeRequest.findAll({
+          where,
+          attributes: ["id", "paymentCloneId", "metadata", "beforeData", "afterData"],
+          order: [["created_at", "DESC"]],
+          limit: 1000,
+        });
 
-        const count = await PaymentChangeRequest.count({ where });
+        const items = rows.map(normalizeLog);
+        const filtered = filterByHistoryRowId(items, paymentCloneIdRaw);
 
-        return res.json({ count });
+        return res.json({ count: filtered.length });
       } catch (err) {
         console.error("PAYMENT AUDIT SUMMARY ERROR:", err);
         return res.status(500).json({
@@ -99,24 +165,15 @@ export function makePaymentChangeRequestController({
       }
 
       try {
-        const limit = Math.min(Math.max(Number(req.query?.limit || 200), 1), 500);
+        const limit = Math.min(Math.max(Number(req.query?.limit || 500), 1), 1000);
         const paymentCloneIdRaw =
           req.query?.paymentCloneId ?? req.query?.payment_clone_id;
 
         const where = {
-          moduleName: DEFAULT_MODULE_NAME,
+          moduleName:
+            String(req.query?.moduleName || DEFAULT_MODULE_NAME).trim() ||
+            DEFAULT_MODULE_NAME,
         };
-
-        if (
-          paymentCloneIdRaw !== undefined &&
-          paymentCloneIdRaw !== null &&
-          paymentCloneIdRaw !== ""
-        ) {
-          const parsedId = Number(paymentCloneIdRaw);
-          where.paymentCloneId = Number.isFinite(parsedId)
-            ? parsedId
-            : paymentCloneIdRaw;
-        }
 
         const rows = await PaymentChangeRequest.findAll({
           where,
@@ -134,7 +191,7 @@ export function makePaymentChangeRequestController({
           limit,
         });
 
-        const items = rows.map(normalizeLog);
+        const items = filterByHistoryRowId(rows.map(normalizeLog), paymentCloneIdRaw);
 
         const actors = [];
         const seenActorIds = new Set();

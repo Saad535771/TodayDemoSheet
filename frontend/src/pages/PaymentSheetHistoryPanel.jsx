@@ -12,18 +12,77 @@ const ACTOR_COLORS = [
   { bg: "#f0fdfa", border: "#99f6e4", text: "#115e59" },
 ];
 
+const DATA_COLUMNS = [
+  { key: "dateWithMonth", label: "Date", width: 120 },
+  { key: "tuitionName", label: "Tuition Name", width: 170 },
+  { key: "totalStudents", label: "Total Students", width: 120 },
+  { key: "country", label: "Country", width: 120 },
+  { key: "subjects", label: "Subjects", width: 130 },
+  { key: "tutorName", label: "Tutor Name", width: 160 },
+  { key: "tutorFee", label: "Tutor Fee", width: 110 },
+  { key: "lacasShare", label: "Lacas Share", width: 110 },
+  { key: "totalFees", label: "Total Fee", width: 110 },
+  { key: "status", label: "Status", width: 170 },
+  { key: "feedback", label: "Feedback", width: 180 },
+  { key: "notes", label: "Notes", width: 180 },
+];
+
+const SHEET_COLUMNS = [
+  { key: "orderIndex", label: "Sort", width: 80, kind: "sort" },
+  { key: "historyRowId", label: "#", width: 70, kind: "rowId" },
+  { key: "rowSelected", label: "", width: 60, kind: "checkbox" },
+  { key: "rowColor", label: "🎨", width: 70, kind: "color" },
+  ...DATA_COLUMNS,
+];
+
+const FIELD_ALIASES = {
+  id: "historyRowId",
+  orderIndex: "orderIndex",
+  rowColor: "rowColor",
+  paymentDate: "dateWithMonth",
+  date: "dateWithMonth",
+  dateWithMonth: "dateWithMonth",
+  className: "subjects",
+  subjects: "subjects",
+  tutorShare: "tutorFee",
+  tutorFee: "tutorFee",
+  lacasShare: "lacasShare",
+  totalFees: "totalFees",
+  tuitionName: "tuitionName",
+  totalStudents: "totalStudents",
+  country: "country",
+  tutorName: "tutorName",
+  status: "status",
+  feedback: "feedback",
+  notes: "notes",
+};
+
 const styles = {
-  wrap: {
-    width: "100%",
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(15, 23, 42, 0.38)",
+    zIndex: 5000,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "16px",
+  },
+  panel: {
+    width: "96vw",
+    height: "88vh",
     background: "#ffffff",
+    border: "2px solid #000000",
+    borderRadius: "18px",
+    overflow: "hidden",
+    boxShadow: "0 24px 70px rgba(0,0,0,0.25)",
+    display: "flex",
+    flexDirection: "column",
   },
   header: {
-    position: "sticky",
-    top: 0,
-    zIndex: 5,
     display: "flex",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: "12px",
     padding: "16px 18px",
     borderBottom: "2px solid #000000",
@@ -74,16 +133,23 @@ const styles = {
     fontWeight: 700,
     color: "#374151",
   },
+  error: {
+    margin: "14px 18px 0",
+    padding: "14px 16px",
+    borderRadius: "12px",
+    border: "1px solid #fecaca",
+    background: "#fef2f2",
+    color: "#991b1b",
+    fontWeight: 700,
+  },
   scroller: {
-    width: "100%",
-    overflowX: "auto",
-    overflowY: "auto",
-    maxHeight: "70vh",
+    flex: 1,
+    overflow: "auto",
     background: "#ffffff",
   },
   table: {
     width: "100%",
-    minWidth: "1800px",
+    minWidth: "2100px",
     borderCollapse: "collapse",
     fontSize: "12px",
     background: "#ffffff",
@@ -102,18 +168,34 @@ const styles = {
     fontWeight: 800,
   },
   td: {
-    verticalAlign: "top",
-    padding: "10px",
-    borderRight: "1.5px solid #000000",
-    borderBottom: "1.5px solid #000000",
+    verticalAlign: "middle",
+    padding: "10px 8px",
+    borderRight: "1px solid #000000",
+    borderBottom: "1px solid #000000",
     background: "#ffffff",
     color: "#111827",
-  },
-  empty: {
-    padding: "24px",
     textAlign: "center",
+    position: "relative",
+  },
+  changedCell: {
     fontWeight: 700,
-    color: "#475569",
+    cursor: "help",
+    boxShadow: "inset 0 0 0 2px rgba(37, 99, 235, 0.18)",
+  },
+  cellValue: {
+    minHeight: "18px",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    lineHeight: 1.35,
+  },
+  changedMarker: {
+    position: "absolute",
+    top: "6px",
+    right: "6px",
+    width: "8px",
+    height: "8px",
+    borderRadius: "999px",
+    background: "#1d4ed8",
   },
   loading: {
     padding: "24px",
@@ -121,25 +203,11 @@ const styles = {
     fontWeight: 700,
     color: "#374151",
   },
-  error: {
-    margin: "14px 18px",
-    padding: "14px 16px",
-    borderRadius: "12px",
-    border: "1px solid #fecaca",
-    background: "#fef2f2",
-    color: "#991b1b",
+  empty: {
+    padding: "24px",
+    textAlign: "center",
     fontWeight: 700,
-  },
-  actionTag: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: "999px",
-    padding: "6px 10px",
-    fontSize: "11px",
-    fontWeight: 800,
-    border: "1.5px solid currentColor",
-    whiteSpace: "nowrap",
+    color: "#475569",
   },
   userTag: {
     display: "inline-flex",
@@ -152,44 +220,51 @@ const styles = {
     border: "1px solid transparent",
     whiteSpace: "nowrap",
   },
-  chipWrap: {
-    display: "flex",
-    gap: "6px",
-    flexWrap: "wrap",
-  },
-  chip: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: "999px",
-    padding: "4px 8px",
-    fontSize: "11px",
-    fontWeight: 700,
-    background: "#eff6ff",
-    border: "1px solid #bfdbfe",
-    color: "#1d4ed8",
-  },
-  detailBlock: {
-    display: "grid",
-    gap: "6px",
-  },
-  detailLine: {
-    padding: "8px 10px",
-    borderRadius: "10px",
-    border: "1px solid #e5e7eb",
-    background: "#ffffff",
+  tooltip: {
+    position: "fixed",
+    zIndex: 8000,
+    minWidth: "280px",
+    maxWidth: "460px",
+    background: "#111827",
+    color: "#ffffff",
+    borderRadius: "12px",
+    border: "1px solid #374151",
+    padding: "12px 14px",
+    boxShadow: "0 12px 28px rgba(0,0,0,0.28)",
+    pointerEvents: "none",
+    whiteSpace: "pre-wrap",
     lineHeight: 1.45,
+    fontSize: "12px",
   },
-  beforeValue: {
-    color: "#9a3412",
-    fontWeight: 700,
+  tooltipLabel: {
+    fontWeight: 800,
+    marginBottom: "8px",
+    display: "block",
   },
-  afterValue: {
-    color: "#166534",
-    fontWeight: 700,
+  tooltipRow: {
+    display: "block",
+    marginTop: "4px",
   },
-  muted: {
-    color: "#6b7280",
+  tooltipHistoryItem: {
+    display: "block",
+    marginTop: "10px",
+    paddingTop: "10px",
+    borderTop: "1px solid rgba(255,255,255,0.12)",
+  },
+  colorSwatch: {
+    width: "22px",
+    height: "22px",
+    borderRadius: "6px",
+    border: "2px solid #111111",
+    display: "inline-block",
+  },
+  readonlyCheckbox: {
+    width: "14px",
+    height: "14px",
+    accentColor: "#2563eb",
+    pointerEvents: "none",
+  },
+  sortValue: {
     fontWeight: 700,
   },
 };
@@ -227,21 +302,6 @@ function normalizeHistoryResponse(data) {
   return [];
 }
 
-function getActionStyle(actionType) {
-  switch (String(actionType || "").toLowerCase()) {
-    case "create":
-      return { background: "#dcfce7", color: "#166534" };
-    case "update":
-      return { background: "#dbeafe", color: "#1d4ed8" };
-    case "delete":
-      return { background: "#fee2e2", color: "#b91c1c" };
-    case "reorder":
-      return { background: "#ede9fe", color: "#6d28d9" };
-    default:
-      return { background: "#e5e7eb", color: "#111827" };
-  }
-}
-
 function formatDateTime(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -264,13 +324,6 @@ function displayValue(value) {
   return String(value);
 }
 
-function pickPrimaryValue(...values) {
-  for (const value of values) {
-    if (value !== null && value !== undefined && value !== "") return value;
-  }
-  return "—";
-}
-
 function getActorColor(name) {
   const key = String(name || "Unknown User");
   let hash = 0;
@@ -280,22 +333,78 @@ function getActorColor(name) {
   return ACTOR_COLORS[hash % ACTOR_COLORS.length];
 }
 
-function buildCompactChangeLines(beforeData, afterData, changedColumns) {
-  const columns = changedColumns.length
-    ? changedColumns
-    : Array.from(new Set([...Object.keys(beforeData), ...Object.keys(afterData)]));
+function normalizeFieldKey(field) {
+  return FIELD_ALIASES[String(field || "").trim()] || String(field || "").trim();
+}
 
-  return columns.map((field) => ({
-    field,
-    before: displayValue(beforeData[field]),
-    after: displayValue(afterData[field]),
-  }));
+function getCellHighlight(actionTypes = []) {
+  const normalized = actionTypes.map((value) => String(value || "").toLowerCase());
+  if (normalized.includes("delete")) return "#fee2e2";
+  if (normalized.includes("create")) return "#dcfce7";
+  return "#dbeafe";
+}
+
+function readCellValue(row, key) {
+  if (!row || !key) return null;
+  switch (key) {
+    case "historyRowId":
+      return row.historyRowId ?? row.id ?? null;
+    case "dateWithMonth":
+      return row.dateWithMonth ?? row.paymentDate ?? row.date ?? null;
+    case "subjects":
+      return row.subjects ?? row.className ?? null;
+    case "tutorFee":
+      return row.tutorFee ?? row.tutorShare ?? null;
+    case "rowSelected":
+      return false;
+    default:
+      return row[key] ?? null;
+  }
+}
+
+function buildMergedSnapshot(beforeData, afterData, metadata, rowData) {
+  return {
+    ...(rowData || {}),
+    ...(beforeData || {}),
+    ...(metadata?.rowSnapshot || {}),
+    ...(afterData || {}),
+  };
+}
+
+function getRowHistoryId(item, metadata, beforeData, afterData) {
+  return (
+    item?.historyRowId ??
+    item?.paymentCloneId ??
+    metadata?.historyRowId ??
+    metadata?.originalPaymentCloneId ??
+    beforeData?.id ??
+    afterData?.id ??
+    null
+  );
+}
+
+function compareSnapshots(a, b) {
+  const leftOrder = Number.isFinite(Number(a?.orderIndex)) ? Number(a.orderIndex) : Number.MAX_SAFE_INTEGER;
+  const rightOrder = Number.isFinite(Number(b?.orderIndex)) ? Number(b.orderIndex) : Number.MAX_SAFE_INTEGER;
+  if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+
+  const leftName = String(a?.tuitionName || "");
+  const rightName = String(b?.tuitionName || "");
+  const byName = leftName.localeCompare(rightName);
+  if (byName !== 0) return byName;
+
+  return String(a?.historyRowId || "").localeCompare(String(b?.historyRowId || ""));
+}
+
+function serializeChangeEntry(change) {
+  return `${formatDateTime(change.timestamp)} • ${change.actorName}\nPrevious: ${displayValue(change.before)}\nChanged To: ${displayValue(change.after)}`;
 }
 
 export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId, rowData }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [tooltip, setTooltip] = useState(null);
 
   useEffect(() => {
     if (!open) return;
@@ -306,17 +415,14 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
       setLoading(true);
       setError("");
 
-      const filters = [];
+      const queryParts = ["moduleName=payment_sheet_with_date", "limit=500"];
       if (paymentCloneId !== undefined && paymentCloneId !== null) {
-        filters.push(`paymentCloneId=${encodeURIComponent(paymentCloneId)}`);
+        queryParts.push(`paymentCloneId=${encodeURIComponent(paymentCloneId)}`);
       }
-      filters.push("moduleName=payment_sheet_with_date");
-      const query = filters.length ? `?${filters.join("&")}` : "";
 
       const endpoints = [
-        `/payment-change-requests/history${query}`,
-        `/payment-change-requests/history${paymentCloneId !== undefined && paymentCloneId !== null ? `?paymentCloneId=${encodeURIComponent(paymentCloneId)}` : ""}`,
-        `/payment-change-requests/logs${paymentCloneId !== undefined && paymentCloneId !== null ? `?paymentCloneId=${encodeURIComponent(paymentCloneId)}` : ""}`,
+        `/payment-change-requests/logs?${queryParts.join("&")}`,
+        `/payment-change-requests/history?${queryParts.join("&")}`,
       ];
 
       let loaded = [];
@@ -325,23 +431,8 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
       for (const endpoint of endpoints) {
         try {
           const res = await api.get(endpoint);
-          let normalized = normalizeHistoryResponse(res.data);
-
-          if (paymentCloneId !== undefined && paymentCloneId !== null) {
-            normalized = normalized.filter((item) => {
-              const candidateId = item?.paymentCloneId ?? item?.payment_clone_id ?? item?.paymentClone?.id ?? null;
-              return String(candidateId) === String(paymentCloneId);
-            });
-          }
-
-          if (normalized.length) {
-            loaded = normalized;
-            break;
-          }
-
-          if (!loaded.length) {
-            loaded = normalized;
-          }
+          loaded = normalizeHistoryResponse(res.data);
+          break;
         } catch (err) {
           lastError = err;
         }
@@ -353,189 +444,291 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
         setError(lastError?.response?.data?.message || "Failed to load payment sheet history.");
         setItems([]);
       } else {
-        const sorted = [...loaded].sort((a, b) => {
-          const aTime = new Date(a?.createdAt || a?.created_at || 0).getTime();
-          const bTime = new Date(b?.createdAt || b?.created_at || 0).getTime();
-          return bTime - aTime;
-        });
-        setItems(sorted);
+        setItems(loaded);
       }
 
       setLoading(false);
     };
 
-    loadHistory();
+    void loadHistory();
+
     return () => {
       cancelled = true;
+      setTooltip(null);
     };
   }, [open, paymentCloneId]);
 
   const normalizedItems = useMemo(() => {
-    return items.map((item, index) => {
-      const changedColumns = toArray(item?.changedColumns ?? item?.changed_columns).map((col) => String(col));
-      const beforeData = toObject(item?.beforeData ?? item?.before_data);
-      const afterData = toObject(item?.afterData ?? item?.after_data);
-      const metadata = toObject(item?.metadata);
-      const actorName = item?.actorName || item?.actor_name || item?.actorUser?.name || "Unknown User";
-      const actionType = item?.actionType || item?.action_type || "update";
-      const timestamp = item?.createdAt || item?.created_at || item?.updatedAt || item?.updated_at;
-      const compactLines = buildCompactChangeLines(beforeData, afterData, changedColumns);
+    return items
+      .map((item, index) => {
+        const rawChangedColumns = toArray(item?.changedColumns ?? item?.changed_columns).map((col) =>
+          normalizeFieldKey(col)
+        );
+        const changedColumns = [...new Set(rawChangedColumns.filter(Boolean))];
+        const beforeData = toObject(item?.beforeData ?? item?.before_data);
+        const afterData = toObject(item?.afterData ?? item?.after_data);
+        const metadata = toObject(item?.metadata);
+        const changedCellDetails = toObject(metadata?.changedCellDetails);
+        const actorName = item?.actorName || item?.actor_name || item?.actorUser?.name || "Unknown User";
+        const actionType = item?.actionType || item?.action_type || "update";
+        const timestamp = item?.createdAt || item?.created_at || item?.updatedAt || item?.updated_at;
+        const snapshot = buildMergedSnapshot(beforeData, afterData, metadata, rowData);
+        const historyRowId = getRowHistoryId(item, metadata, beforeData, afterData);
 
-      return {
-        id: item?.id || `${actorName}-${timestamp}-${index}`,
-        actionType,
-        actorName,
-        timestamp,
-        metadata,
-        changedColumns,
-        beforeData,
-        afterData,
-        compactLines,
-        tuitionName: pickPrimaryValue(
-          afterData.tuitionName,
-          beforeData.tuitionName,
-          item?.paymentClone?.tuitionName,
-          metadata?.tuitionName
-        ),
-        dateWithMonth: pickPrimaryValue(
-          afterData.dateWithMonth,
-          beforeData.dateWithMonth,
-          afterData.paymentDate,
-          beforeData.paymentDate,
-          metadata?.date,
-          rowData?.dateWithMonth,
-          rowData?.paymentDate
-        ),
-        tutorFee: pickPrimaryValue(afterData.tutorFee, beforeData.tutorFee, rowData?.tutorFee),
-        lacasShare: pickPrimaryValue(afterData.lacasShare, beforeData.lacasShare, rowData?.lacasShare),
-        totalFees: pickPrimaryValue(afterData.totalFees, beforeData.totalFees, rowData?.totalFees),
-      };
-    });
+        return {
+          id: item?.id || `${actorName}-${timestamp}-${index}`,
+          actionType,
+          actorName,
+          timestamp,
+          metadata,
+          beforeData,
+          afterData,
+          changedColumns,
+          changedCellDetails,
+          snapshot: {
+            ...snapshot,
+            historyRowId,
+          },
+          historyRowId,
+        };
+      })
+      .filter((item) => item.historyRowId !== null && item.historyRowId !== undefined);
   }, [items, rowData]);
+
+  const groupedRows = useMemo(() => {
+    const groupMap = new Map();
+
+    const chronologicalItems = [...normalizedItems].sort((a, b) => {
+      const aTime = new Date(a?.timestamp || 0).getTime();
+      const bTime = new Date(b?.timestamp || 0).getTime();
+      return aTime - bTime;
+    });
+
+    chronologicalItems.forEach((item) => {
+      const groupKey = String(item.historyRowId);
+      if (!groupMap.has(groupKey)) {
+        groupMap.set(groupKey, {
+          historyRowId: item.historyRowId,
+          snapshot: { historyRowId: item.historyRowId },
+          latestTimestamp: item.timestamp,
+          latestActorName: item.actorName,
+          changeCount: 0,
+          actionTypes: new Set(),
+          changedMap: {},
+        });
+      }
+
+      const group = groupMap.get(groupKey);
+      group.snapshot = {
+        ...group.snapshot,
+        ...item.snapshot,
+        historyRowId: item.historyRowId,
+      };
+      group.latestTimestamp = item.timestamp;
+      group.latestActorName = item.actorName;
+      group.changeCount += 1;
+      group.actionTypes.add(String(item.actionType || "update").toLowerCase());
+
+      item.changedColumns.forEach((colKey) => {
+        const detail = toObject(item.changedCellDetails?.[colKey]);
+        const beforeValue =
+          detail.before !== undefined ? detail.before : readCellValue(item.beforeData, colKey);
+        const afterValue =
+          detail.after !== undefined ? detail.after : readCellValue(item.afterData, colKey);
+
+        if (!group.changedMap[colKey]) {
+          group.changedMap[colKey] = {
+            latestValue: afterValue,
+            firstValue: beforeValue,
+            items: [],
+          };
+        }
+
+        group.changedMap[colKey].latestValue = afterValue;
+        group.changedMap[colKey].items.push({
+          timestamp: item.timestamp,
+          actorName: item.actorName,
+          actionType: item.actionType,
+          before: beforeValue,
+          after: afterValue,
+        });
+      });
+    });
+
+    return [...groupMap.values()]
+      .map((group) => ({
+        ...group,
+        actionTypes: [...group.actionTypes],
+      }))
+      .sort((a, b) => compareSnapshots(a.snapshot, b.snapshot));
+  }, [normalizedItems]);
 
   const summary = useMemo(() => {
     const users = new Set(normalizedItems.map((item) => item.actorName));
-    const actions = new Set(normalizedItems.map((item) => item.actionType));
     return {
-      total: normalizedItems.length,
+      totalRows: groupedRows.length,
+      totalChanges: normalizedItems.length,
       users: users.size,
-      actions: actions.size,
     };
-  }, [normalizedItems]);
+  }, [groupedRows.length, normalizedItems]);
 
   if (!open) return null;
 
   return (
-    <div style={styles.wrap}>
-      <div style={styles.header}>
-        <div style={styles.titleWrap}>
-          <h3 style={styles.title}>
-            {paymentCloneId ? "Payment Row History" : "Payment Sheet History"}
-          </h3>
-          <p style={styles.subtitle}>
-            Yeh full-width history table hai. Har user ki create, update, delete, reorder changes yahan same sheet style me show hongi.
-          </p>
+    <div style={styles.overlay} onClick={onClose}>
+      <div style={styles.panel} onClick={(e) => e.stopPropagation()}>
+        <div style={styles.header}>
+          <div style={styles.titleWrap}>
+            <h3 style={styles.title}>
+              {paymentCloneId ? "Payment Row History" : "Payment Sheet History"}
+            </h3>
+            <p style={styles.subtitle}>
+              Har Row ID sirf aik dafa show hogi. Jis field me update, delete ya create hua hoga us cell par color ayega, aur hover par us field ki puri change history box me show hogi.
+            </p>
+          </div>
+          <button type="button" style={styles.closeBtn} onClick={onClose} aria-label="Close history panel">
+            ×
+          </button>
         </div>
-        <button type="button" style={styles.closeBtn} onClick={onClose} aria-label="Close history panel">
-          ×
-        </button>
-      </div>
 
-      <div style={styles.summaryBar}>
-        <div style={styles.summaryItem}>Total Changes: {summary.total}</div>
-        <div style={styles.summaryItem}>Users: {summary.users}</div>
-        <div style={styles.summaryItem}>Action Types: {summary.actions}</div>
-        <div style={styles.summaryItem}>Mode: {paymentCloneId ? "Selected Row" : "Whole Sheet"}</div>
-      </div>
+        <div style={styles.summaryBar}>
+          <div style={styles.summaryItem}>Rows: {summary.totalRows}</div>
+          <div style={styles.summaryItem}>Total Changes: {summary.totalChanges}</div>
+          <div style={styles.summaryItem}>Users: {summary.users}</div>
+          <div style={styles.summaryItem}>Mode: {paymentCloneId ? "Selected Row" : "Whole Sheet"}</div>
+        </div>
 
-      {error ? <div style={styles.error}>{error}</div> : null}
+        {error ? <div style={styles.error}>{error}</div> : null}
 
-      <div style={styles.scroller}>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={{ ...styles.th, minWidth: "170px" }}>Date &amp; Time</th>
-              <th style={{ ...styles.th, minWidth: "180px" }}>User</th>
-              <th style={{ ...styles.th, minWidth: "120px" }}>Action</th>
-              <th style={{ ...styles.th, minWidth: "220px" }}>Tuition Name</th>
-              <th style={{ ...styles.th, minWidth: "130px" }}>Date</th>
-              <th style={{ ...styles.th, minWidth: "110px" }}>Tutor Fee</th>
-              <th style={{ ...styles.th, minWidth: "110px" }}>Lacas Share</th>
-              <th style={{ ...styles.th, minWidth: "110px" }}>Total Fee</th>
-              <th style={{ ...styles.th, minWidth: "250px" }}>Changed Columns</th>
-              <th style={{ ...styles.th, minWidth: "600px" }}>Before / After Changes</th>
-              <th style={{ ...styles.th, minWidth: "260px" }}>Message</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
+        <div style={styles.scroller}>
+          <table style={styles.table}>
+            <thead>
               <tr>
-                <td colSpan={11} style={styles.loading}>Loading payment history...</td>
+                {SHEET_COLUMNS.map((col) => (
+                  <th key={col.key} style={{ ...styles.th, minWidth: `${col.width}px` }}>
+                    {col.label}
+                  </th>
+                ))}
+                <th style={{ ...styles.th, minWidth: "170px" }}>Last Changed At</th>
+                <th style={{ ...styles.th, minWidth: "150px" }}>Last Updated By</th>
               </tr>
-            ) : null}
-
-            {!loading && !normalizedItems.length ? (
-              <tr>
-                <td colSpan={11} style={styles.empty}>No history found yet.</td>
-              </tr>
-            ) : null}
-
-            {!loading && normalizedItems.map((item) => {
-              const actionStyle = getActionStyle(item.actionType);
-              const actorStyle = getActorColor(item.actorName);
-              return (
-                <tr key={item.id}>
-                  <td style={styles.td}>{formatDateTime(item.timestamp)}</td>
-                  <td style={{ ...styles.td, background: actorStyle.bg }}>
-                    <span
-                      style={{
-                        ...styles.userTag,
-                        background: actorStyle.bg,
-                        color: actorStyle.text,
-                        borderColor: actorStyle.border,
-                      }}
-                    >
-                      {item.actorName}
-                    </span>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={SHEET_COLUMNS.length + 2} style={styles.loading}>
+                    Loading payment history...
                   </td>
-                  <td style={styles.td}>
-                    <span style={{ ...styles.actionTag, ...actionStyle }}>
-                      {String(item.actionType).toUpperCase()}
-                    </span>
-                  </td>
-                  <td style={styles.td}>{displayValue(item.tuitionName)}</td>
-                  <td style={styles.td}>{displayValue(item.dateWithMonth)}</td>
-                  <td style={styles.td}>{displayValue(item.tutorFee)}</td>
-                  <td style={styles.td}>{displayValue(item.lacasShare)}</td>
-                  <td style={styles.td}>{displayValue(item.totalFees)}</td>
-                  <td style={styles.td}>
-                    <div style={styles.chipWrap}>
-                      {(item.changedColumns.length ? item.changedColumns : ["No explicit columns"]).map((col) => (
-                        <span key={`${item.id}-${col}`} style={styles.chip}>{col}</span>
-                      ))}
-                    </div>
-                  </td>
-                  <td style={styles.td}>
-                    <div style={styles.detailBlock}>
-                      {item.compactLines.length ? item.compactLines.map((line) => (
-                        <div key={`${item.id}-${line.field}`} style={styles.detailLine}>
-                          <strong>{line.field}</strong>
-                          <div>
-                            <span style={styles.beforeValue}>Before:</span> {line.before}
-                          </div>
-                          <div>
-                            <span style={styles.afterValue}>After:</span> {line.after}
-                          </div>
-                        </div>
-                      )) : <span style={styles.muted}>No before/after diff found.</span>}
-                    </div>
-                  </td>
-                  <td style={styles.td}>{displayValue(item.metadata?.message || item.metadata?.historyLabel || "Payment sheet changed.")}</td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ) : null}
+
+              {!loading && !groupedRows.length ? (
+                <tr>
+                  <td colSpan={SHEET_COLUMNS.length + 2} style={styles.empty}>
+                    No history found yet.
+                  </td>
+                </tr>
+              ) : null}
+
+              {!loading &&
+                groupedRows.map((row) => {
+                  const actorStyle = getActorColor(row.latestActorName);
+
+                  return (
+                    <tr key={String(row.historyRowId)}>
+                      {SHEET_COLUMNS.map((col) => {
+                        const currentValue = readCellValue(row.snapshot, col.key);
+                        const changeInfo = row.changedMap[col.key];
+                        const isChanged = Boolean(changeInfo?.items?.length);
+                        const tooltipItems = changeInfo?.items || [];
+
+                        const baseStyle = {
+                          ...styles.td,
+                          ...(isChanged
+                            ? {
+                                ...styles.changedCell,
+                                background: getCellHighlight(tooltipItems.map((entry) => entry.actionType)),
+                              }
+                            : {}),
+                        };
+
+                        let content = <div style={styles.cellValue}>{displayValue(currentValue)}</div>;
+
+                        if (col.kind === "checkbox") {
+                          content = <input type="checkbox" checked={false} readOnly style={styles.readonlyCheckbox} />;
+                        } else if (col.kind === "color") {
+                          content = (
+                            <span
+                              style={{
+                                ...styles.colorSwatch,
+                                background: currentValue || "#ffffff",
+                              }}
+                            />
+                          );
+                        } else if (col.kind === "sort") {
+                          content = <span style={styles.sortValue}>{displayValue(currentValue)}</span>;
+                        }
+
+                        return (
+                          <td
+                            key={`${row.historyRowId}-${col.key}`}
+                            style={baseStyle}
+                            onMouseEnter={(event) => {
+                              if (!isChanged) return;
+                              const rect = event.currentTarget.getBoundingClientRect();
+                              setTooltip({
+                                title: `${col.label || "Field"} • ${tooltipItems.length} change${tooltipItems.length > 1 ? "s" : ""}`,
+                                x: rect.right + 10,
+                                y: rect.top + 4,
+                                items: tooltipItems,
+                              });
+                            }}
+                            onMouseLeave={() => setTooltip(null)}
+                          >
+                            {isChanged ? <span style={styles.changedMarker} /> : null}
+                            {content}
+                          </td>
+                        );
+                      })}
+
+                      <td style={styles.td}>{formatDateTime(row.latestTimestamp)}</td>
+                      <td style={{ ...styles.td, background: actorStyle.bg }}>
+                        <span
+                          style={{
+                            ...styles.userTag,
+                            background: actorStyle.bg,
+                            color: actorStyle.text,
+                            borderColor: actorStyle.border,
+                          }}
+                        >
+                          {row.latestActorName}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
+
+        {tooltip ? (
+          <div
+            style={{
+              ...styles.tooltip,
+              left: Math.min(tooltip.x, window.innerWidth - 470),
+              top: Math.min(tooltip.y, window.innerHeight - 260),
+            }}
+          >
+            <span style={styles.tooltipLabel}>{tooltip.title}</span>
+            {tooltip.items.map((item, index) => (
+              <span key={`${item.timestamp}-${index}`} style={styles.tooltipHistoryItem}>
+                <span style={styles.tooltipRow}><strong>{index + 1}.</strong> {formatDateTime(item.timestamp)} • {item.actorName}</span>
+                <span style={styles.tooltipRow}><strong>Previous:</strong> {displayValue(item.before)}</span>
+                <span style={styles.tooltipRow}><strong>Changed To:</strong> {displayValue(item.after)}</span>
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -255,7 +255,7 @@ export default function TargetBoard({ onCountChange, isActive = true }) {
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [globalZoom, setGlobalZoom] = useState(0.6);
+  const [globalZoom, setGlobalZoom] = useState(1);
 
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
@@ -265,7 +265,7 @@ export default function TargetBoard({ onCountChange, isActive = true }) {
   const handleGlobalZoom = (factor) => {
     setGlobalZoom((prev) => {
       let next = prev + factor;
-      if (next < 0.5) next = 0.5;
+      if (next < 0.8) next = 0.8;
       if (next > 2) next = 2;
       return Number(next.toFixed(1));
     });
@@ -477,7 +477,7 @@ export default function TargetBoard({ onCountChange, isActive = true }) {
       {loading && !slots.length ? <div className="muted">Loading...</div> : null}
       {error ? <div style={{ color: "#b91c1c", marginBottom: 12 }}>{error}</div> : null}
 
-      <div style={{ display: "grid", gap: 12 }}>
+      <div >
         {slots.map((slot) => (
           <EnhancedSlotShell key={slot.slotHeader}>
             <SlotTable

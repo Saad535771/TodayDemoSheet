@@ -1638,17 +1638,13 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
       return;
     }
 
-    const ok = window.confirm(
-      "Are you sure? This row will be moved to trash."
-    );
-    if (!ok) return;
+
 
     const previousItems = cloneRows(itemsRef.current);
     setItemsImmediate(
       previousItems.filter((item) => String(getRowId(item)) !== String(rowId))
     );
     mutationInFlightRef.current = true;
-
     try {
       await api.delete(`/payments-clone/${encodeURIComponent(rowId)}`);
       rememberHistoryEntry({
