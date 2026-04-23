@@ -31,7 +31,7 @@ export function makeAuthRoutes(authController) {
 
       body("role")
         .trim()
-        .isIn(["admin", "staff", "hod","otm"])
+        .isIn(["admin", "staff", "hod", "otm"])
         .withMessage("Invalid role selected"),
 
       body("session_id")
@@ -66,7 +66,7 @@ export function makeAuthRoutes(authController) {
 
       body("role")
         .trim()
-        .isIn(["admin", "staff", "hod","otm"])
+        .isIn(["admin", "staff", "hod", "otm"])
         .withMessage("Invalid role")
     ],
     authController.register
@@ -130,7 +130,12 @@ export function makeAuthRoutes(authController) {
       permissionValueValidator("access_payment_sheet"),
       permissionValueValidator("access_tutor_share"),
       permissionValueValidator("access_lacas_share"),
-      permissionValueValidator("access_total_fees")
+      permissionValueValidator("access_total_fees"),
+      permissionValueValidator("access_hod_approvals"),
+      permissionValueValidator("access_staff"),
+      permissionValueValidator("access_otm_management"),
+      permissionValueValidator("access_chat"),
+      permissionValueValidator("access_chat_send")
     ],
     authController.updatePermissions
   );

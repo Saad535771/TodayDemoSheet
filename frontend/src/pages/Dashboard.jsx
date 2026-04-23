@@ -6,10 +6,11 @@ import TrashBin from "../components/TrashBin.jsx";
 import PaymentSheet from "../components/PaymentSheet.jsx";
 import HodApprovals from "../components/HodApprovals.jsx";
 import ActiveUsersPanel from "../components/ActiveUsersPanel.jsx";
+import FloatingChatWidget from "../components/FloatingChatWidget.jsx";
 import { api, clearToken, getStoredToken, setAuthToken } from "../api/api.js";
 import Logo from "../assets/Logo-1-Blue.png";
 import OtmManagement from "../components/OtmManagement.jsx";
-
+import TeamChat from "../components/TeamChat.jsx";
 const LAST_TAB_KEY = "dashboard_active_tab";
 const TAB_SCROLL_KEY = "dashboard_tab_scroll_positions";
 const SESSION_KEY = "dashboard_session_id";
@@ -25,6 +26,7 @@ const DEFAULT_BADGE_META = {
   trash: { total: 0, newCount: 0 },
   staff: { total: 0, newCount: 0 },
   otm_management: { total: 0, newCount: 0 },
+  chat: { total: 0, newCount: 0 },
 };
 
 function getOrCreateSessionId() {
@@ -72,6 +74,8 @@ function readCountFromResponse(data) {
   if (Array.isArray(data)) return data.length;
   if (Array.isArray(data?.items)) return data.items.length;
   if (Array.isArray(data?.rows)) return data.rows.length;
+  if (Array.isArray(data?.groups)) return data.groups.length;
+  if (Array.isArray(data?.messages)) return data.messages.length;
   if (Array.isArray(data?.slots)) {
     return data.slots.reduce(
       (sum, slot) => sum + (Array.isArray(slot?.items) ? slot.items.length : 0),
@@ -100,6 +104,10 @@ async function fetchBadgeCountByKey(key) {
     }
     case "payment": {
       const { data } = await api.get("/payments");
+      return readCountFromResponse(data);
+    }
+    case "chat": {
+      const { data } = await api.get("/chat/groups");
       return readCountFromResponse(data);
     }
     case "trash": {
@@ -394,6 +402,12 @@ export default function Dashboard() {
         ),
       },
       {
+        key: "chat",
+        label: "💬 Team Chat",
+        permissionKey: "access_chat",
+        component: <TeamChat me={me} />,
+      },
+      {
         key: "staff",
         label: "👥 Staff",
         permissionKey: "access_staff",
@@ -460,6 +474,7 @@ export default function Dashboard() {
       "trash",
       "staff",
       "otm_management",
+      "chat",
     ].filter((key) => allowedKeys.includes(key));
 
     await Promise.all(
@@ -643,7 +658,9 @@ export default function Dashboard() {
   }, [me, tab]);
 
   const currentTitle = activeTabConfig?.label || "Dashboard";
-
+{me && (role === "admin" || Number(me?.access_chat || 0) === 1) ? (
+  <FloatingChatWidget me={me} />
+) : null}
   return (
     <div style={styles.dashboardContainer}>
       <div style={styles.topbar}>

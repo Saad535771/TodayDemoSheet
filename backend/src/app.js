@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import morgan from "morgan";
 import { requireAuth } from "./middleware/auth.js";
+
 export function makeApp({
   authRoutes,
   tuitionRoutes,
@@ -9,7 +10,8 @@ export function makeApp({
   paymentRoutes,
   paymentCloneRoutes,
   otmManagementRoutes,
-   paymentChangeRequestRoutes,
+  paymentChangeRequestRoutes,
+  chatRoutes,
 }) {
   const app = express();
 
@@ -33,13 +35,16 @@ export function makeApp({
   app.get("/api/health", (req, res) => {
     res.json({ ok: true });
   });
+
   app.use("/api/auth", authRoutes);
   app.use("/api/tuitions", tuitionRoutes);
   app.use("/api/target", targetRoutes);
   app.use("/api/payments", paymentRoutes);
   app.use("/api/payments-clone", paymentCloneRoutes);
-   app.use("/api/otm-management", otmManagementRoutes);
-    app.use("/api/payment-change-requests", requireAuth, paymentChangeRequestRoutes);
+  app.use("/api/otm-management", otmManagementRoutes);
+  app.use("/api/chat", chatRoutes);
+  app.use("/api/payment-change-requests", requireAuth, paymentChangeRequestRoutes);
+
   app.use((err, req, res, next) => {
     console.error("APP ERROR:", err);
     res.status(500).json({
@@ -48,5 +53,6 @@ export function makeApp({
         process.env.NODE_ENV === "development" ? String(err?.message || err) : undefined,
     });
   });
+
   return app;
 }

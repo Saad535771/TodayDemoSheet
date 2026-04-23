@@ -10,7 +10,10 @@ import { defineOtmPortalReport } from "./OtmPortalReport.js";
 import { defineOtmClassTime } from "./OtmClassTime.js";
 import { defineOtmTotalClass } from "./OtmTotalClass.js";
 import { definePaymentChangeRequest } from "./PaymentChangeRequest.js";
-
+import { defineChatGroup } from "./ChatGroup.js";
+import { defineChatGroupMember } from "./ChatGroupMember.js";
+import { defineChatMessage } from "./ChatMessage.js";
+import { defineChatMessageSeen } from "./ChatMessageSeen.js";
 export function initModels(sequelize) {
   const User = defineUser(sequelize);
   const Tuition = defineTuition(sequelize);
@@ -25,65 +28,45 @@ export function initModels(sequelize) {
   const OtmTotalClass = defineOtmTotalClass(sequelize);
   const PaymentChangeRequest = definePaymentChangeRequest(sequelize);
 
-  UserPresence.belongsTo(User, {
-    foreignKey: "userId",
-    as: "user",
-  });
+  const ChatGroup = defineChatGroup(sequelize);
+  const ChatGroupMember = defineChatGroupMember(sequelize);
+  const ChatMessage = defineChatMessage(sequelize);
+  const ChatMessageSeen = defineChatMessageSeen(sequelize);
 
-  User.hasMany(UserPresence, {
-    foreignKey: "userId",
-    as: "presences",
-  });
+  UserPresence.belongsTo(User, { foreignKey: "userId", as: "user" });
+  User.hasMany(UserPresence, { foreignKey: "userId", as: "presences" });
 
-  OtmTuitionEntry.belongsTo(User, {
-    foreignKey: "userId",
-    as: "user",
-  });
+  OtmTuitionEntry.belongsTo(User, { foreignKey: "userId", as: "user" });
+  User.hasMany(OtmTuitionEntry, { foreignKey: "userId", as: "otmEntries" });
 
-  User.hasMany(OtmTuitionEntry, {
-    foreignKey: "userId",
-    as: "otmEntries",
-  });
+  OtmPortalReport.belongsTo(User, { foreignKey: "userId", as: "user" });
+  User.hasMany(OtmPortalReport, { foreignKey: "userId", as: "otmReports" });
 
-  OtmPortalReport.belongsTo(User, {
-    foreignKey: "userId",
-    as: "user",
-  });
+  OtmTotalClass.belongsTo(User, { foreignKey: "userId", as: "user" });
+  User.hasMany(OtmTotalClass, { foreignKey: "userId", as: "otmTotalClasses" });
 
-  User.hasMany(OtmPortalReport, {
-    foreignKey: "userId",
-    as: "otmReports",
-  });
+  PaymentChangeRequest.belongsTo(User, { foreignKey: "actorUserId", as: "actorUser" });
+  PaymentChangeRequest.belongsTo(User, { foreignKey: "approvedBy", as: "approvedByUser" });
+  PaymentChangeRequest.belongsTo(User, { foreignKey: "rejectedBy", as: "rejectedByUser" });
+  PaymentChangeRequest.belongsTo(PaymentClone, { foreignKey: "paymentCloneId", as: "paymentClone" });
 
-  OtmTotalClass.belongsTo(User, {
-    foreignKey: "userId",
-    as: "user",
-  });
+  ChatGroup.hasMany(ChatGroupMember, { foreignKey: "groupId", as: "members" });
+  ChatGroupMember.belongsTo(ChatGroup, { foreignKey: "groupId", as: "group" });
 
-  User.hasMany(OtmTotalClass, {
-    foreignKey: "userId",
-    as: "otmTotalClasses",
-  });
+  User.hasMany(ChatGroupMember, { foreignKey: "userId", as: "chatMemberships" });
+  ChatGroupMember.belongsTo(User, { foreignKey: "userId", as: "memberUser" });
 
-  PaymentChangeRequest.belongsTo(User, {
-    foreignKey: "actorUserId",
-    as: "actorUser",
-  });
+  ChatGroup.hasMany(ChatMessage, { foreignKey: "groupId", as: "messages" });
+  ChatMessage.belongsTo(ChatGroup, { foreignKey: "groupId", as: "group" });
 
-  PaymentChangeRequest.belongsTo(User, {
-    foreignKey: "approvedBy",
-    as: "approvedByUser",
-  });
+  User.hasMany(ChatMessage, { foreignKey: "senderId", as: "sentChatMessages" });
+  ChatMessage.belongsTo(User, { foreignKey: "senderId", as: "sender" });
 
-  PaymentChangeRequest.belongsTo(User, {
-    foreignKey: "rejectedBy",
-    as: "rejectedByUser",
-  });
+  ChatMessage.hasMany(ChatMessageSeen, { foreignKey: "messageId", as: "seenBy" });
+  ChatMessageSeen.belongsTo(ChatMessage, { foreignKey: "messageId", as: "message" });
 
-  PaymentChangeRequest.belongsTo(PaymentClone, {
-    foreignKey: "paymentCloneId",
-    as: "paymentClone",
-  });
+  User.hasMany(ChatMessageSeen, { foreignKey: "userId", as: "chatSeenRows" });
+  ChatMessageSeen.belongsTo(User, { foreignKey: "userId", as: "seenUser" });
 
   return {
     User,
@@ -99,5 +82,9 @@ export function initModels(sequelize) {
     OtmClassTime,
     OtmTotalClass,
     PaymentChangeRequest,
+    ChatGroup,
+    ChatGroupMember,
+    ChatMessage,
+    ChatMessageSeen,
   };
 }

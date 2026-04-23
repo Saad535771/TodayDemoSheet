@@ -1,13 +1,19 @@
+import { createServer } from "http";
+import { Server } from "socket.io";
 import dotenv from "dotenv";
 dotenv.config();
+
 import { makeSequelize } from "./config/db.js";
 import { initModels } from "./models/index.js";
+
 import { makeAuthController } from "./controllers/authController.js";
 import { makeTuitionController } from "./controllers/tuitionController.js";
 import { makeTargetController } from "./controllers/targetController.js";
 import { makePaymentController } from "./controllers/paymentController.js";
 import { makePaymentCloneController } from "./controllers/paymentCloneController.js";
 import { makeOtmManagementController } from "./controllers/otmManagementController.js";
+import { makeChatController } from "./controllers/chatController.js";
+
 import { makeAuthRoutes } from "./routes/authRoutes.js";
 import { makeTuitionRoutes } from "./routes/tuitionRoutes.js";
 import { makeTargetRoutes } from "./routes/targetRoutes.js";
@@ -15,36 +21,42 @@ import { makePaymentRoutes } from "./routes/paymentRoutes.js";
 import { makePaymentCloneRoutes } from "./routes/paymentCloneRoutes.js";
 import { makeOtmManagementRoutes } from "./routes/otmManagementRoutes.js";
 import { createPaymentChangeRequestRoutes } from "./routes/paymentChangeRequestRoutes.js";
+import { makeChatRoutes } from "./routes/chatRoutes.js";
+
 import { requireAuth } from "./middleware/auth.js";
 import { makeApp } from "./app.js";
 import { startDailyJob } from "./jobs/dailyJob.js";
 import { startPaymentChangeRequestCleanup } from "./jobs/startPaymentChangeRequestCleanup.js";
+import { registerChatSocket } from "./socket/chatSocket.js";
+
 const sequelize = makeSequelize();
-const models = initModels(sequelize);
+
 async function main() {
   try {
     await sequelize.authenticate();
     console.log("✅ DB connected");
-   const {
-  PaymentClone,
-  PaymentCloneTrash,
-  PaymentChangeRequest,
-  User,
-  OtmTuitionEntry,
-  OtmPortalReport,
-  OtmClassTime,
-  OtmTotalClass,
-} = models;
-const otmManagementController = makeOtmManagementController({
-  User,
-  OtmTuitionEntry,
-  OtmPortalReport,
-  OtmClassTime,
-  OtmTotalClass,
-});
+
+    const models = initModels(sequelize);
+
+    const {
+      PaymentClone,
+      PaymentCloneTrash,
+      PaymentChangeRequest,
+      User,
+      OtmTuitionEntry,
+      OtmPortalReport,
+      OtmClassTime,
+      OtmTotalClass,
+      ChatGroup,
+      ChatGroupMember,
+      ChatMessage,
+      ChatMessageSeen,
+    } = models;
+
     if (!PaymentClone) {
       throw new Error("PaymentClone model not found in initModels(sequelize)");
     }
+
     if (!PaymentChangeRequest) {
       throw new Error("PaymentChangeRequest model not found in initModels(sequelize)");
     }
@@ -58,12 +70,28 @@ const otmManagementController = makeOtmManagementController({
       PaymentChangeRequest,
       User,
     });
+    const otmManagementController = makeOtmManagementController({
+      User,
+      OtmTuitionEntry,
+      OtmPortalReport,
+      OtmClassTime,
+      OtmTotalClass,
+    });
+    const chatController = makeChatController({
+      sequelize,
+      User,
+      ChatGroup,
+      ChatGroupMember,
+      ChatMessage,
+      ChatMessageSeen,
+    });
     const authRoutes = makeAuthRoutes(authController);
     const tuitionRoutes = makeTuitionRoutes(tuitionController, requireAuth);
     const targetRoutes = makeTargetRoutes(targetController, requireAuth);
     const paymentRoutes = makePaymentRoutes(paymentController);
-    const paymentCloneRoutes = makePaymentCloneRoutes(paymentCloneController,requireAuth);
+    const paymentCloneRoutes = makePaymentCloneRoutes(paymentCloneController, requireAuth);
     const otmManagementRoutes = makeOtmManagementRoutes(otmManagementController);
+    const chatRoutes = makeChatRoutes(chatController);
     const paymentChangeRequestRoutes = createPaymentChangeRequestRoutes({
       PaymentClone,
       PaymentCloneTrash,
@@ -78,9 +106,23 @@ const otmManagementController = makeOtmManagementController({
       paymentCloneRoutes,
       otmManagementRoutes,
       paymentChangeRequestRoutes,
+      chatRoutes,
+    });
+    const httpServer = createServer(app);
+    const io = new Server(httpServer, {
+      cors: {
+        origin: true,
+        credentials: true,
+      },
+    });
+    registerChatSocket(io, {
+      User,
+      ChatGroupMember,
+      ChatMessage,
+      ChatMessageSeen,
     });
     const port = process.env.PORT ? Number(process.env.PORT) : 5000;
-    app.listen(port, () => {
+    httpServer.listen(port, () => {
       console.log(`🚀 Server running on http://localhost:${port}`);
     });
     startDailyJob();

@@ -154,47 +154,63 @@ export default function StaffManager() {
     return value ? 1 : 0;
   }
 
-  async function togglePermission(userId, field, currentValue) {
-    const updatedUsers = users.map((u) => {
-      if (u.id !== userId) return u;
+async function togglePermission(userId, field, currentValue) {
+  const updatedUsers = users.map((u) => {
+    if (u.id !== userId) return u;
 
-      const nextValue = currentValue ? 0 : 1;
-      const updatedUser = {
-        ...u,
-        [field]: nextValue,
-      };
+    const nextValue = currentValue ? 0 : 1;
+    const updatedUser = {
+      ...u,
+      [field]: nextValue,
+    };
 
-      if (field === "access_payment_sheet" && nextValue === 0) {
-        updatedUser.access_tutor_share = 0;
-        updatedUser.access_lacas_share = 0;
-        updatedUser.access_total_fees = 0;
-      }
+    if (field === "access_chat" && nextValue === 0) {
+      updatedUser.access_chat_send = 0;
+    }
 
-      return updatedUser;
+    if (field === "access_payment_sheet" && nextValue === 0) {
+      updatedUser.access_tutor_share = 0;
+      updatedUser.access_lacas_share = 0;
+      updatedUser.access_total_fees = 0;
+    }
+
+    return updatedUser;
+  });
+
+  setUsers(updatedUsers);
+
+  try {
+    const user = updatedUsers.find((u) => u.id === userId);
+
+    await api.put(`/auth/users/${userId}/permissions`, {
+      access_monthly: toInt(user.access_monthly),
+      access_demo: toInt(user.access_demo),
+      access_trash: toInt(user.access_trash),
+      access_payment_sheet: toInt(user.access_payment_sheet),
+      access_tutor_share: toInt(user.access_tutor_share),
+      access_lacas_share: toInt(user.access_lacas_share),
+      access_total_fees: toInt(user.access_total_fees),
+      access_hod_approvals: toInt(user.access_hod_approvals),
+      access_staff: toInt(user.access_staff),
+      access_otm_management: toInt(user.access_otm_management),
+      access_chat: toInt(user.access_chat),
+      access_chat_send: toInt(user.access_chat_send),
     });
 
-    setUsers(updatedUsers);
+    const DEFAULT_CHAT_GROUP_ID = 1;
 
-    try {
-      const user = updatedUsers.find((u) => u.id === userId);
-
-      await api.put(`/auth/users/${userId}/permissions`, {
-  access_monthly: toInt(user.access_monthly),
-  access_demo: toInt(user.access_demo),
-  access_trash: toInt(user.access_trash),
-  access_payment_sheet: toInt(user.access_payment_sheet),
-  access_tutor_share: toInt(user.access_tutor_share),
-  access_lacas_share: toInt(user.access_lacas_share),
-  access_total_fees: toInt(user.access_total_fees),
-  access_hod_approvals: toInt(user.access_hod_approvals),
-  access_staff: toInt(user.access_staff),
-  access_otm_management: toInt(user.access_otm_management),
-});
-    } catch (err) {
-      alert("Failed to update permission");
-      fetchUsers();
+    if (field === "access_chat" || field === "access_chat_send") {
+      await api.post(`/chat/groups/${DEFAULT_CHAT_GROUP_ID}/members`, {
+        user_id: userId,
+        is_active: !!user.access_chat,
+        can_send: !!user.access_chat && !!user.access_chat_send,
+      });
     }
+  } catch (err) {
+    alert("Failed to update permission");
+    fetchUsers();
   }
+}
 
   async function handleDelete(userId) {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
@@ -234,6 +250,8 @@ export default function StaffManager() {
               <th style={{ ...styles.th, textAlign: "center" }}>Tutor Share</th>
               <th style={{ ...styles.th, textAlign: "center" }}>Lacas Share</th>
               <th style={{ ...styles.th, textAlign: "center" }}>Total Fees</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Show Chat</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Send Chat Msg</th>
               <th style={{ ...styles.th, textAlign: "right" }}>Actions</th>
             </tr>
           </thead>
@@ -389,6 +407,27 @@ export default function StaffManager() {
                     )}
                   </td>
 
+                  <td style={{ ...styles.td, ...styles.centerCell }}>
+                    <button
+                      style={styles.toggleBtn(user.access_chat)}
+                      onClick={() => togglePermission(user.id, "access_chat", user.access_chat)}
+                    >
+                      <div style={styles.toggleCircle(user.access_chat)} />
+                    </button>
+                  </td>
+
+                  <td style={{ ...styles.td, ...styles.centerCell }}>
+                    {user.access_chat ? (
+                      <button
+                        style={styles.toggleBtn(user.access_chat_send)}
+                        onClick={() => togglePermission(user.id, "access_chat_send", user.access_chat_send)}
+                      >
+                        <div style={styles.toggleCircle(user.access_chat_send)} />
+                      </button>
+                    ) : (
+                      <span style={styles.mutedText}>Enable chat first</span>
+                    )}
+                  </td>
                   <td style={{ ...styles.td, textAlign: "right" }}>
                     <div style={styles.actionsWrap}>
                       {user.role === "otm" && (

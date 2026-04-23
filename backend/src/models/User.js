@@ -63,6 +63,16 @@ export function defineUser(sequelize) {
       defaultValue: 0,
       field: "access_otm_management"
     },
+    accessChat: { 
+      type: DataTypes.TINYINT, 
+      defaultValue: 0, 
+      field: "access_chat"
+     },
+        accessChatSend: { 
+          type: DataTypes.TINYINT,
+           defaultValue: 0, 
+           field: "access_chat_send" 
+          },
   }, {
     tableName: "users",
     underscored: true

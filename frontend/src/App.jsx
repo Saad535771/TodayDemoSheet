@@ -8,6 +8,7 @@ import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import AdminOtmUserDetail from "./components/AdminOtmUserDetail.jsx";
 import PaymentChangeRequestsPanel from "./pages/PaymentChangeRequestsPanel.jsx";
 import 'react-data-grid/lib/styles.css';
+import FloatingChatWidget from "./components/FloatingChatWidget.jsx";
 function PrivateRoute({ children }) {
   const token = getStoredToken();
   if (!token) {

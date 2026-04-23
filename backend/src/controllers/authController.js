@@ -70,6 +70,8 @@ export function makeAuthController({ User, UserPresence }) {
     access_hod_approvals: user.accessHodApprovals,
     access_staff: user.accessStaff,
     access_otm_management: user.accessOtmManagement,
+     access_chat: user.accessChat,
+  access_chat_send: user.accessChatSend,
   });
 
   async function createOrUpdatePresence({
@@ -210,7 +212,9 @@ export function makeAuthController({ User, UserPresence }) {
           accessPaymentSheet: paymentPermissions.accessPaymentSheet,
           accessTutorShare: paymentPermissions.accessTutorShare,
           accessLacasShare: paymentPermissions.accessLacasShare,
-          accessTotalFees: paymentPermissions.accessTotalFees
+          accessTotalFees: paymentPermissions.accessTotalFees,
+           accessChat: finalRole === "admin" ? 1 : 0,
+  accessChatSend: finalRole === "admin" ? 1 : 0,
         });
 
         return res.json({
@@ -297,7 +301,9 @@ export function makeAuthController({ User, UserPresence }) {
         access_total_fees,
         access_hod_approvals,
         access_staff,
-        access_otm_management
+        access_otm_management,
+        access_chat,
+  access_chat_send
       } = req.body;
 
       try {
@@ -329,6 +335,9 @@ export function makeAuthController({ User, UserPresence }) {
             accessHodApprovals: toBoolInt(access_hod_approvals),
             accessStaff: toBoolInt(access_staff),
             accessOtmManagement: toBoolInt(access_otm_management),
+            accessChat: user.role === "admin" ? 1 : toBoolInt(access_chat),
+             accessChatSend:user.role === "admin"? 1 : toBoolInt(access_chat) === 1  
+              ? toBoolInt(access_chat_send) : 0,
           },
           { where: { id: userId } }
         );
