@@ -10,7 +10,7 @@ const RECENT_MUTATION_PAUSE_MS = 1200;
 const SILENT_RELOAD_DEBOUNCE_MS = 800;
 const PAGE_TOP_OFFSET = 78;
 const FIXED_TOOLBAR_HEIGHT = 118;
-const STICKY_TOP =-40;
+const STICKY_TOP = -40;
 const styles = {
   page: {
     minHeight: "100vh",
@@ -45,7 +45,7 @@ const styles = {
     fontWeight: "700",
     color: "#111111",
     margin: 0,
-    textAlign:'center',
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: "13px",
@@ -135,15 +135,15 @@ const styles = {
     whiteSpace: "nowrap",
   },
   tableWrapper: {
-  overflowX: "auto",
-  overflowY: "auto",
-  position: "relative",
-  borderRadius: "12px",
-  border: "2px solid #000000",
-  maxWidth: "100%",
-  maxHeight: "calc(100vh - 0px)",
-  background: "#ffffff",
-},
+    overflowX: "auto",
+    overflowY: "auto",
+    position: "relative",
+    borderRadius: "12px",
+    border: "2px solid #000000",
+    maxWidth: "100%",
+    maxHeight: "calc(100vh - 0px)",
+    background: "#ffffff",
+  },
   tableZoomWrap: {
     transformOrigin: "top left",
   },
@@ -153,19 +153,19 @@ const styles = {
     fontSize: "12px",
     background: "#ffffff",
   },
- th: {
-  background: "#000000",
-  color: "#ffffff",
-  fontWeight: "700",
-  textAlign: "center",
-  borderBottom: "1.5px solid #000000",
-  borderRight: "1.5px solid #000000",
-  position: "sticky",
-  top: 0,
-  zIndex: 1200,
-  whiteSpace: "nowrap",
-  boxShadow: "0 3px 0 rgba(0,0,0,0.08)",
-},
+  th: {
+    background: "#000000",
+    color: "#ffffff",
+    fontWeight: "700",
+    textAlign: "center",
+    borderBottom: "1.5px solid #000000",
+    borderRight: "1.5px solid #000000",
+    position: "sticky",
+    top: 0,
+    zIndex: 1200,
+    whiteSpace: "nowrap",
+    boxShadow: "0 3px 0 rgba(0,0,0,0.08)",
+  },
   td: {
     borderBottom: "1.5px solid #000000",
     borderRight: "1.5px solid #000000",
@@ -199,10 +199,10 @@ const styles = {
     fontWeight: "600",
   },
   readCell: {
-   
-    display:'flex',
-    justifyContent:'center',
-    alignItems:'center',
+
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
     cursor: "cell",
     fontWeight: "600",
     color: "#111111",
@@ -212,7 +212,7 @@ const styles = {
     color: "#ffffff",
     border: "1.5px solid #000000",
     borderRadius: "8px",
-    
+
     cursor: "pointer",
     fontWeight: "700",
     fontSize: "12px",
@@ -222,7 +222,7 @@ const styles = {
     color: "#111111",
     border: "1.5px solid #000000",
     borderRadius: "8px",
-    
+
     cursor: "pointer",
     fontWeight: "700",
     fontSize: "12px",
@@ -245,24 +245,24 @@ const styles = {
     cursor: "pointer",
     fontWeight: "800",
     fontSize: "10px",
-   
+
     minWidth: "42px",
   },
   actionGroup: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    
+
     flexWrap: "wrap",
     Height: "auto",
-   
+
   },
   moveBtn: {
     cursor: "pointer",
     border: "none",
     background: "transparent",
     fontSize: "14px",
-   
+
     color: "#111111",
     fontWeight: "700",
   },
@@ -271,7 +271,7 @@ const styles = {
     height: "12px",
     cursor: "pointer",
     accentColor: "#107c41",
-    margin:'0px',
+    margin: '0px',
   },
   colorSwatch: {
     width: "22px",
@@ -290,13 +290,13 @@ const styles = {
     position: "fixed",
     background: "white",
     border: "1.5px solid #000000",
-  
+
     boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
     zIndex: 3000,
     width: "220px",
   },
   emptyState: {
-   
+
     textAlign: "center",
     color: "#444444",
     fontWeight: "700",
@@ -407,7 +407,7 @@ function buildMergedPatchEntries(updates = []) {
 }
 function applyPatchEntriesToRows(rows = [], entries = [], patchKey = "afterPatch") {
   if (!entries.length) return rows;
-    const patchMap = new Map(
+  const patchMap = new Map(
     entries.map((entry) => [String(entry.rowId), entry[patchKey] || {}])
   );
   return rows.map((row) => {
@@ -587,7 +587,7 @@ function StatusPill({ value }) {
               borderRadius: "999px",
               fontSize: "12px",
               fontWeight: "700",
-           
+
               whiteSpace: "nowrap",
             }}
           >
@@ -739,7 +739,7 @@ const ColorSwatch = ({
         >
           <div
             style={{
-            
+
               fontSize: "13px",
               fontWeight: "700",
               color: "#111111",
@@ -753,7 +753,7 @@ const ColorSwatch = ({
               display: "grid",
               gridTemplateColumns: "repeat(6, 28px)",
               gap: "6px",
-            
+
             }}
           >
             {presets.map((c, i) => (
@@ -1008,6 +1008,14 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         field: "feedback",
         editable: true,
         width: 120,
+        align: "center",
+      },
+      {
+        id: "otmName",
+        label: "OTM Name",
+        field: "otmName",
+        editable: true,
+        width: 70,
         align: "center",
       },
       {
@@ -1702,29 +1710,30 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
     const baseRows = !q
       ? items
       : items.filter((item) => {
-          const haystack = [
-            item.tuitionId,
-            item.dateWithMonth,
-            item.date,
-            item.paymentDate,
-            item.tuitionName,
-            item.totalStudents,
-            item.country,
-            item.subjects,
-            item.className,
-            item.tutorName,
-            item.tutorFee,
-            item.lacasShare,
-            item.totalFees,
-            item.status,
-            item.feedback,
-            item.notes,
-          ]
-            .map((v) => String(v ?? "").toLowerCase())
-            .join(" ");
+        const haystack = [
+          item.tuitionId,
+          item.dateWithMonth,
+          item.date,
+          item.paymentDate,
+          item.tuitionName,
+          item.totalStudents,
+          item.country,
+          item.subjects,
+          item.className,
+          item.tutorName,
+          item.tutorFee,
+          item.lacasShare,
+          item.totalFees,
+          item.status,
+          item.otmName,
+          item.feedback,
+          item.notes,
+        ]
+          .map((v) => String(v ?? "").toLowerCase())
+          .join(" ");
 
-          return haystack.includes(q);
-        });
+        return haystack.includes(q);
+      });
 
     return sortRowsByDateGroup(baseRows);
   }, [items, search]);
@@ -2745,7 +2754,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
           </div>
 
           <div style={styles.actions}>
-  
+
 
             <div style={styles.zoomControls}>
               <button
@@ -2893,7 +2902,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                         key={rowId ?? visibleIndex}
                         style={{ backgroundColor: row.rowColor || "#ffffff04" }}
                       >
-                          <td style={{ ...styles.td, textAlign: "center" }}>
+                        <td style={{ ...styles.td, textAlign: "center" }}>
                           <div className="d-flex justify-content-center align-items-center flex-column"
                             style={{
                               minHeight: "6px",
@@ -2935,7 +2944,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                             {visibleIndex + 1}
                           </div>
                         </td>
-                            
+
                         <td style={{ ...styles.td, textAlign: "center" }}>
                           <div style={styles.readCell}>
                             <input
@@ -2948,7 +2957,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                           </div>
                         </td>
 
-                      
+
 
                         <td style={styles.td}>
                           <div style={styles.readCell}>
