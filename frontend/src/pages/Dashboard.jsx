@@ -8,6 +8,7 @@ import HodApprovals from "../components/HodApprovals.jsx";
 import ActiveUsersPanel from "../components/ActiveUsersPanel.jsx";
 import FloatingChatWidget from "../components/FloatingChatWidget.jsx";
 import { api, clearToken, getStoredToken, setAuthToken } from "../api/api.js";
+import NewStaffCreate from "../components/NewStaffCreate.jsx";
 import Logo from "../assets/Logo-1-Blue.png";
 import OtmManagement from "../components/OtmManagement.jsx";
 import TeamChat from "../components/TeamChat.jsx";
@@ -413,6 +414,7 @@ export default function Dashboard() {
         permissionKey: "access_staff",
         component: (
           <div style={{ padding: "24px" }}>
+            <NewStaffCreate />
             <ActiveUsersPanel />
             <StaffManager />
           </div>

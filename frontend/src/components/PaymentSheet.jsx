@@ -2657,7 +2657,6 @@ async function applyColorToSelectedRows(field, colorValue) {
       <div style={styles.card}>
         <div style={styles.headerRow}>
           <div style={styles.titleWrap}>
-            <h2 style={styles.title}>Payment Sheet</h2>
   
           </div>
           <div style={styles.actions}>
