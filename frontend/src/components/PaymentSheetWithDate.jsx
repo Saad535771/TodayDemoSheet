@@ -2946,8 +2946,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                               style={{
                                 ...styles.moveBtn,
                                 opacity: canMoveUp ? 1 : 0.3,
-                              }}
-                            >
+                              }}>
                               ▲
                             </button>
                             <button
@@ -2956,8 +2955,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                               style={{
                                 ...styles.moveBtn,
                                 opacity: canMoveDown ? 1 : 0.3,
-                              }}
-                            >
+                              }}>
                               ▼
                             </button>
                           </div>
