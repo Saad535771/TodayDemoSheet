@@ -148,10 +148,12 @@ const styles = {
     transformOrigin: "top left",
   },
   table: {
-    width: "100%",
+    width: "max-content",
+    minWidth: "100%",
     borderCollapse: "collapse",
     fontSize: "12px",
     background: "#ffffff",
+    tableLayout: "fixed",
   },
   th: {
     background: "#000000",
@@ -171,40 +173,64 @@ const styles = {
     borderRight: "1.5px solid #000000",
     padding: "0px",
     textAlign: "center",
+    verticalAlign: "middle",
     background: "#fff",
   },
 
   input: {
     width: "100%",
+    minWidth: "100%",
+    minHeight: "34px",
+    height: "auto",
     border: "none",
     outline: "none",
+    padding: "6px 8px",
     fontSize: "12px",
+    lineHeight: "16px",
     background: "transparent",
     boxSizing: "border-box",
     textAlign: "center",
     color: "inherit",
     fontWeight: "600",
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+    resize: "none",
   },
   select: {
+    width: "100%",
+    minHeight: "34px",
     border: "none",
     outline: "none",
-    padding: "10px 12px",
+    padding: "6px 8px",
     fontSize: "12px",
     background: "transparent",
     boxSizing: "border-box",
     cursor: "pointer",
-    textAlign: "left",
+    textAlign: "center",
     color: "inherit",
     fontWeight: "600",
   },
   readCell: {
-
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+    minHeight: "34px",
+    padding: "6px 8px",
     cursor: "cell",
     fontWeight: "600",
     color: "#111111",
+    textAlign: "center",
+    lineHeight: "16px",
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+    boxSizing: "border-box",
+  },
+  textLeft: {
+    justifyContent: "flex-start",
+    textAlign: "left",
   },
   deleteBtn: {
     background: "#b00101",
@@ -295,12 +321,13 @@ const styles = {
     width: "220px",
   },
   emptyState: {
-
+    padding: "18px",
     textAlign: "center",
     color: "#444444",
     fontWeight: "700",
   },
   loading: {
+    padding: "18px",
     textAlign: "center",
     color: "#444444",
     fontWeight: "700",
@@ -913,7 +940,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         label: "Date",
         field: "dateWithMonth",
         editable: true,
-        width: 60,
+        width: 90,
         align: "center",
       },
       {
@@ -921,7 +948,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         label: "Tuition Name",
         field: "tuitionName",
         editable: true,
-        width: 40,
+        width: 170,
         align: "center",
         // kind: "tuitionName",
       },
@@ -930,7 +957,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         label: "Total Students",
         field: "totalStudents",
         editable: true,
-        width: 20,
+        width: 90,
         type: "number",
         align: "center",
       },
@@ -939,7 +966,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         label: "Country",
         field: "country",
         editable: true,
-        width: 30,
+        width: 95,
         align: "center",
       },
       {
@@ -947,7 +974,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         label: "Subjects",
         field: "subjects",
         editable: true,
-        width: 60,
+        width: 150,
         align: "center",
       },
       {
@@ -955,7 +982,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         label: "Tutor Name",
         field: "tutorName",
         editable: true,
-        width: 120,
+        width: 150,
         align: "center",
       },
     ];
@@ -966,7 +993,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         label: "Tutor Fee",
         field: "tutorFee",
         editable: true,
-        width: 35,
+        width: 95,
         type: "number",
         align: "center",
       },
@@ -975,7 +1002,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         label: "Lacas Share",
         field: "lacasShare",
         editable: true,
-        width: 35,
+        width: 95,
         type: "number",
         align: "center",
       },
@@ -984,7 +1011,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         label: "Total Fee",
         field: "totalFees",
         editable: true,
-        width: 35,
+        width: 95,
         type: "number",
         align: "center",
       }
@@ -996,7 +1023,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         label: "Status",
         field: "status",
         editable: true,
-        width: 40,
+        width: 160,
         kind: "multiSelect",
         options: statusOptions,
         align: "center",
@@ -1006,7 +1033,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         label: "Feedback",
         field: "feedback",
         editable: true,
-        width: 120,
+        width: 200,
         align: "center",
       },
       {
@@ -1014,7 +1041,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         label: "OTM Name",
         field: "otmName",
         editable: true,
-        width: 70,
+        width: 120,
         align: "center",
       },
       {
@@ -1022,7 +1049,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         label: "Notes",
         field: "notes",
         editable: true,
-        width: 40,
+        width: 180,
         align: "center",
       }
     );
@@ -1893,9 +1920,11 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         maxCol: Math.max(...colIndexes),
       };
     }
+
     if (selectedCell) {
       const colIndex = getColumnIndex(selectedCell.colId);
       if (colIndex < 0) return null;
+
       return {
         minRow: selectedCell.rowIndex,
         maxRow: selectedCell.rowIndex,
@@ -1903,12 +1932,15 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         maxCol: colIndex,
       };
     }
+
     return null;
   };
+
   const getCellValue = (row, col) => {
     if (!row || !col) return "";
     return row[col.field] ?? "";
   };
+
   const buildPatchForColumn = (colId, value) => {
     const col = gridColumnMap[colId];
     if (!col?.field) return {};
@@ -2532,6 +2564,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
       ...styles.td,
       minWidth: col.width,
       width: col.width,
+      maxWidth: col.width,
       boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
       backgroundColor:
         col.id === "tuitionName"
@@ -2614,12 +2647,16 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
     }
 
     if (isEditing) {
+      const isSingleLineInput = col.type === "number" || col.type === "date";
+      const EditingControl = isSingleLineInput ? "input" : "textarea";
+
       return (
         <td key={cellKey} style={{ ...commonTdStyle, backgroundColor: "#fff" }}>
-          <input
+          <EditingControl
             ref={inputRef}
             autoFocus
-            type={col.type || "text"}
+            type={isSingleLineInput ? col.type || "text" : undefined}
+            rows={isSingleLineInput ? undefined : 2}
             value={editValue}
             onChange={(e) => {
               editValueRef.current = e.target.value;
@@ -2860,7 +2897,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                   </th>
                   <th style={{ ...styles.th, top: tableHeadTop, minWidth: "10px" }}>🎨</th>
                   {gridColumns.map((col) => (
-                    <th key={col.id} style={{ ...styles.th, top: tableHeadTop, minWidth: `${col.width}px` }}>
+                    <th key={col.id} style={{ ...styles.th, top: tableHeadTop, minWidth: `${col.width}px`, width: `${col.width}px`, maxWidth: `${col.width}px` }}>
                       {col.label}
                     </th>
                   ))}
