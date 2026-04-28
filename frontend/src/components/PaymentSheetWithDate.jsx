@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/api.js";
 import PaymentSheetHistoryPanel from "../pages/PaymentSheetHistoryPanel.jsx";
+import "./PaymentSheetWithDate.global.css";
 
 const MIN_ZOOM = 0.7;
 const MAX_ZOOM = 1.5;
@@ -11,328 +12,73 @@ const SILENT_RELOAD_DEBOUNCE_MS = 800;
 const PAGE_TOP_OFFSET = 78;
 const FIXED_TOOLBAR_HEIGHT = 118;
 const STICKY_TOP = -40;
-const styles = {
-  page: {
-    minHeight: "100vh",
-    padding: "0px",
-    overflowX: "hidden",
-    background: "#ffffff",
-  },
-  card: {
-    padding: "0px",
-    position: "relative",
-  },
-  headerRow: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: "10px",
-    marginBottom: "0px",
-    flexWrap: "wrap",
-    position: "relative",
-    zIndex: 200,
-    background: "#ffffff",
-    padding: "0px 0 0px",
-    boxShadow: "0 6px 14px rgba(0,0,0,0.08)",
-  },
-  titleWrap: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0px",
-  },
-  title: {
-    fontSize: "20px",
-    fontWeight: "700",
-    color: "#111111",
-    margin: 0,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: "13px",
-    color: "#444444",
-    margin: 0,
-    textAlign: 'center',
-  },
-  actions: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    flexWrap: "wrap",
-  },
-  zoomControls: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    flexWrap: "wrap",
-  },
-  zoomBtn: {
-    width: "32px",
-    height: "auto",
-    borderRadius: "10px",
-    border: "1.5px solid #000000",
-    background: "#ffffff",
-    color: "#111111",
-    cursor: "pointer",
-    fontWeight: "700",
-    fontSize: "18px",
-    lineHeight: 1,
-  },
-  zoomValue: {
-    minWidth: "72px",
-    height: "42px",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    border: "1.5px solid #000000",
-    borderRadius: "10px",
-    padding: "0 12px",
-    fontSize: "13px",
-    fontWeight: "700",
-    color: "#111111",
-    background: "#ffffff",
-    boxSizing: "border-box",
-  },
-  searchInput: {
-    minWidth: "300px",
-    height: "42px",
-    padding: "10px 14px",
-    borderRadius: "10px",
-    border: "1.5px solid #000000",
-    outline: "none",
-    fontSize: "14px",
-    textAlign: "center",
-    color: "#111111",
-    background: "#ffffff",
-  },
-  addBtn: {
-    background: "#000000",
-    color: "white",
-    border: "1.5px solid #000000",
-    borderRadius: "10px",
-    padding: "10px 16px",
-    cursor: "pointer",
-    fontWeight: "700",
-    fontSize: "14px",
-  },
-  refreshBtn: {
-    background: "#ffffff",
-    color: "#111111",
-    border: "1.5px solid #000000",
-    borderRadius: "10px",
-    padding: "10px 16px",
-    cursor: "pointer",
-    fontWeight: "700",
-    fontSize: "13px",
-  },
-  liveBadge: {
-    background: "#dcfce7",
-    color: "#065f46",
-    border: "1.5px solid #000000",
-    borderRadius: "999px",
-    padding: "6px 10px",
-    fontSize: "12px",
-    fontWeight: "700",
-    whiteSpace: "nowrap",
-  },
-  tableWrapper: {
-    overflowX: "auto",
-    overflowY: "auto",
-    position: "relative",
-    borderRadius: "12px",
-    border: "2px solid #000000",
-    maxWidth: "100%",
-    maxHeight: "calc(100vh - 0px)",
-    background: "#ffffff",
-  },
-  tableZoomWrap: {
-    transformOrigin: "top left",
-  },
-  table: {
-    width: "max-content",
-    minWidth: "100%",
-    borderCollapse: "collapse",
-    fontSize: "12px",
-    background: "#ffffff",
-    tableLayout: "fixed",
-  },
-  th: {
-    background: "#000000",
-    color: "#ffffff",
-    fontWeight: "700",
-    textAlign: "center",
-    borderBottom: "1.5px solid #000000",
-    borderRight: "1.5px solid #000000",
-    position: "sticky",
-    top: 0,
-    zIndex: 1200,
-    whiteSpace: "nowrap",
-    boxShadow: "0 3px 0 rgba(0,0,0,0.08)",
-  },
-  td: {
-    borderBottom: "1.5px solid #000000",
-    borderRight: "1.5px solid #000000",
-    padding: "0px",
-    textAlign: "center",
-    verticalAlign: "middle",
-    background: "#fff",
-  },
 
-  input: {
-    width: "100%",
-    minWidth: "100%",
-    minHeight: "34px",
-    height: "auto",
-    border: "none",
-    outline: "none",
-    padding: "6px 8px",
-    fontSize: "12px",
-    lineHeight: "16px",
-    background: "transparent",
-    boxSizing: "border-box",
-    textAlign: "center",
-    color: "inherit",
-    fontWeight: "600",
-    whiteSpace: "pre-wrap",
-    overflowWrap: "anywhere",
-    wordBreak: "break-word",
-    resize: "none",
-  },
-  select: {
-    width: "100%",
-    minHeight: "34px",
-    border: "none",
-    outline: "none",
-    padding: "6px 8px",
-    fontSize: "12px",
-    background: "transparent",
-    boxSizing: "border-box",
-    cursor: "pointer",
-    textAlign: "center",
-    color: "inherit",
-    fontWeight: "600",
-  },
-  readCell: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    width: "100%",
-    minHeight: "34px",
-    padding: "6px 8px",
-    cursor: "cell",
-    fontWeight: "600",
-    color: "#111111",
-    textAlign: "center",
-    lineHeight: "16px",
-    whiteSpace: "pre-wrap",
-    overflowWrap: "anywhere",
-    wordBreak: "break-word",
-    boxSizing: "border-box",
-  },
-  textLeft: {
-    justifyContent: "flex-start",
-    textAlign: "left",
-  },
-  deleteBtn: {
-    background: "#b00101",
-    color: "#ffffff",
-    border: "1.5px solid #000000",
-    borderRadius: "8px",
+const DEFAULT_PAGE_SIZE = 50;
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
 
-    cursor: "pointer",
-    fontWeight: "700",
-    fontSize: "12px",
-  },
-  copyBtn: {
-    background: "#ffffff",
-    color: "#111111",
-    border: "1.5px solid #000000",
-    borderRadius: "8px",
+const MONTH_FILTERS = [
+  { key: "all", label: "All Months", shortLabel: "All" },
+  { key: "01", label: "January", shortLabel: "Jan" },
+  { key: "02", label: "February", shortLabel: "Feb" },
+  { key: "03", label: "March", shortLabel: "Mar" },
+  { key: "04", label: "April", shortLabel: "Apr" },
+  { key: "05", label: "May", shortLabel: "May" },
+  { key: "06", label: "June", shortLabel: "Jun" },
+  { key: "07", label: "July", shortLabel: "Jul" },
+  { key: "08", label: "August", shortLabel: "Aug" },
+  { key: "09", label: "September", shortLabel: "Sep" },
+  { key: "10", label: "October", shortLabel: "Oct" },
+  { key: "11", label: "November", shortLabel: "Nov" },
+  { key: "12", label: "December", shortLabel: "Dec" },
+];
 
-    cursor: "pointer",
-    fontWeight: "700",
-    fontSize: "12px",
-  },
-  inlineAddBtn: {
-    background: "#111111",
-    color: "#ffffff",
-    border: "1.5px solid #000000",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontWeight: "700",
-    fontSize: "12px",
-    whiteSpace: "nowrap",
-  },
-  historyBtn: {
-    background: "#dcfce7",
-    color: "#166534",
-    border: "1.5px solid #166534",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontWeight: "800",
-    fontSize: "10px",
+const MONTH_NAME_TO_KEY = MONTH_FILTERS.slice(1).reduce((acc, item) => {
+  acc[item.label.toLowerCase()] = item.key;
+  acc[item.shortLabel.toLowerCase()] = item.key;
+  return acc;
+}, { sept: "09" });
 
-    minWidth: "42px",
-  },
-  actionGroup: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+function getCurrentMonthKey() {
+  return String(new Date().getMonth() + 1).padStart(2, "0");
+}
 
-    flexWrap: "wrap",
-    Height: "auto",
+function extractMonthKeyFromText(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
 
-  },
-  moveBtn: {
-    cursor: "pointer",
-    border: "none",
-    background: "transparent",
-    fontSize: "14px",
+  const lower = raw.toLowerCase();
 
-    color: "#111111",
-    fontWeight: "700",
-  },
-  checkbox: {
-    width: "12px",
-    height: "12px",
-    cursor: "pointer",
-    accentColor: "#107c41",
-    margin: '0px',
-  },
-  colorSwatch: {
-    width: "22px",
-    height: "22px",
-    border: "2px solid #111111",
-    cursor: "pointer",
-    borderRadius: "4px",
-    overflow: "hidden",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxSizing: "border-box",
-    backgroundClip: "padding-box",
-  },
-  pickerPopup: {
-    position: "fixed",
-    background: "white",
-    border: "1.5px solid #000000",
+  for (const [name, key] of Object.entries(MONTH_NAME_TO_KEY)) {
+    if (new RegExp(`\\b${name}\\b`, "i").test(lower)) return key;
+  }
 
-    boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
-    zIndex: 3000,
-    width: "220px",
-  },
-  emptyState: {
-    padding: "18px",
-    textAlign: "center",
-    color: "#444444",
-    fontWeight: "700",
-  },
-  loading: {
-    padding: "18px",
-    textAlign: "center",
-    color: "#444444",
-    fontWeight: "700",
-  },
-};
+  const isoMatch = raw.match(/\b\d{4}[-/](\d{1,2})[-/]\d{1,2}\b/);
+  if (isoMatch) {
+    const month = Number(isoMatch[1]);
+    if (month >= 1 && month <= 12) return String(month).padStart(2, "0");
+  }
+
+  const numericMatch = raw.match(/\b(\d{1,2})[-/.](\d{1,2})(?:[-/.](\d{2,4}))?\b/);
+  if (numericMatch) {
+    const first = Number(numericMatch[1]);
+    const second = Number(numericMatch[2]);
+    const month = first > 12 ? second : second >= 1 && second <= 12 ? second : first;
+    if (month >= 1 && month <= 12) return String(month).padStart(2, "0");
+  }
+
+  return "";
+}
+
+function getRowMonthKey(row) {
+  return (
+    extractMonthKeyFromText(row?.dateWithMonth) ||
+    extractMonthKeyFromText(row?.paymentDate) ||
+    extractMonthKeyFromText(row?.date) ||
+    extractMonthKeyFromText(row?.createdAt) ||
+    extractMonthKeyFromText(row?.updatedAt)
+  );
+}
+
 const statusOptions = [
   "Invoice Share",
   "Fee Receive",
@@ -577,16 +323,7 @@ function StatusPill({ value }) {
   if (!statuses.length) {
     return (
       <span
-        style={{
-          background: "#475569",
-          color: "#ffffff",
-          border: "1px solid #334155",
-          borderRadius: "999px",
-          fontSize: "12px",
-          fontWeight: "700",
-          display: "inline-block",
-          whiteSpace: "nowrap",
-        }}
+        className="pswd-status-empty"
       >
         --
       </span>
@@ -594,28 +331,14 @@ function StatusPill({ value }) {
   }
   return (
     <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "6px",
-        flexWrap: "wrap",
-      }}
+      className="pswd-status-list"
     >
       {statuses.map((status) => {
         const style = getStatusStyle(status);
         return (
           <span
             key={status}
-            style={{
-              ...style,
-              padding: "3px 6px",
-              borderRadius: "999px",
-              fontSize: "12px",
-              fontWeight: "700",
-
-              whiteSpace: "nowrap",
-            }}
+            className="pswd-status-pill" style={style}
           >
             {status}
           </span>
@@ -638,15 +361,7 @@ function highlightText(text, term) {
 
   return parts.map((part, index) =>
     part.toLowerCase() === normalizedQ ? (
-      <mark
-        key={`${part}-${index}`}
-        style={{
-          background: "#fff59d",
-          color: "#111",
-          padding: "0 1px",
-          borderRadius: "2px",
-        }}
-      >
+      <mark key={`${part}-${index}`} className="pswd-highlight">
         {part}
       </mark>
     ) : (
@@ -750,14 +465,14 @@ const ColorSwatch = ({
             onClose();
           }
         }}
-        style={{ ...styles.colorSwatch, backgroundColor: color }}
+        className="pswd-color-swatch" style={{ backgroundColor: color }}
         title="Change color"
       />
 
       {isOpen && (
         <div
+          className="pswd-picker-popup"
           style={{
-            ...styles.pickerPopup,
             top: popupPos.top,
             left: popupPos.left,
           }}
@@ -882,6 +597,9 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
   const [adding, setAdding] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState(() => getCurrentMonthKey());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [selectedRowIds, setSelectedRowIds] = useState(new Set());
 
@@ -1730,7 +1448,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
       totalFees: calculateAutoTotalFees(nextTutorFee, nextLacasShare),
     };
   }
-  const filteredItems = useMemo(() => {
+  const searchedItems = useMemo(() => {
     const q = search.trim().toLowerCase();
 
     const baseRows = !q
@@ -1763,6 +1481,44 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
 
     return sortRowsByDateGroup(baseRows);
   }, [items, search]);
+
+  const monthCounts = useMemo(() => {
+    const counts = Object.fromEntries(MONTH_FILTERS.map((month) => [month.key, 0]));
+    counts.all = searchedItems.length;
+
+    searchedItems.forEach((row) => {
+      const key = getRowMonthKey(row);
+      if (key && counts[key] !== undefined) counts[key] += 1;
+    });
+
+    return counts;
+  }, [searchedItems]);
+
+  const monthFilteredItems = useMemo(() => {
+    if (selectedMonth === "all") return searchedItems;
+    return searchedItems.filter((row) => getRowMonthKey(row) === selectedMonth);
+  }, [searchedItems, selectedMonth]);
+
+  const totalPages = Math.max(1, Math.ceil(monthFilteredItems.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginationStartIndex = (safeCurrentPage - 1) * pageSize;
+  const paginationEndIndex = Math.min(
+    paginationStartIndex + pageSize,
+    monthFilteredItems.length
+  );
+
+  const filteredItems = useMemo(
+    () => monthFilteredItems.slice(paginationStartIndex, paginationEndIndex),
+    [monthFilteredItems, paginationStartIndex, paginationEndIndex]
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedMonth, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(Math.max(prev, 1), totalPages));
+  }, [totalPages]);
 
   const itemIndexMap = useMemo(() => {
     const next = new Map();
@@ -2560,23 +2316,24 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         ? (String(rawValue || "").trim() === "0000-00-00" ? "" : rawValue)
         : rawValue;
     const rowId = getRowId(row);
-    const commonTdStyle = {
-      ...styles.td,
-      minWidth: col.width,
-      width: col.width,
-      maxWidth: col.width,
-      boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
-      backgroundColor:
+
+    const cellStyleVars = {
+      "--pswd-col-width": `${col.width}px`,
+      "--pswd-selected-shadow": isSelected ? "inset 0 0 0 2px #107c41" : "none",
+      "--pswd-cell-bg":
         col.id === "tuitionName"
           ? row.tuitionNameColor || "#ffffff02"
           : row.rowColor || "#ffffff04",
-      position: "relative",
-      cursor: col.editable ? "cell" : "default",
+    };
+
+    const editingStyleVars = {
+      ...cellStyleVars,
+      "--pswd-cell-bg": "#ffffff",
     };
 
     if (isEditing && col.kind === "multiSelect") {
       return (
-        <td key={cellKey} style={{ ...commonTdStyle, backgroundColor: "#fff" }}>
+        <td key={cellKey} className="pswd-td pswd-data-cell" style={editingStyleVars}>
           <select
             ref={inputRef}
             autoFocus
@@ -2591,13 +2348,8 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
             }}
             onBlur={() => void commitEdit({ rowIndex, colId: col.id })}
             onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
-            style={{
-              ...styles.select,
-              height: "132px",
-              padding: "4px",
-              textAlign: "center",
-              background: "#ffffff",
-            }}>
+            className="pswd-select pswd-multiselect"
+          >
             {col.options.map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
@@ -2610,8 +2362,15 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
 
     if (isEditing && col.kind === "tuitionName") {
       return (
-        <td key={cellKey} style={{ ...commonTdStyle, backgroundColor: row.tuitionNameColor || "#fff" }}>
-          <div style={{ height: "100%", gap: "8px" }}>
+        <td
+          key={cellKey}
+          className="pswd-td pswd-data-cell"
+          style={{
+            ...editingStyleVars,
+            "--pswd-cell-bg": row.tuitionNameColor || "#ffffff",
+          }}
+        >
+          <div className="pswd-tuition-edit-wrap">
             <input
               ref={inputRef}
               autoFocus
@@ -2623,7 +2382,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
               }}
               onBlur={() => void commitEdit({ rowIndex, colId: col.id })}
               onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
-              style={{ ...styles.input, }}
+              className="pswd-input"
             />
             <div
               onClick={(e) => e.stopPropagation()}
@@ -2651,7 +2410,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
       const EditingControl = isSingleLineInput ? "input" : "textarea";
 
       return (
-        <td key={cellKey} style={{ ...commonTdStyle, backgroundColor: "#fff" }}>
+        <td key={cellKey} className="pswd-td pswd-data-cell" style={editingStyleVars}>
           <EditingControl
             ref={inputRef}
             autoFocus
@@ -2664,7 +2423,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
             }}
             onBlur={() => void commitEdit({ rowIndex, colId: col.id })}
             onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
-            style={styles.input}
+            className="pswd-input"
           />
         </td>
       );
@@ -2677,21 +2436,15 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
           data-grid-row={rowIndex}
           data-grid-col={col.id}
           tabIndex={0}
-          className="excel-cell"
+          className="pswd-td pswd-data-cell pswd-excel-cell"
           onMouseDown={(e) => handleCellMouseDown(rowIndex, col.id, e)}
           onMouseEnter={() => handleCellMouseEnter(rowIndex, col.id)}
           onDoubleClick={() => startEditingCell(rowIndex, col.id)}
           onKeyDown={(e) => handleCellKeyDown(e, rowIndex, col.id)}
-          style={commonTdStyle}
+          style={cellStyleVars}
         >
-          <div
-            style={{
-              ...styles.readCell,
-              ...styles.textLeft,
-              gap: "8px",
-            }}
-          >
-            <span style={{ flex: 1 }}>{highlightText(value || "", search)}</span>
+          <div className="pswd-read-cell pswd-read-cell--left">
+            <span className="pswd-flex-1">{highlightText(value || "", search)}</span>
             <div
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => {
@@ -2719,21 +2472,16 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         data-grid-row={rowIndex}
         data-grid-col={col.id}
         tabIndex={0}
-        className="excel-cell"
+        className="pswd-td pswd-data-cell pswd-excel-cell"
         onMouseDown={(e) => handleCellMouseDown(rowIndex, col.id, e)}
         onMouseEnter={() => handleCellMouseEnter(rowIndex, col.id)}
         onDoubleClick={() => {
           if (col.editable) startEditingCell(rowIndex, col.id);
         }}
         onKeyDown={(e) => handleCellKeyDown(e, rowIndex, col.id)}
-        style={commonTdStyle}
+        style={cellStyleVars}
       >
-        <div
-          style={{
-            ...styles.readCell,
-            ...(col.align === "left" ? styles.textLeft : {}),
-          }}
-        >
+        <div className={`pswd-read-cell ${col.align === "left" ? "pswd-read-cell--left" : ""}`}>
           {col.id === "status" ? (
             <StatusPill value={value} />
           ) : (
@@ -2746,52 +2494,41 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
   const tableHeadTop = isHeaderPinned
     ? `${STICKY_TOP + headerMetrics.height + 8}px`
     : "0px";
-  return (
-    <div style={styles.page}>
-      <style>{`
-        .excel-cell:focus {
-          outline: 2px solid #107c41;
-          outline-offset: -2px;
-        }
-      `}</style>
 
-      <div style={styles.card} ref={cardRef}>
+  const showingFrom = monthFilteredItems.length ? paginationStartIndex + 1 : 0;
+  const showingTo = paginationEndIndex;
+
+  return (
+    <div className="pswd-page">
+      <div className="pswd-card" ref={cardRef}>
         {isHeaderPinned ? (
           <div style={{ height: `${headerMetrics.height + 4}px` }} />
         ) : null}
 
         <div
           ref={headerRowRef}
-          style={{
-            ...styles.headerRow,
-            ...(isHeaderPinned
+          className={`pswd-header-row ${isHeaderPinned ? "pswd-header-row--pinned" : ""}`}
+          style={
+            isHeaderPinned
               ? {
-                position: "fixed",
-                top: `${STICKY_TOP}px`,
-                left: `${headerMetrics.left}px`,
-                width: `${headerMetrics.width}px`,
-                zIndex: 2000,
-                marginBottom: 0,
-                borderRadius: "12px",
-                boxSizing: "border-box",
-                padding: "10px 14px",
-                border: "2px solid #000000",
-              }
-              : {}),
-          }}
+                  top: `${STICKY_TOP}px`,
+                  left: `${headerMetrics.left}px`,
+                  width: `${headerMetrics.width}px`,
+                  zIndex: 2000,
+                }
+              : undefined
+          }
         >
-          <div style={styles.titleWrap}>
-            <h2 style={styles.title}>Payment Sheet With Date</h2>
+          <div className="pswd-title-wrap">
+            <h2 className="pswd-title">Payment Sheet With Date</h2>
           </div>
 
-          <div style={styles.actions}>
-
-
-            <div style={styles.zoomControls}>
+          <div className="pswd-actions">
+            <div className="pswd-zoom-controls">
               <button
                 type="button"
                 onClick={() => changeZoom("out")}
-                style={styles.zoomBtn}
+                className="pswd-zoom-btn"
                 disabled={zoomLevel <= MIN_ZOOM}
                 title="Zoom out"
                 aria-label="Zoom out"
@@ -2799,12 +2536,12 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                 -
               </button>
 
-              <div style={styles.zoomValue}>{zoomPercent}</div>
+              <div className="pswd-zoom-value">{zoomPercent}</div>
 
               <button
                 type="button"
                 onClick={() => changeZoom("in")}
-                style={styles.zoomBtn}
+                className="pswd-zoom-btn"
                 disabled={zoomLevel >= MAX_ZOOM}
                 title="Zoom in"
                 aria-label="Zoom in"
@@ -2818,17 +2555,17 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
               placeholder="Search by date text, tuition name, tutor fee, lacas share, total fee, status..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              style={styles.searchInput}
+              className="pswd-search-input"
             />
 
-            <button onClick={() => void loadRows({ initial: true })} style={styles.refreshBtn}>
+            <button onClick={() => void loadRows({ initial: true })} className="pswd-btn">
               Refresh
             </button>
 
             {canSeeAuditTrail ? (
               <button
                 onClick={openAuditPanel}
-                style={styles.refreshBtn}
+                className="pswd-btn"
                 disabled={!items.length}
                 title="Open history panel"
               >
@@ -2838,7 +2575,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
 
             <button
               onClick={() => void undoLastAction()}
-              style={styles.refreshBtn}
+              className="pswd-btn"
               disabled={!historyMeta.canUndo || mutationInFlightRef.current}
               title="Undo last change"
             >
@@ -2847,7 +2584,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
 
             <button
               onClick={() => void redoLastAction()}
-              style={styles.refreshBtn}
+              className="pswd-btn"
               disabled={!historyMeta.canRedo || mutationInFlightRef.current}
               title="Redo last undone change"
             >
@@ -2856,7 +2593,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
 
             <button
               onClick={() => void moveSelectedRows("up")}
-              style={styles.refreshBtn}
+              className="pswd-btn"
               disabled={!selectedRowIds.size}
             >
               Move Selected ↑
@@ -2864,26 +2601,102 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
 
             <button
               onClick={() => void moveSelectedRows("down")}
-              style={styles.refreshBtn}
+              className="pswd-btn"
               disabled={!selectedRowIds.size}
             >
               Move Selected ↓
             </button>
 
-            <button onClick={() => void addRow()} style={styles.addBtn} disabled={adding}>
+            <button onClick={() => void addRow()} className="pswd-add-btn" disabled={adding}>
               {adding ? "Adding..." : "+ Add Row"}
             </button>
           </div>
+
+          <div className="pswd-month-bar" aria-label="Month filter">
+            {MONTH_FILTERS.map((month) => (
+              <button
+                key={month.key}
+                type="button"
+                className={`pswd-month-btn ${
+                  selectedMonth === month.key ? "pswd-month-btn--active" : ""
+                }`}
+                onClick={() => setSelectedMonth(month.key)}
+                title={`${month.label}: ${monthCounts[month.key] || 0} records`}
+              >
+                {month.shortLabel}
+                <span className="pswd-month-count">{monthCounts[month.key] || 0}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="pswd-pagination-bar">
+            <span className="pswd-pagination-info">
+              Showing {showingFrom}-{showingTo} of {monthFilteredItems.length} records
+            </span>
+
+            <button
+              type="button"
+              className="pswd-pagination-btn"
+              onClick={() => setCurrentPage(1)}
+              disabled={safeCurrentPage <= 1}
+            >
+              First
+            </button>
+
+            <button
+              type="button"
+              className="pswd-pagination-btn"
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              disabled={safeCurrentPage <= 1}
+            >
+              Prev
+            </button>
+
+            <span className="pswd-pagination-info">
+              Page {safeCurrentPage} / {totalPages}
+            </span>
+
+            <button
+              type="button"
+              className="pswd-pagination-btn"
+              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+              disabled={safeCurrentPage >= totalPages}
+            >
+              Next
+            </button>
+
+            <button
+              type="button"
+              className="pswd-pagination-btn"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={safeCurrentPage >= totalPages}
+            >
+              Last
+            </button>
+
+            <select
+              className="pswd-page-size"
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value) || DEFAULT_PAGE_SIZE)}
+              aria-label="Rows per page"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size} / page
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div style={styles.tableWrapper} ref={tableWrapperRef}>
-          <div style={{ ...styles.tableZoomWrap, zoom: zoomLevel }}>
-            <table style={styles.table}>
+        <div className="pswd-table-wrapper" ref={tableWrapperRef}>
+          <div className="pswd-table-zoom-wrap" style={{ zoom: zoomLevel }}>
+            <table className="pswd-table">
               <thead>
                 <tr>
-                  <th style={{ ...styles.th, top: tableHeadTop, Width: "10px" }}>Sort</th>
-                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "8px" }}>#</th>
-                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "8px" }}>
+                  <th className="pswd-th" style={{ "--pswd-th-top": tableHeadTop, "--pswd-col-width": "10px" }}>Sort</th>
+                  <th className="pswd-th" style={{ "--pswd-th-top": tableHeadTop, "--pswd-col-width": "8px" }}>#</th>
+                  <th className="pswd-th" style={{ "--pswd-th-top": tableHeadTop, "--pswd-col-width": "8px" }}>
                     <input
                       type="checkbox"
                       checked={allVisibleRowsSelected}
@@ -2891,38 +2704,43 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                         if (el) el.indeterminate = someVisibleRowsSelected;
                       }}
                       onChange={(e) => toggleAllVisibleRows(e.target.checked)}
-                      style={styles.checkbox}
+                      className="pswd-checkbox"
                       aria-label="Select all visible rows"
                     />
                   </th>
-                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "10px" }}>🎨</th>
+                  <th className="pswd-th" style={{ "--pswd-th-top": tableHeadTop, "--pswd-col-width": "10px" }}>🎨</th>
                   {gridColumns.map((col) => (
-                    <th key={col.id} style={{ ...styles.th, top: tableHeadTop, minWidth: `${col.width}px`, width: `${col.width}px`, maxWidth: `${col.width}px` }}>
+                    <th
+                      key={col.id}
+                      className="pswd-th"
+                      style={{ "--pswd-th-top": tableHeadTop, "--pswd-col-width": `${col.width}px` }}
+                    >
                       {col.label}
                     </th>
                   ))}
-                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "60px" }}>Add Row</th>
-                  <th style={{ ...styles.th, top: tableHeadTop, minWidth: "100px" }}>Action</th>
+                  <th className="pswd-th" style={{ "--pswd-th-top": tableHeadTop, "--pswd-col-width": "60px" }}>Add Row</th>
+                  <th className="pswd-th" style={{ "--pswd-th-top": tableHeadTop, "--pswd-col-width": "100px" }}>Action</th>
                 </tr>
               </thead>
 
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={visibleColumnCount} style={styles.loading}>
+                    <td colSpan={visibleColumnCount} className="pswd-loading">
                       Loading independent payment sheet...
                     </td>
                   </tr>
-                ) : filteredItems.length === 0 ? (
+                ) : monthFilteredItems.length === 0 ? (
                   <tr>
-                    <td colSpan={visibleColumnCount} style={styles.emptyState}>
-                      No records found.
+                    <td colSpan={visibleColumnCount} className="pswd-empty-state">
+                      No records found for selected month.
                     </td>
                   </tr>
                 ) : (
                   filteredItems.map((row, visibleIndex) => {
                     const rowId = getRowId(row);
                     const originalIndex = itemIndexMap.get(String(rowId)) ?? -1;
+                    const displayIndex = paginationStartIndex + visibleIndex + 1;
 
                     const canMoveUp = originalIndex > 0;
                     const canMoveDown =
@@ -2933,63 +2751,50 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                         key={rowId ?? visibleIndex}
                         style={{ backgroundColor: row.rowColor || "#ffffff04" }}
                       >
-                        <td style={{ ...styles.td, textAlign: "center" }}>
-                          <div className="d-flex justify-content-center align-items-center flex-column"
-                            style={{
-                              minHeight: "6px",
-                              minWidth: "8px",
-                            }}
-                          >
+                        <td className="pswd-td">
+                          <div className="pswd-sort-controls">
                             <button
                               onClick={() => void moveRow(originalIndex, "up")}
                               disabled={!canMoveUp}
-                              style={{
-                                ...styles.moveBtn,
-                                opacity: canMoveUp ? 1 : 0.3,
-                              }}>
+                              className="pswd-move-btn"
+                              style={{ opacity: canMoveUp ? 1 : 0.3 }}
+                            >
                               ▲
                             </button>
                             <button
                               onClick={() => void moveRow(originalIndex, "down")}
                               disabled={!canMoveDown}
-                              style={{
-                                ...styles.moveBtn,
-                                opacity: canMoveDown ? 1 : 0.3,
-                              }}>
+                              className="pswd-move-btn"
+                              style={{ opacity: canMoveDown ? 1 : 0.3 }}
+                            >
                               ▼
                             </button>
                           </div>
                         </td>
-                        <td style={{ ...styles.td, textAlign: "center" }}>
+
+                        <td className="pswd-td">
                           <div
-                            style={{
-                              ...styles.readCell,
-                              justifyContent: "center",
-                              fontWeight: "700",
-                              minWidth: "8px",
-                            }}
-                            aria-label={`Row number ${visibleIndex + 1}`}
+                            className="pswd-read-cell pswd-row-number"
+                            aria-label={`Row number ${displayIndex}`}
                           >
-                            {visibleIndex + 1}
+                            {displayIndex}
                           </div>
                         </td>
 
-                        <td style={{ ...styles.td, textAlign: "center" }}>
-                          <div style={styles.readCell}>
+                        <td className="pswd-td">
+                          <div className="pswd-read-cell">
                             <input
                               type="checkbox"
                               checked={selectedRowIds.has(rowId)}
                               onChange={(e) => toggleRowSelection(rowId, e.target.checked)}
-                              style={styles.checkbox}
-                              aria-label={`Select row ${visibleIndex + 1}`}
+                              className="pswd-checkbox"
+                              aria-label={`Select row ${displayIndex}`}
                             />
                           </div>
                         </td>
 
-
-
-                        <td style={styles.td}>
-                          <div style={styles.readCell}>
+                        <td className="pswd-td">
+                          <div className="pswd-read-cell">
                             <ColorSwatch
                               color={row.rowColor || "#ffffff"}
                               onChange={(c) => void updateRow(row, "rowColor", c)}
@@ -3003,11 +2808,11 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
 
                         {gridColumns.map((col) => renderGridCell(row, visibleIndex, col))}
 
-                        <td style={styles.td}>
-                          <div style={styles.actionGroup}>
+                        <td className="pswd-td">
+                          <div className="pswd-action-group">
                             <button
                               type="button"
-                              style={styles.inlineAddBtn}
+                              className="pswd-inline-add-btn"
                               onClick={() => void addRow(row)}
                               title="Add a new row after this row"
                             >
@@ -3016,12 +2821,11 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                           </div>
                         </td>
 
-                        <td style={styles.td}>
-                          <div style={styles.actionGroup}>
-
+                        <td className="pswd-td">
+                          <div className="pswd-action-group">
                             <button
                               type="button"
-                              style={styles.copyBtn}
+                              className="pswd-copy-btn"
                               onClick={() => void copyRowToClipboard(row, visibleIndex)}
                               title="Copy row"
                             >
@@ -3030,7 +2834,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
 
                             <button
                               type="button"
-                              style={styles.deleteBtn}
+                              className="pswd-delete-btn"
                               onClick={() => void deleteRow(row)}
                               title="Delete row"
                             >
