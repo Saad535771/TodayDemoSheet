@@ -175,8 +175,7 @@ const styles = {
   },
 
   input: {
-    width: "22px",
-    height: "12px",
+    width: "100%",
     border: "none",
     outline: "none",
     fontSize: "12px",
@@ -1894,11 +1893,9 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         maxCol: Math.max(...colIndexes),
       };
     }
-
     if (selectedCell) {
       const colIndex = getColumnIndex(selectedCell.colId);
       if (colIndex < 0) return null;
-
       return {
         minRow: selectedCell.rowIndex,
         maxRow: selectedCell.rowIndex,
@@ -1906,15 +1903,12 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         maxCol: colIndex,
       };
     }
-
     return null;
   };
-
   const getCellValue = (row, col) => {
     if (!row || !col) return "";
     return row[col.field] ?? "";
   };
-
   const buildPatchForColumn = (colId, value) => {
     const col = gridColumnMap[colId];
     if (!col?.field) return {};
