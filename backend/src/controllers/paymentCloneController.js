@@ -12,6 +12,7 @@ function valuesAreSame(a, b) {
   return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }
 
+
 function normalizeStatusValue(value) {
   if (Array.isArray(value)) {
     const clean = [...new Set(value.map((v) => String(v || "").trim()).filter(Boolean))];
@@ -28,6 +29,78 @@ function normalizeStatusValue(value) {
   ];
 
   return clean.length ? clean.join(", ") : null;
+}
+
+const PAKISTAN_TIME_ZONE = "Asia/Karachi";
+
+function getPakistanDateParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PAKISTAN_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  return {
+    year: parts.find((part) => part.type === "year")?.value || String(new Date().getFullYear()),
+    month: parts.find((part) => part.type === "month")?.value || String(new Date().getMonth() + 1).padStart(2, "0"),
+    day: parts.find((part) => part.type === "day")?.value || "01",
+  };
+}
+
+function getPakistanMonthStartDateString(date = new Date()) {
+  const { year, month } = getPakistanDateParts(date);
+  return `${year}-${month}-01`;
+}
+
+function toMonthStartDateString(value, fallback = getPakistanMonthStartDateString()) {
+  const raw = String(value || "").trim();
+  if (!raw) return fallback;
+
+  const isoMatch = raw.match(/\b(\d{4})[-/](\d{1,2})(?:[-/]\d{1,2})?/);
+  if (isoMatch) {
+    const year = isoMatch[1];
+    const month = String(Number(isoMatch[2])).padStart(2, "0");
+    return `${year}-${month}-01`;
+  }
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    const { year, month } = getPakistanDateParts(parsed);
+    return `${year}-${month}-01`;
+  }
+
+  return fallback;
+}
+
+function statusHasTuitionCancelled(value) {
+  return String(normalizeStatusValue(value) || "")
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .includes("tuition cancelled");
+}
+
+function applyPaymentCycleFields(payload = {}, beforeData = null) {
+  const currentCycleDate = getPakistanMonthStartDateString();
+  const hasStatusPatch = Object.prototype.hasOwnProperty.call(payload, "status");
+  const beforeCancelled = statusHasTuitionCancelled(beforeData?.status);
+  const nextStatus = hasStatusPatch ? payload.status : beforeData?.status;
+  const nextCancelled = statusHasTuitionCancelled(nextStatus);
+
+  if (nextCancelled) {
+    const frozenCycle =
+      beforeCancelled && (beforeData?.paymentDate || beforeData?.date)
+        ? toMonthStartDateString(beforeData.paymentDate || beforeData.date, currentCycleDate)
+        : currentCycleDate;
+
+    payload.paymentDate = frozenCycle;
+    payload.date = frozenCycle;
+    return payload;
+  }
+
+  payload.paymentDate = currentCycleDate;
+  payload.date = currentCycleDate;
+  return payload;
 }
 
 const FIELD_ALIASES = {
@@ -394,9 +467,35 @@ export function makePaymentCloneController({
     };
   }
 
+  async function syncCurrentPakistanPaymentCycle() {
+    const rows = await PaymentClone.findAll();
+    const currentCycleDate = getPakistanMonthStartDateString();
+
+    for (const row of rows) {
+      const raw = toPlain(row);
+      const cancelled = statusHasTuitionCancelled(raw?.status);
+      let nextCycleDate = currentCycleDate;
+
+      if (cancelled) {
+        nextCycleDate = toMonthStartDateString(
+          raw?.paymentDate || raw?.date || raw?.createdAt || raw?.created_at || raw?.updatedAt || raw?.updated_at,
+          currentCycleDate
+        );
+      }
+
+      const currentPaymentDate = raw?.paymentDate || raw?.payment_date || null;
+      const currentDate = raw?.date || null;
+
+      if (currentPaymentDate !== nextCycleDate || currentDate !== nextCycleDate) {
+        await row.update({ paymentDate: nextCycleDate, date: nextCycleDate }, { silent: true });
+      }
+    }
+  }
+
   return {
     async list(req, res) {
       try {
+        await syncCurrentPakistanPaymentCycle();
         const rows = await PaymentClone.findAll({
           order: [
             ["orderIndex", "ASC"],
@@ -414,7 +513,7 @@ export function makePaymentCloneController({
 
     async create(req, res) {
       try {
-        const payload = normalizePayload(pickAllowed(req.body));
+        const payload = applyPaymentCycleFields(normalizePayload(pickAllowed(req.body)), null);
 
         let orderIndex = payload.orderIndex;
         if (orderIndex === undefined || orderIndex === null || orderIndex === "") {
@@ -467,7 +566,7 @@ export function makePaymentCloneController({
         }
 
         const beforeData = serializeRow(row);
-        const payload = normalizePayload(pickAllowed(req.body));
+        const payload = applyPaymentCycleFields(normalizePayload(pickAllowed(req.body)), beforeData);
 
         await row.update(payload);
 

@@ -479,3 +479,18 @@
     padding: 6px 8px;
   }
 }
+
+.pswd-year-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #111111;
+}
+
+.pswd-year-select {
+  min-width: 86px;
+  padding-left: 12px;
+  padding-right: 12px;
+}

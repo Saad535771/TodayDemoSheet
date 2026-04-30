@@ -15,6 +15,8 @@ const STICKY_TOP = -40;
 
 const DEFAULT_PAGE_SIZE = 50;
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
+const PAKISTAN_TIME_ZONE = "Asia/Karachi";
+const STORAGE_KEY = "pswd-payment-sheet-state-v2";
 
 const MONTH_FILTERS = [
   { key: "all", label: "All Months", shortLabel: "All" },
@@ -38,8 +40,46 @@ const MONTH_NAME_TO_KEY = MONTH_FILTERS.slice(1).reduce((acc, item) => {
   return acc;
 }, { sept: "09" });
 
+function getPakistanDateParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PAKISTAN_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  return {
+    year: parts.find((part) => part.type === "year")?.value || String(new Date().getFullYear()),
+    month: parts.find((part) => part.type === "month")?.value || String(new Date().getMonth() + 1).padStart(2, "0"),
+    day: parts.find((part) => part.type === "day")?.value || "01",
+  };
+}
+
 function getCurrentMonthKey() {
-  return String(new Date().getMonth() + 1).padStart(2, "0");
+  return getPakistanDateParts().month;
+}
+
+function getCurrentYearKey() {
+  return getPakistanDateParts().year;
+}
+
+function readSavedSheetState() {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (err) {
+    console.warn("Payment sheet saved state read failed:", err);
+    return {};
+  }
+}
+
+function writeSavedSheetState(patch = {}) {
+  try {
+    const previous = readSavedSheetState();
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...previous, ...patch }));
+  } catch (err) {
+    console.warn("Payment sheet saved state write failed:", err);
+  }
 }
 
 function extractMonthKeyFromText(value) {
@@ -52,7 +92,7 @@ function extractMonthKeyFromText(value) {
     if (new RegExp(`\\b${name}\\b`, "i").test(lower)) return key;
   }
 
-  const isoMatch = raw.match(/\b\d{4}[-/](\d{1,2})[-/]\d{1,2}\b/);
+  const isoMatch = raw.match(/\b\d{4}[-/](\d{1,2})(?:[-/]\d{1,2})?/);
   if (isoMatch) {
     const month = Number(isoMatch[1]);
     if (month >= 1 && month <= 12) return String(month).padStart(2, "0");
@@ -69,13 +109,44 @@ function extractMonthKeyFromText(value) {
   return "";
 }
 
+function extractYearKeyFromText(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  const isoMatch = raw.match(/\b(20\d{2}|19\d{2})[-/]\d{1,2}(?:[-/]\d{1,2})?/);
+  if (isoMatch) return isoMatch[1];
+
+  const trailingYearMatch = raw.match(/\b\d{1,2}[-/.]\d{1,2}[-/.](\d{2,4})\b/);
+  if (trailingYearMatch) {
+    const year = trailingYearMatch[1];
+    return year.length === 2 ? `20${year}` : year;
+  }
+
+  const anyYearMatch = raw.match(/\b(20\d{2}|19\d{2})\b/);
+  if (anyYearMatch) return anyYearMatch[1];
+
+  return "";
+}
+
 function getRowMonthKey(row) {
   return (
-    extractMonthKeyFromText(row?.dateWithMonth) ||
     extractMonthKeyFromText(row?.paymentDate) ||
     extractMonthKeyFromText(row?.date) ||
+    extractMonthKeyFromText(row?.dateWithMonth) ||
+    extractMonthKeyFromText(row?.updatedAt) ||
     extractMonthKeyFromText(row?.createdAt) ||
-    extractMonthKeyFromText(row?.updatedAt)
+    getCurrentMonthKey()
+  );
+}
+
+function getRowYearKey(row) {
+  return (
+    extractYearKeyFromText(row?.paymentDate) ||
+    extractYearKeyFromText(row?.date) ||
+    extractYearKeyFromText(row?.dateWithMonth) ||
+    extractYearKeyFromText(row?.updatedAt) ||
+    extractYearKeyFromText(row?.createdAt) ||
+    getCurrentYearKey()
   );
 }
 
@@ -597,9 +668,19 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
   const [adding, setAdding] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState(() => getCurrentMonthKey());
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const savedSheetStateRef = useRef(readSavedSheetState());
+  const [selectedMonth, setSelectedMonth] = useState(
+    () => savedSheetStateRef.current.selectedMonth || getCurrentMonthKey()
+  );
+  const [selectedYear, setSelectedYear] = useState(
+    () => savedSheetStateRef.current.selectedYear || getCurrentYearKey()
+  );
+  const [currentPage, setCurrentPage] = useState(
+    () => Number(savedSheetStateRef.current.currentPage) || 1
+  );
+  const [pageSize, setPageSize] = useState(
+    () => Number(savedSheetStateRef.current.pageSize) || DEFAULT_PAGE_SIZE
+  );
   const [zoomLevel, setZoomLevel] = useState(1);
   const [selectedRowIds, setSelectedRowIds] = useState(new Set());
 
@@ -638,6 +719,8 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
   const isApplyingHistoryRef = useRef(false);
   const skipNextPollUntilRef = useRef(0);
   const silentReloadTimerRef = useRef(null);
+  const didMountFilterResetRef = useRef(false);
+  const pendingScrollRestoreRef = useRef(savedSheetStateRef.current.tableScroll || null);
 
   const currentRole = resolveCurrentUserRole(me);
   const canSeeAuditTrail = currentRole === "admin";
@@ -874,6 +957,23 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
     wrapper.addEventListener("wheel", handleWheel, { passive: false });
     return () => wrapper.removeEventListener("wheel", handleWheel);
   }, []);
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current;
+    if (!wrapper) return;
+
+    const handleScroll = () => {
+      writeSavedSheetState({
+        tableScroll: {
+          top: wrapper.scrollTop || 0,
+          left: wrapper.scrollLeft || 0,
+        },
+      });
+    };
+
+    wrapper.addEventListener("scroll", handleScroll, { passive: true });
+    return () => wrapper.removeEventListener("scroll", handleScroll);
+  }, []);
+
   useEffect(() => {
     const updateStickyHeader = () => {
       const cardEl = cardRef.current;
@@ -1188,7 +1288,10 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
   }, []);
   async function loadRows({ initial = false, silent = false } = {}) {
     try {
-      if (initial) setLoading(true);
+      if (initial) {
+        setLoading(true);
+        setItemsImmediate([]);
+      }
       const res = await api.get("/payments-clone");
       const rows = Array.isArray(res.data?.items)
         ? res.data.items
@@ -1482,22 +1585,38 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
     return sortRowsByDateGroup(baseRows);
   }, [items, search]);
 
-  const monthCounts = useMemo(() => {
-    const counts = Object.fromEntries(MONTH_FILTERS.map((month) => [month.key, 0]));
-    counts.all = searchedItems.length;
+  const yearOptions = useMemo(() => {
+    const years = new Set([getCurrentYearKey(), selectedYear]);
 
     searchedItems.forEach((row) => {
+      const year = getRowYearKey(row);
+      if (year) years.add(year);
+    });
+
+    return [...years].filter(Boolean).sort((a, b) => Number(b) - Number(a));
+  }, [searchedItems, selectedYear]);
+
+  const yearFilteredItems = useMemo(
+    () => searchedItems.filter((row) => getRowYearKey(row) === selectedYear),
+    [searchedItems, selectedYear]
+  );
+
+  const monthCounts = useMemo(() => {
+    const counts = Object.fromEntries(MONTH_FILTERS.map((month) => [month.key, 0]));
+    counts.all = yearFilteredItems.length;
+
+    yearFilteredItems.forEach((row) => {
       const key = getRowMonthKey(row);
       if (key && counts[key] !== undefined) counts[key] += 1;
     });
 
     return counts;
-  }, [searchedItems]);
+  }, [yearFilteredItems]);
 
   const monthFilteredItems = useMemo(() => {
-    if (selectedMonth === "all") return searchedItems;
-    return searchedItems.filter((row) => getRowMonthKey(row) === selectedMonth);
-  }, [searchedItems, selectedMonth]);
+    if (selectedMonth === "all") return yearFilteredItems;
+    return yearFilteredItems.filter((row) => getRowMonthKey(row) === selectedMonth);
+  }, [yearFilteredItems, selectedMonth]);
 
   const totalPages = Math.max(1, Math.ceil(monthFilteredItems.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -1512,13 +1631,36 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
     [monthFilteredItems, paginationStartIndex, paginationEndIndex]
   );
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search, selectedMonth, pageSize]);
 
   useEffect(() => {
+    if (loading) return;
+    const savedScroll = pendingScrollRestoreRef.current;
+    const wrapper = tableWrapperRef.current;
+    if (!savedScroll || !wrapper) return;
+
+    requestAnimationFrame(() => {
+      wrapper.scrollTop = Number(savedScroll.top) || 0;
+      wrapper.scrollLeft = Number(savedScroll.left) || 0;
+      pendingScrollRestoreRef.current = null;
+    });
+  }, [loading, filteredItems.length]);
+
+  useEffect(() => {
+    if (!didMountFilterResetRef.current) {
+      didMountFilterResetRef.current = true;
+      return;
+    }
+    setCurrentPage(1);
+  }, [search, selectedMonth, selectedYear, pageSize]);
+
+  useEffect(() => {
+    if (loading) return;
     setCurrentPage((prev) => Math.min(Math.max(prev, 1), totalPages));
-  }, [totalPages]);
+  }, [totalPages, loading]);
+
+  useEffect(() => {
+    writeSavedSheetState({ selectedMonth, selectedYear, currentPage, pageSize });
+  }, [selectedMonth, selectedYear, currentPage, pageSize]);
 
   const itemIndexMap = useMemo(() => {
     const next = new Map();
@@ -2652,6 +2794,22 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
               Prev
             </button>
 
+            <label className="pswd-year-filter">
+              <span>Year</span>
+              <select
+                className="pswd-page-size pswd-year-select"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value || getCurrentYearKey())}
+                aria-label="Select year"
+              >
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <span className="pswd-pagination-info">
               Page {safeCurrentPage} / {totalPages}
             </span>
@@ -2733,7 +2891,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                 ) : monthFilteredItems.length === 0 ? (
                   <tr>
                     <td colSpan={visibleColumnCount} className="pswd-empty-state">
-                      No records found for selected month.
+                      No records found for selected month/year.
                     </td>
                   </tr>
                 ) : (
@@ -2771,16 +2929,13 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                             </button>
                           </div>
                         </td>
-
                         <td className="pswd-td">
                           <div
                             className="pswd-read-cell pswd-row-number"
-                            aria-label={`Row number ${displayIndex}`}
-                          >
+                            aria-label={`Row number ${displayIndex}`}>
                             {displayIndex}
                           </div>
                         </td>
-
                         <td className="pswd-td">
                           <div className="pswd-read-cell">
                             <input
@@ -2788,11 +2943,9 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                               checked={selectedRowIds.has(rowId)}
                               onChange={(e) => toggleRowSelection(rowId, e.target.checked)}
                               className="pswd-checkbox"
-                              aria-label={`Select row ${displayIndex}`}
-                            />
+                              aria-label={`Select row ${displayIndex}`}  />
                           </div>
                         </td>
-
                         <td className="pswd-td">
                           <div className="pswd-read-cell">
                             <ColorSwatch
@@ -2801,45 +2954,33 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                               pickerId={`rowColor-${rowId}`}
                               activeColorPicker={activeColorPicker}
                               onOpen={setActiveColorPicker}
-                              onClose={() => setActiveColorPicker(null)}
-                            />
+                              onClose={() => setActiveColorPicker(null)}/>
                           </div>
                         </td>
-
                         {gridColumns.map((col) => renderGridCell(row, visibleIndex, col))}
-
                         <td className="pswd-td">
                           <div className="pswd-action-group">
                             <button
                               type="button"
                               className="pswd-inline-add-btn"
                               onClick={() => void addRow(row)}
-                              title="Add a new row after this row"
-                            >
+                              title="Add a new row after this row" >
                               + Row
                             </button>
                           </div>
                         </td>
-
                         <td className="pswd-td">
                           <div className="pswd-action-group">
                             <button
                               type="button"
                               className="pswd-copy-btn"
                               onClick={() => void copyRowToClipboard(row, visibleIndex)}
-                              title="Copy row"
-                            >
-                              Copy
-                            </button>
-
+                              title="Copy row">Copy</button>
                             <button
                               type="button"
                               className="pswd-delete-btn"
                               onClick={() => void deleteRow(row)}
-                              title="Delete row"
-                            >
-                              Delete
-                            </button>
+                              title="Delete row">Delete</button>
                           </div>
                         </td>
                       </tr>
