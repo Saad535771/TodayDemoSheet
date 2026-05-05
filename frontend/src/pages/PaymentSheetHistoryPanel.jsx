@@ -116,6 +116,29 @@ const styles = {
     fontSize: "18px",
     cursor: "pointer",
   },
+  headerActions: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+  historyFilterBtn: {
+    height: "42px",
+    border: "1.5px solid #000000",
+    borderRadius: "10px",
+    background: "#ffffff",
+    color: "#111111",
+    fontWeight: 800,
+    fontSize: "13px",
+    padding: "0 14px",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+  activeHistoryFilterBtn: {
+    background: "#111827",
+    color: "#ffffff",
+  },
   summaryBar: {
     display: "flex",
     flexWrap: "wrap",
@@ -405,6 +428,10 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [tooltip, setTooltip] = useState(null);
+  const [historyWindow, setHistoryWindow] = useState("complete");
+
+  const isLast24Hours = historyWindow === "24h";
+  const historyModeLabel = isLast24Hours ? "Last 24 Hours" : "Complete History";
 
   useEffect(() => {
     if (!open) return;
@@ -415,15 +442,25 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
       setLoading(true);
       setError("");
 
-      const queryParts = ["moduleName=payment_sheet_with_date", "limit=500"];
+      const queryParts = ["moduleName=payment_sheet_with_date", "limit=20000"];
       if (paymentCloneId !== undefined && paymentCloneId !== null) {
         queryParts.push(`paymentCloneId=${encodeURIComponent(paymentCloneId)}`);
       }
+      if (isLast24Hours) {
+        queryParts.push("hours=24");
+        queryParts.push("historyWindow=last-24-hours");
+      }
 
-      const endpoints = [
-        `/payment-change-requests/logs?${queryParts.join("&")}`,
-        `/payment-change-requests/history?${queryParts.join("&")}`,
-      ];
+      const endpoints = isLast24Hours
+        ? [
+            `/payment-change-requests/logs/last-24-hours?${queryParts.join("&")}`,
+            `/payment-change-requests/history/last-24-hours?${queryParts.join("&")}`,
+            `/payment-change-requests/logs?${queryParts.join("&")}`,
+          ]
+        : [
+            `/payment-change-requests/logs?${queryParts.join("&")}`,
+            `/payment-change-requests/history?${queryParts.join("&")}`,
+          ];
 
       let loaded = [];
       let lastError = null;
@@ -456,7 +493,7 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
       cancelled = true;
       setTooltip(null);
     };
-  }, [open, paymentCloneId]);
+  }, [open, paymentCloneId, isLast24Hours]);
 
   const normalizedItems = useMemo(() => {
     return items
@@ -583,12 +620,42 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
               {paymentCloneId ? "Payment Row History" : "Payment Sheet History"}
             </h3>
             <p style={styles.subtitle}>
-              Har Row ID sirf aik dafa show hogi. Jis field me update, delete ya create hua hoga us cell par color ayega, aur hover par us field ki puri change history box me show hogi.
+              {isLast24Hours
+                ? "Last 24 hours ki history show ho rahi hai. Permanent complete history safe rahegi."
+                : "Complete permanent history show ho rahi hai. 24 hours ke liye button use karein."}
             </p>
           </div>
-          <button type="button" style={styles.closeBtn} onClick={onClose} aria-label="Close history panel">
-            ×
-          </button>
+
+          <div style={styles.headerActions}>
+            <button
+              type="button"
+              style={{
+                ...styles.historyFilterBtn,
+                ...(!isLast24Hours ? styles.activeHistoryFilterBtn : {}),
+              }}
+              onClick={() => setHistoryWindow("complete")}
+            >
+              Complete History
+            </button>
+            <button
+              type="button"
+              style={{
+                ...styles.historyFilterBtn,
+                ...(isLast24Hours ? styles.activeHistoryFilterBtn : {}),
+              }}
+              onClick={() => setHistoryWindow("24h")}
+            >
+              Last 24 Hours
+            </button>
+            <button
+              type="button"
+              style={styles.closeBtn}
+              onClick={onClose}
+              aria-label="Close history panel"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         <div style={styles.summaryBar}>
@@ -596,10 +663,9 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
           <div style={styles.summaryItem}>Total Changes: {summary.totalChanges}</div>
           <div style={styles.summaryItem}>Users: {summary.users}</div>
           <div style={styles.summaryItem}>Mode: {paymentCloneId ? "Selected Row" : "Whole Sheet"}</div>
+          <div style={styles.summaryItem}>Filter: {historyModeLabel}</div>
         </div>
-
         {error ? <div style={styles.error}>{error}</div> : null}
-
         <div style={styles.scroller}>
           <table style={styles.table}>
             <thead>
@@ -617,7 +683,7 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
               {loading ? (
                 <tr>
                   <td colSpan={SHEET_COLUMNS.length + 2} style={styles.loading}>
-                    Loading payment history...
+                    {isLast24Hours ? "Loading last 24 hours history..." : "Loading complete payment history..."}
                   </td>
                 </tr>
               ) : null}
@@ -625,7 +691,7 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
               {!loading && !groupedRows.length ? (
                 <tr>
                   <td colSpan={SHEET_COLUMNS.length + 2} style={styles.empty}>
-                    No history found yet.
+                    {isLast24Hours ? "No history found in the last 24 hours." : "No complete history found yet."}
                   </td>
                 </tr>
               ) : null}
