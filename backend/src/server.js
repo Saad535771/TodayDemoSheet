@@ -2,10 +2,8 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import dotenv from "dotenv";
 dotenv.config();
-
 import { makeSequelize } from "./config/db.js";
 import { initModels } from "./models/index.js";
-
 import { makeAuthController } from "./controllers/authController.js";
 import { makeTuitionController } from "./controllers/tuitionController.js";
 import { makeTargetController } from "./controllers/targetController.js";
@@ -13,7 +11,6 @@ import { makePaymentController } from "./controllers/paymentController.js";
 import { makePaymentCloneController } from "./controllers/paymentCloneController.js";
 import { makeOtmManagementController } from "./controllers/otmManagementController.js";
 import { makeChatController } from "./controllers/chatController.js";
-
 import { makeAuthRoutes } from "./routes/authRoutes.js";
 import { makeTuitionRoutes } from "./routes/tuitionRoutes.js";
 import { makeTargetRoutes } from "./routes/targetRoutes.js";

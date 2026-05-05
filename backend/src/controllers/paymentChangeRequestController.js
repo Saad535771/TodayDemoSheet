@@ -1,3 +1,5 @@
+import { buildPaymentAuditHistoryQuery } from "../utils/paymentAuditHistoryQuery.js";
+
 const REVIEW_ROLES = new Set(["admin"]);
 const DEFAULT_MODULE_NAME = "payment_sheet_with_date";
 
@@ -131,26 +133,25 @@ export function makePaymentChangeRequestController({
       }
 
       try {
-        const paymentCloneIdRaw =
-          req.query?.paymentCloneId ?? req.query?.payment_clone_id;
-
-        const where = {
-          moduleName:
-            String(req.query?.moduleName || DEFAULT_MODULE_NAME).trim() ||
-            DEFAULT_MODULE_NAME,
-        };
+        const { where, paymentCloneIdRaw, filters } = buildPaymentAuditHistoryQuery(
+          req.query,
+          {
+            defaultLimit: 1000,
+            maxLimit: 5000,
+          }
+        );
 
         const rows = await PaymentChangeRequest.findAll({
           where,
           attributes: ["id", "paymentCloneId", "metadata", "beforeData", "afterData"],
           order: [["created_at", "DESC"]],
-          limit: 1000,
+          limit: filters.today ? 5000 : 1000,
         });
 
         const items = rows.map(normalizeLog);
         const filtered = filterByHistoryRowId(items, paymentCloneIdRaw);
 
-        return res.json({ count: filtered.length });
+        return res.json({ count: filtered.length, filters });
       } catch (err) {
         console.error("PAYMENT AUDIT SUMMARY ERROR:", err);
         return res.status(500).json({
@@ -165,15 +166,13 @@ export function makePaymentChangeRequestController({
       }
 
       try {
-        const limit = Math.min(Math.max(Number(req.query?.limit || 500), 1), 1000);
-        const paymentCloneIdRaw =
-          req.query?.paymentCloneId ?? req.query?.payment_clone_id;
-
-        const where = {
-          moduleName:
-            String(req.query?.moduleName || DEFAULT_MODULE_NAME).trim() ||
-            DEFAULT_MODULE_NAME,
-        };
+        const { where, limit, paymentCloneIdRaw, filters } = buildPaymentAuditHistoryQuery(
+          req.query,
+          {
+            defaultLimit: 500,
+            maxLimit: 5000,
+          }
+        );
 
         const rows = await PaymentChangeRequest.findAll({
           where,
@@ -206,6 +205,7 @@ export function makePaymentChangeRequestController({
         return res.json({
           items,
           actors,
+          filters,
         });
       } catch (err) {
         console.error("PAYMENT AUDIT LOGS ERROR:", err);
