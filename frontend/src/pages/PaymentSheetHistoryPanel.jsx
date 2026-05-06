@@ -391,9 +391,53 @@ function firstExistingValue(row, keys = []) {
   return null;
 }
 
+function parseHistoryTimestampMs(value) {
+  if (!value) return 0;
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isFinite(time) ? time : 0;
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return 0;
+
+  const direct = new Date(raw).getTime();
+  if (Number.isFinite(direct)) return direct;
+
+  const normalized = raw.replace(" ", "T");
+  const normalizedTime = new Date(normalized).getTime();
+  return Number.isFinite(normalizedTime) ? normalizedTime : 0;
+}
+
 function getTimestampMs(value) {
-  const time = new Date(value || 0).getTime();
-  return Number.isFinite(time) ? time : 0;
+  return parseHistoryTimestampMs(value);
+}
+
+function getItemTimestampValue(item) {
+  return item?.createdAt ?? item?.created_at ?? item?.updatedAt ?? item?.updated_at ?? null;
+}
+
+function isWithinLastHours(value, hours = 24) {
+  const time = parseHistoryTimestampMs(value);
+  if (!time) return false;
+
+  const now = Date.now();
+  const from = now - Number(hours || 24) * 60 * 60 * 1000;
+  const futureGrace = now + 5 * 60 * 1000;
+
+  return time >= from && time <= futureGrace;
+}
+
+function filterItemsByLastHours(rows = [], hours = 24) {
+  return rows.filter((item) => isWithinLastHours(getItemTimestampValue(item), hours));
+}
+
+function pad2(value) {
+  return String(value).padStart(2, "0");
+}
+
+function formatLocalMysqlDateTime(date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
 }
 
 function getAuditIdNumber(item) {
@@ -540,15 +584,17 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
         queryParts.push(`paymentCloneId=${encodeURIComponent(paymentCloneId)}`);
       }
       if (isLast24Hours) {
+        const fromDate = formatLocalMysqlDateTime(new Date(Date.now() - 24 * 60 * 60 * 1000));
         queryParts.push("hours=24");
         queryParts.push("historyWindow=last-24-hours");
+        queryParts.push(`fromDate=${encodeURIComponent(fromDate)}`);
+        queryParts.push("strictLast24=1");
       }
 
       const endpoints = isLast24Hours
         ? [
             `/payment-change-requests/logs/last-24-hours?${queryParts.join("&")}`,
             `/payment-change-requests/history/last-24-hours?${queryParts.join("&")}`,
-            `/payment-change-requests/logs?${queryParts.join("&")}`,
           ]
         : [
             `/payment-change-requests/logs?${queryParts.join("&")}`,
@@ -574,7 +620,9 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
         setError(lastError?.response?.data?.message || "Failed to load payment sheet history.");
         setItems([]);
       } else {
-        setItems(loaded);
+        // Safety guard: even if deployed backend accidentally returns complete history,
+        // the Last 24 Hours tab will only keep records whose audit createdAt/updatedAt is inside the previous 24 hours.
+        setItems(isLast24Hours ? filterItemsByLastHours(loaded, 24) : loaded);
       }
 
       setLoading(false);
@@ -589,7 +637,9 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
   }, [open, paymentCloneId, isLast24Hours]);
 
   const normalizedItems = useMemo(() => {
-    return items
+    const sourceItems = isLast24Hours ? filterItemsByLastHours(items, 24) : items;
+
+    return sourceItems
       .map((item, index) => {
         const rawChangedColumns = toArray(item?.changedColumns ?? item?.changed_columns).map((col) =>
           normalizeFieldKey(col)
@@ -623,7 +673,7 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
         };
       })
       .filter((item) => item.historyRowId !== null && item.historyRowId !== undefined);
-  }, [items, rowData]);
+  }, [items, rowData, isLast24Hours]);
 
   const groupedRows = useMemo(() => {
     const groupMap = new Map();
