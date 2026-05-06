@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api/api.js";
+import PaymentLast24HoursHistoryPanel from "./PaymentLast24HoursHistoryPanel.jsx";
 
 const ACTOR_COLORS = [
   { bg: "#ecfeff", border: "#a5f3fc", text: "#155e75" },
@@ -559,31 +560,26 @@ function compareSnapshots(a, b) {
 function serializeChangeEntry(change) {
   return `${formatDateTime(change.timestamp)} • ${change.actorName}\nPrevious: ${displayValue(change.before)}\nChanged To: ${displayValue(change.after)}`;
 }
-
 export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId, rowData }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [tooltip, setTooltip] = useState(null);
   const [historyWindow, setHistoryWindow] = useState("complete");
-
+  const [last24HistoryOpen, setLast24HistoryOpen] = useState(false);
   const isLast24Hours = historyWindow === "24h";
   const historyModeLabel = isLast24Hours ? "Last 24 Hours" : "Complete History";
-
   useEffect(() => {
     if (!open) return;
-
     let cancelled = false;
-
     const loadHistory = async () => {
       setLoading(true);
       setError("");
-
       const queryParts = ["moduleName=payment_sheet_with_date", "limit=500"];
       if (paymentCloneId !== undefined && paymentCloneId !== null) {
         queryParts.push(`paymentCloneId=${encodeURIComponent(paymentCloneId)}`);
       }
-      if (isLast24Hours) {
+      if (isLast24Hours){
         const fromDate = formatLocalMysqlDateTime(new Date(Date.now() - 24 * 60 * 60 * 1000));
         queryParts.push("hours=24");
         queryParts.push("historyWindow=last-24-hours");
@@ -789,6 +785,7 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
   if (!open) return null;
 
   return (
+    <>
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.panel} onClick={(e) => e.stopPropagation()}>
         <div style={styles.header}>
@@ -820,7 +817,7 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
                 ...styles.historyFilterBtn,
                 ...(isLast24Hours ? styles.activeHistoryFilterBtn : {}),
               }}
-              onClick={() => setHistoryWindow("24h")}
+              onClick={() => setLast24HistoryOpen(true)}
             >
               Last 24 Hours
             </button>
@@ -980,5 +977,11 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
         ) : null}
       </div>
     </div>
+    <PaymentLast24HoursHistoryPanel
+      open={last24HistoryOpen}
+      onClose={() => setLast24HistoryOpen(false)}
+      paymentCloneId={paymentCloneId}
+    />
+    </>
   );
 }
