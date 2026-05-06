@@ -360,6 +360,65 @@ function normalizeFieldKey(field) {
   return FIELD_ALIASES[String(field || "").trim()] || String(field || "").trim();
 }
 
+function toSnakeCase(value) {
+  return String(value || "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .toLowerCase();
+}
+
+function isEmptyDisplayValue(value) {
+  return value === null || value === undefined || value === "";
+}
+
+function firstExistingValue(row, keys = []) {
+  if (!row) return null;
+
+  for (const rawKey of keys) {
+    const key = String(rawKey || "").trim();
+    if (!key) continue;
+
+    const snakeKey = toSnakeCase(key);
+
+    if (Object.prototype.hasOwnProperty.call(row, key) && row[key] !== undefined) {
+      return row[key];
+    }
+
+    if (Object.prototype.hasOwnProperty.call(row, snakeKey) && row[snakeKey] !== undefined) {
+      return row[snakeKey];
+    }
+  }
+
+  return null;
+}
+
+function getTimestampMs(value) {
+  const time = new Date(value || 0).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function getAuditIdNumber(item) {
+  const value = Number(item?.id ?? item?.auditId ?? item?.audit_id ?? 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
+const IMPORTANT_HISTORY_SORT_FIELDS = new Set([
+  "tuitionName",
+  "totalStudents",
+  "country",
+  "subjects",
+  "tutorName",
+  "tutorFee",
+  "lacasShare",
+  "totalFees",
+  "status",
+  "feedback",
+  "notes",
+]);
+
+function isImportantHistoryChangeKey(key) {
+  return IMPORTANT_HISTORY_SORT_FIELDS.has(normalizeFieldKey(key));
+}
+
 function getCellHighlight(actionTypes = []) {
   const normalized = actionTypes.map((value) => String(value || "").toLowerCase());
   if (normalized.includes("delete")) return "#fee2e2";
@@ -369,20 +428,54 @@ function getCellHighlight(actionTypes = []) {
 
 function readCellValue(row, key) {
   if (!row || !key) return null;
-  switch (key) {
+
+  const normalizedKey = normalizeFieldKey(key);
+
+  switch (normalizedKey) {
     case "historyRowId":
-      return row.historyRowId ?? row.id ?? null;
+      return firstExistingValue(row, ["historyRowId", "paymentCloneId", "payment_clone_id", "id"]);
     case "dateWithMonth":
-      return row.dateWithMonth ?? row.paymentDate ?? row.date ?? null;
+      return firstExistingValue(row, ["dateWithMonth", "date_with_month", "paymentDate", "payment_date", "date"]);
     case "subjects":
-      return row.subjects ?? row.className ?? null;
+      return firstExistingValue(row, ["subjects", "className", "class_name"]);
     case "tutorFee":
-      return row.tutorFee ?? row.tutorShare ?? null;
+      return firstExistingValue(row, ["tutorFee", "tutor_fee", "tutorShare", "tutor_share"]);
     case "rowSelected":
       return false;
     default:
-      return row[key] ?? null;
+      return firstExistingValue(row, [normalizedKey, key]);
   }
+}
+
+function getChangedCellDetail(changedCellDetails, colKey) {
+  const normalizedKey = normalizeFieldKey(colKey);
+  const direct = toObject(changedCellDetails?.[normalizedKey]);
+  if (Object.keys(direct).length) return direct;
+
+  const snake = toObject(changedCellDetails?.[toSnakeCase(normalizedKey)]);
+  if (Object.keys(snake).length) return snake;
+
+  const original = toObject(changedCellDetails?.[colKey]);
+  if (Object.keys(original).length) return original;
+
+  return {};
+}
+
+function resolveChangedAfterValue({ detail, afterData, beforeData, snapshot, colKey, actionType }) {
+  if (!isEmptyDisplayValue(detail?.after)) return detail.after;
+
+  const afterValue = readCellValue(afterData, colKey);
+  if (!isEmptyDisplayValue(afterValue)) return afterValue;
+
+  const snapshotValue = readCellValue(snapshot, colKey);
+  if (!isEmptyDisplayValue(snapshotValue)) return snapshotValue;
+
+  if (String(actionType || "").toLowerCase() === "delete") {
+    const beforeValue = readCellValue(beforeData, colKey);
+    if (!isEmptyDisplayValue(beforeValue)) return beforeValue;
+  }
+
+  return detail?.after ?? afterValue ?? snapshotValue ?? null;
 }
 
 function buildMergedSnapshot(beforeData, afterData, metadata, rowData) {
@@ -536,9 +629,9 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
     const groupMap = new Map();
 
     const chronologicalItems = [...normalizedItems].sort((a, b) => {
-      const aTime = new Date(a?.timestamp || 0).getTime();
-      const bTime = new Date(b?.timestamp || 0).getTime();
-      return aTime - bTime;
+      const timeDiff = getTimestampMs(a?.timestamp) - getTimestampMs(b?.timestamp);
+      if (timeDiff !== 0) return timeDiff;
+      return getAuditIdNumber(a) - getAuditIdNumber(b);
     });
 
     chronologicalItems.forEach((item) => {
@@ -549,6 +642,9 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
           snapshot: { historyRowId: item.historyRowId },
           latestTimestamp: item.timestamp,
           latestActorName: item.actorName,
+          latestSortTimeMs: getTimestampMs(item.timestamp),
+          latestAuditId: getAuditIdNumber(item),
+          hasImportantChanges: false,
           changeCount: 0,
           actionTypes: new Set(),
           changedMap: {},
@@ -561,17 +657,39 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
         ...item.snapshot,
         historyRowId: item.historyRowId,
       };
-      group.latestTimestamp = item.timestamp;
-      group.latestActorName = item.actorName;
+      const itemSortTimeMs = getTimestampMs(item.timestamp);
+      const itemAuditId = getAuditIdNumber(item);
+
+      if (
+        itemSortTimeMs > (group.latestSortTimeMs || 0) ||
+        (itemSortTimeMs === (group.latestSortTimeMs || 0) && itemAuditId > (group.latestAuditId || 0))
+      ) {
+        group.latestTimestamp = item.timestamp;
+        group.latestActorName = item.actorName;
+        group.latestSortTimeMs = itemSortTimeMs;
+        group.latestAuditId = itemAuditId;
+      }
+
       group.changeCount += 1;
       group.actionTypes.add(String(item.actionType || "update").toLowerCase());
 
-      item.changedColumns.forEach((colKey) => {
-        const detail = toObject(item.changedCellDetails?.[colKey]);
+      item.changedColumns.forEach((rawColKey) => {
+        const colKey = normalizeFieldKey(rawColKey);
+        if (isImportantHistoryChangeKey(colKey)) {
+          group.hasImportantChanges = true;
+        }
+
+        const detail = getChangedCellDetail(item.changedCellDetails, colKey);
         const beforeValue =
           detail.before !== undefined ? detail.before : readCellValue(item.beforeData, colKey);
-        const afterValue =
-          detail.after !== undefined ? detail.after : readCellValue(item.afterData, colKey);
+        const afterValue = resolveChangedAfterValue({
+          detail,
+          afterData: item.afterData,
+          beforeData: item.beforeData,
+          snapshot: item.snapshot,
+          colKey,
+          actionType: item.actionType,
+        });
 
         if (!group.changedMap[colKey]) {
           group.changedMap[colKey] = {
@@ -597,7 +715,18 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
         ...group,
         actionTypes: [...group.actionTypes],
       }))
-      .sort((a, b) => compareSnapshots(a.snapshot, b.snapshot));
+      .sort((a, b) => {
+        const importantDiff = Number(Boolean(b.hasImportantChanges)) - Number(Boolean(a.hasImportantChanges));
+        if (importantDiff !== 0) return importantDiff;
+
+        const latestDiff = (b.latestSortTimeMs || 0) - (a.latestSortTimeMs || 0);
+        if (latestDiff !== 0) return latestDiff;
+
+        const auditDiff = (Number(b.latestAuditId) || 0) - (Number(a.latestAuditId) || 0);
+        if (auditDiff !== 0) return auditDiff;
+
+        return compareSnapshots(a.snapshot, b.snapshot);
+      });
   }, [normalizedItems]);
 
   const summary = useMemo(() => {
@@ -706,7 +835,13 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
                         const currentValue = readCellValue(row.snapshot, col.key);
                         const changeInfo = row.changedMap[col.key];
                         const isChanged = Boolean(changeInfo?.items?.length);
-                        const tooltipItems = changeInfo?.items || [];
+                        const tooltipItems = [...(changeInfo?.items || [])].sort(
+                          (a, b) => getTimestampMs(b.timestamp) - getTimestampMs(a.timestamp)
+                        );
+                        const visibleValue =
+                          isChanged && !isEmptyDisplayValue(changeInfo?.latestValue)
+                            ? changeInfo.latestValue
+                            : currentValue;
 
                         const baseStyle = {
                           ...styles.td,
@@ -718,7 +853,7 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
                             : {}),
                         };
 
-                        let content = <div style={styles.cellValue}>{displayValue(currentValue)}</div>;
+                        let content = <div style={styles.cellValue}>{displayValue(visibleValue)}</div>;
 
                         if (col.kind === "checkbox") {
                           content = <input type="checkbox" checked={false} readOnly style={styles.readonlyCheckbox} />;
@@ -727,12 +862,12 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
                             <span
                               style={{
                                 ...styles.colorSwatch,
-                                background: currentValue || "#ffffff",
+                                background: visibleValue || currentValue || "#ffffff",
                               }}
                             />
                           );
                         } else if (col.kind === "sort") {
-                          content = <span style={styles.sortValue}>{displayValue(currentValue)}</span>;
+                          content = <span style={styles.sortValue}>{displayValue(visibleValue)}</span>;
                         }
 
                         return (

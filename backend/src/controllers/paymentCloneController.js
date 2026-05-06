@@ -53,24 +53,108 @@ function getPakistanMonthStartDateString(date = new Date()) {
   return `${year}-${month}-01`;
 }
 
-function toMonthStartDateString(value, fallback = getPakistanMonthStartDateString()) {
-  const raw = String(value || "").trim();
-  if (!raw) return fallback;
+function isInvalidDateInput(value) {
+  if (value === null || value === undefined || value === "") return true;
 
-  const isoMatch = raw.match(/\b(\d{4})[-/](\d{1,2})(?:[-/]\d{1,2})?/);
+  const raw = String(value).trim();
+  if (!raw) return true;
+
+  const lower = raw.toLowerCase();
+  if (
+    lower === "invalid date" ||
+    lower === "nan" ||
+    lower.includes("invalid date") ||
+    lower.includes("nan")
+  ) {
+    return true;
+  }
+
+  if (/^0{4}[-/]0{1,2}(?:[-/]0{1,2})?$/.test(raw)) return true;
+  if (/^0000[-/]00[-/]01$/.test(raw)) return true;
+
+  return false;
+}
+
+function isValidYearMonthDay(year, month, day = 1) {
+  const y = Number(year);
+  const m = Number(month);
+  const d = Number(day);
+
+  if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return false;
+  if (y < 1900 || y > 2200) return false;
+  if (m < 1 || m > 12) return false;
+  if (d < 1 || d > 31) return false;
+
+  const test = new Date(Date.UTC(y, m - 1, d));
+  return (
+    test.getUTCFullYear() === y &&
+    test.getUTCMonth() === m - 1 &&
+    test.getUTCDate() === d
+  );
+}
+
+function normalizeDateOnly(value, fallback = null) {
+  if (isInvalidDateInput(value)) return fallback;
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return fallback;
+    const { year, month, day } = getPakistanDateParts(value);
+    return `${year}-${month}-${day}`;
+  }
+
+  const raw = String(value).trim();
+
+  const isoMatch = raw.match(/^\s*(\d{4})[-/](\d{1,2})(?:[-/](\d{1,2}))?/);
   if (isoMatch) {
     const year = isoMatch[1];
     const month = String(Number(isoMatch[2])).padStart(2, "0");
-    return `${year}-${month}-01`;
+    const day = String(Number(isoMatch[3] || 1)).padStart(2, "0");
+
+    if (!isValidYearMonthDay(year, month, day)) return fallback;
+    return `${year}-${month}-${day}`;
   }
 
   const parsed = new Date(raw);
   if (!Number.isNaN(parsed.getTime())) {
-    const { year, month } = getPakistanDateParts(parsed);
-    return `${year}-${month}-01`;
+    const { year, month, day } = getPakistanDateParts(parsed);
+    if (!isValidYearMonthDay(year, month, day)) return fallback;
+    return `${year}-${month}-${day}`;
   }
 
   return fallback;
+}
+
+function toMonthStartDateString(value, fallback = getPakistanMonthStartDateString()) {
+  const normalized = normalizeDateOnly(value, null);
+  if (!normalized) return fallback;
+
+  const [year, month] = normalized.split("-");
+  if (!isValidYearMonthDay(year, month, 1)) return fallback;
+
+  return `${year}-${month}-01`;
+}
+
+function sanitizePaymentCloneDates(data = {}) {
+  const hasPaymentDate = Object.prototype.hasOwnProperty.call(data, "paymentDate");
+  const hasDate = Object.prototype.hasOwnProperty.call(data, "date");
+
+  if (hasPaymentDate) {
+    data.paymentDate = normalizeDateOnly(data.paymentDate, null);
+  }
+
+  if (hasDate) {
+    data.date = normalizeDateOnly(data.date, null);
+  }
+
+  if (hasDate && !hasPaymentDate) {
+    data.paymentDate = data.date;
+  }
+
+  if (hasPaymentDate && !hasDate) {
+    data.date = data.paymentDate;
+  }
+
+  return data;
 }
 
 function statusHasTuitionCancelled(value) {
@@ -311,6 +395,8 @@ export function makePaymentCloneController({
       data.deletedFromTodayDemo = !!data.deletedFromTodayDemo;
     }
 
+    sanitizePaymentCloneDates(data);
+
     delete data.tutorShare;
     return data;
   }
@@ -321,8 +407,8 @@ export function makePaymentCloneController({
 
     const subjects = raw.subjects ?? raw.className ?? null;
     const tutorFee = raw.tutorFee ?? raw.tutorShare ?? null;
-    const date = raw.date ?? raw.paymentDate ?? null;
-    const paymentDate = raw.paymentDate ?? raw.date ?? null;
+    const date = normalizeDateOnly(raw.date ?? raw.paymentDate ?? null, null);
+    const paymentDate = normalizeDateOnly(raw.paymentDate ?? raw.date ?? null, null);
     const status = normalizeStatusValue(raw.status);
 
     return {
@@ -477,14 +563,19 @@ export function makePaymentCloneController({
       let nextCycleDate = currentCycleDate;
 
       if (cancelled) {
-        nextCycleDate = toMonthStartDateString(
-          raw?.paymentDate || raw?.date || raw?.createdAt || raw?.created_at || raw?.updatedAt || raw?.updated_at,
-          currentCycleDate
-        );
+        const existingCycleSource =
+          normalizeDateOnly(raw?.paymentDate ?? raw?.payment_date, null) ||
+          normalizeDateOnly(raw?.date, null) ||
+          raw?.createdAt ||
+          raw?.created_at ||
+          raw?.updatedAt ||
+          raw?.updated_at;
+
+        nextCycleDate = toMonthStartDateString(existingCycleSource, currentCycleDate);
       }
 
-      const currentPaymentDate = raw?.paymentDate || raw?.payment_date || null;
-      const currentDate = raw?.date || null;
+      const currentPaymentDate = normalizeDateOnly(raw?.paymentDate ?? raw?.payment_date ?? null, null);
+      const currentDate = normalizeDateOnly(raw?.date ?? null, null);
 
       if (currentPaymentDate !== nextCycleDate || currentDate !== nextCycleDate) {
         await row.update({ paymentDate: nextCycleDate, date: nextCycleDate }, { silent: true });

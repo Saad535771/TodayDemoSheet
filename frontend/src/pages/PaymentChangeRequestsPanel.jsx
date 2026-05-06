@@ -236,46 +236,62 @@ function camelToSnake(value) {
     .toLowerCase();
 }
 
-function getFieldValue(obj, key) {
-  const source = parseMaybeObject(obj);
-  const snakeKey = camelToSnake(key);
+function isEmptyDisplayValue(value) {
+  return value === null || value === undefined || value === "";
+}
 
-  if (Object.prototype.hasOwnProperty.call(source, key)) {
-    return source[key];
-  }
-  if (Object.prototype.hasOwnProperty.call(source, snakeKey)) {
-    return source[snakeKey];
-  }
+function firstExistingValue(source, keys = []) {
+  for (const rawKey of keys) {
+    const candidate = String(rawKey || "").trim();
+    if (!candidate) continue;
 
-  if (key === "daysPerWeek" && Object.prototype.hasOwnProperty.call(source, "days_per_week")) {
-    return source.days_per_week;
-  }
-  if (key === "dateWithMonth" && Object.prototype.hasOwnProperty.call(source, "date_with_month")) {
-    return source.date_with_month;
-  }
-  if (key === "tuitionName" && Object.prototype.hasOwnProperty.call(source, "tuition_name")) {
-    return source.tuition_name;
-  }
-  if (key === "className" && Object.prototype.hasOwnProperty.call(source, "class_name")) {
-    return source.class_name;
-  }
-  if (key === "tutorName" && Object.prototype.hasOwnProperty.call(source, "tutor_name")) {
-    return source.tutor_name;
-  }
-  if (key === "tutorShare" && Object.prototype.hasOwnProperty.call(source, "tutor_share")) {
-    return source.tutor_share;
-  }
-  if (key === "lacasShare" && Object.prototype.hasOwnProperty.call(source, "lacas_share")) {
-    return source.lacas_share;
-  }
-  if (key === "totalFees" && Object.prototype.hasOwnProperty.call(source, "total_fees")) {
-    return source.total_fees;
-  }
-  if (key === "otmName" && Object.prototype.hasOwnProperty.call(source, "otm_name")) {
-    return source.otm_name;
+    const snakeKey = camelToSnake(candidate);
+
+    if (Object.prototype.hasOwnProperty.call(source, candidate) && source[candidate] !== undefined) {
+      return source[candidate];
+    }
+
+    if (Object.prototype.hasOwnProperty.call(source, snakeKey) && source[snakeKey] !== undefined) {
+      return source[snakeKey];
+    }
   }
 
   return undefined;
+}
+
+function getTimestampMs(value) {
+  const time = new Date(value || 0).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function getFieldValue(obj, key) {
+  const source = parseMaybeObject(obj);
+
+  switch (key) {
+    case "paymentDate":
+    case "date":
+      return firstExistingValue(source, ["paymentDate", "payment_date", "date", "dateWithMonth", "date_with_month"]);
+    case "dateWithMonth":
+      return firstExistingValue(source, ["dateWithMonth", "date_with_month", "paymentDate", "payment_date", "date"]);
+    case "className":
+      return firstExistingValue(source, ["className", "class_name", "subjects"]);
+    case "tutorShare":
+      return firstExistingValue(source, ["tutorShare", "tutor_share", "tutorFee", "tutor_fee"]);
+    case "tuitionName":
+      return firstExistingValue(source, ["tuitionName", "tuition_name"]);
+    case "tutorName":
+      return firstExistingValue(source, ["tutorName", "tutor_name"]);
+    case "lacasShare":
+      return firstExistingValue(source, ["lacasShare", "lacas_share"]);
+    case "totalFees":
+      return firstExistingValue(source, ["totalFees", "total_fees"]);
+    case "otmName":
+      return firstExistingValue(source, ["otmName", "otm_name"]);
+    case "daysPerWeek":
+      return firstExistingValue(source, ["daysPerWeek", "days_per_week"]);
+    default:
+      return firstExistingValue(source, [key]);
+  }
 }
 
 function getActorSeed(actor) {
@@ -379,13 +395,17 @@ function getChangedValueMap(item) {
     }
 
     if (changedColumns.has(key)) {
-      map[key] = getFieldValue(afterData, key);
+      const afterValue = getFieldValue(afterData, key);
+      const beforeValue = getFieldValue(beforeData, key);
+      map[key] = !isEmptyDisplayValue(afterValue) ? afterValue : beforeValue;
       continue;
     }
 
     const snakeKey = camelToSnake(key);
     if (changedColumns.has(snakeKey)) {
-      map[key] = getFieldValue(afterData, key);
+      const afterValue = getFieldValue(afterData, key);
+      const beforeValue = getFieldValue(beforeData, key);
+      map[key] = !isEmptyDisplayValue(afterValue) ? afterValue : beforeValue;
     }
   }
 
@@ -428,8 +448,13 @@ function buildUniqueActors(items = [], actors = []) {
 
 function mergeConsecutiveLogs(items = []) {
   const merged = [];
+  const sortedItems = [...items].sort((a, b) => {
+    const aTime = getTimestampMs(a?.createdAt ?? a?.created_at ?? a?.updatedAt ?? a?.updated_at);
+    const bTime = getTimestampMs(b?.createdAt ?? b?.created_at ?? b?.updatedAt ?? b?.updated_at);
+    return bTime - aTime;
+  });
 
-  for (const rawItem of items) {
+  for (const rawItem of sortedItems) {
     const item = {
       ...rawItem,
       actionType: rawItem?.actionType ?? rawItem?.action_type,
