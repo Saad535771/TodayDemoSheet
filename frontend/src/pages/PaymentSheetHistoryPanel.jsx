@@ -579,7 +579,7 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
       setLoading(true);
       setError("");
 
-      const queryParts = ["moduleName=payment_sheet_with_date", "limit=20000"];
+      const queryParts = ["moduleName=payment_sheet_with_date", "limit=500"];
       if (paymentCloneId !== undefined && paymentCloneId !== null) {
         queryParts.push(`paymentCloneId=${encodeURIComponent(paymentCloneId)}`);
       }
@@ -620,9 +620,7 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
         setError(lastError?.response?.data?.message || "Failed to load payment sheet history.");
         setItems([]);
       } else {
-        // Safety guard: even if deployed backend accidentally returns complete history,
-        // the Last 24 Hours tab will only keep records whose audit createdAt/updatedAt is inside the previous 24 hours.
-        setItems(isLast24Hours ? filterItemsByLastHours(loaded, 24) : loaded);
+       setItems(loaded);
       }
 
       setLoading(false);
@@ -637,7 +635,7 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
   }, [open, paymentCloneId, isLast24Hours]);
 
   const normalizedItems = useMemo(() => {
-    const sourceItems = isLast24Hours ? filterItemsByLastHours(items, 24) : items;
+   const sourceItems = items;
 
     return sourceItems
       .map((item, index) => {
