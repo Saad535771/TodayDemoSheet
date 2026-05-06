@@ -14,43 +14,41 @@ function toPositiveInteger(value, fallback) {
   return Math.floor(num);
 }
 
-function resolveTodayMode(query = {}) {
+function resolveHistoryMode(query = {}) {
   const rawWindow = cleanString(
     query.historyWindow ?? query.window ?? query.mode ?? query.filter,
     ""
   ).toLowerCase();
 
-  // User-facing button may say "Last 24 Hours", but requirement is:
-  // show only records created/updated TODAY according to Pakistan date.
+  const rawHours = Number(query.hours);
+  const hasLast24Flag =
+    query.last24Hours === true ||
+    String(query.last24Hours).toLowerCase() === "true" ||
+    String(query.last24Hours) === "1";
+
   if (
-    rawWindow === "today" ||
-    rawWindow === "today-history" ||
     rawWindow === "last-24-hours" ||
     rawWindow === "last_24_hours" ||
     rawWindow === "24h" ||
     rawWindow === "last24" ||
-    rawWindow === "last24hours"
+    rawWindow === "last24hours" ||
+    rawHours === 24 ||
+    hasLast24Flag
   ) {
-    return true;
+    return "last24";
   }
 
   if (
+    rawWindow === "today" ||
+    rawWindow === "today-history" ||
     query.today === true ||
     String(query.today).toLowerCase() === "true" ||
     String(query.today) === "1"
   ) {
-    return true;
+    return "today";
   }
 
-  if (
-    query.last24Hours === true ||
-    String(query.last24Hours).toLowerCase() === "true" ||
-    String(query.hours) === "24"
-  ) {
-    return true;
-  }
-
-  return false;
+  return "complete";
 }
 
 function getPakistanDateParts(date = new Date()) {
@@ -77,7 +75,15 @@ export function getPakistanTodayRange(date = new Date()) {
 
   // Pakistan is UTC+05:00 and has no DST. Midnight PKT = previous day 19:00 UTC.
   const start = new Date(Date.UTC(year, month - 1, day, -5, 0, 0, 0));
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+
+  return { start, end };
+}
+
+export function getRollingLastHoursRange(hours = 24, date = new Date()) {
+  const safeHours = toPositiveInteger(hours, 24);
+  const end = new Date(date);
+  const start = new Date(end.getTime() - safeHours * 60 * 60 * 1000);
 
   return { start, end };
 }
@@ -98,16 +104,22 @@ export function buildPaymentAuditHistoryQuery(reqQuery = {}, options = {}) {
   const limit = Math.min(requestedLimit, maxLimit);
 
   const where = { moduleName };
-  const isTodayMode = resolveTodayMode(reqQuery);
-  let todayRange = null;
+  const mode = resolveHistoryMode(reqQuery);
+  let range = null;
 
-  if (isTodayMode) {
-    todayRange = getPakistanTodayRange();
-
-    // PaymentChangeRequest model uses timestamp aliases created_at / updated_at.
+  if (mode === "last24") {
+    range = getRollingLastHoursRange(reqQuery.hours || 24);
     where.created_at = {
-      [Op.gte]: todayRange.start,
-      [Op.lte]: todayRange.end,
+      [Op.gte]: range.start,
+      [Op.lt]: range.end,
+    };
+  }
+
+  if (mode === "today") {
+    range = getPakistanTodayRange();
+    where.created_at = {
+      [Op.gte]: range.start,
+      [Op.lt]: range.end,
     };
   }
 
@@ -117,11 +129,12 @@ export function buildPaymentAuditHistoryQuery(reqQuery = {}, options = {}) {
     paymentCloneIdRaw,
     filters: {
       moduleName,
-      mode: isTodayMode ? "today" : "complete",
-      today: isTodayMode,
+      mode,
+      today: mode === "today",
+      last24Hours: mode === "last24",
       timezone: PAKISTAN_TIME_ZONE,
-      from: todayRange?.start?.toISOString?.() || null,
-      to: todayRange?.end?.toISOString?.() || null,
+      from: range?.start?.toISOString?.() || null,
+      to: range?.end?.toISOString?.() || null,
     },
   };
 }

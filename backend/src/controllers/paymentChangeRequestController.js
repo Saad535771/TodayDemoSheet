@@ -1,7 +1,57 @@
 import { buildPaymentAuditHistoryQuery } from "../utils/paymentAuditHistoryQuery.js";
+import { Op } from "sequelize";
 
 const REVIEW_ROLES = new Set(["admin"]);
 const DEFAULT_MODULE_NAME = "payment_sheet_with_date";
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+function isLast24HoursRequest(req) {
+  const pathText = String(`${req?.path || ""} ${req?.originalUrl || ""}`).toLowerCase();
+  const historyWindow = String(req?.query?.historyWindow || req?.query?.window || "").toLowerCase();
+  const hours = Number(req?.query?.hours || req?.query?.lastHours || 0);
+
+  return (
+    pathText.includes("last-24") ||
+    historyWindow.includes("last-24") ||
+    hours === 24
+  );
+}
+
+function getLast24HoursStartDate() {
+  return new Date(Date.now() - ONE_DAY_MS);
+}
+
+function addLast24HoursFilterToWhere(where = {}, req) {
+  if (!isLast24HoursRequest(req)) return where;
+
+  const existingAnd = Array.isArray(where?.[Op.and]) ? where[Op.and] : [];
+
+  return {
+    ...where,
+    [Op.and]: [
+      ...existingAnd,
+      {
+        created_at: {
+          [Op.gte]: getLast24HoursStartDate(),
+        },
+      },
+    ],
+  };
+}
+
+function filterLogsToLast24Hours(items = [], req) {
+  if (!isLast24HoursRequest(req)) return items;
+
+  const sinceMs = getLast24HoursStartDate().getTime();
+
+  return items.filter((item) => {
+    const value = item?.createdAt ?? item?.created_at ?? item?.updatedAt ?? item?.updated_at;
+    const timeMs = new Date(value || 0).getTime();
+    return Number.isFinite(timeMs) && timeMs >= sinceMs;
+  });
+}
+
 
 function canReview(role) {
   return REVIEW_ROLES.has(String(role || "").trim().toLowerCase());
@@ -141,14 +191,17 @@ export function makePaymentChangeRequestController({
           }
         );
 
+        const strictWhere = addLast24HoursFilterToWhere(where, req);
+        const strictLast24 = isLast24HoursRequest(req);
+
         const rows = await PaymentChangeRequest.findAll({
-          where,
-          attributes: ["id", "paymentCloneId", "metadata", "beforeData", "afterData"],
+          where: strictWhere,
+          attributes: ["id", "paymentCloneId", "metadata", "beforeData", "afterData", "createdAt", "updatedAt"],
           order: [["created_at", "DESC"]],
-          limit: filters.today ? 5000 : 1000,
+          limit: strictLast24 ? 5000 : filters.today ? 5000 : 1000,
         });
 
-        const items = rows.map(normalizeLog);
+        const items = filterLogsToLast24Hours(rows.map(normalizeLog), req);
         const filtered = filterByHistoryRowId(items, paymentCloneIdRaw);
 
         return res.json({ count: filtered.length, filters });
@@ -174,8 +227,11 @@ export function makePaymentChangeRequestController({
           }
         );
 
+        const strictWhere = addLast24HoursFilterToWhere(where, req);
+        const strictLast24 = isLast24HoursRequest(req);
+
         const rows = await PaymentChangeRequest.findAll({
-          where,
+          where: strictWhere,
           include: User
             ? [
                 {
@@ -187,10 +243,11 @@ export function makePaymentChangeRequestController({
               ]
             : [],
           order: [["created_at", "DESC"]],
-          limit,
+          limit: strictLast24 ? Math.max(limit, 5000) : limit,
         });
 
-        const items = filterByHistoryRowId(rows.map(normalizeLog), paymentCloneIdRaw);
+        const normalizedItems = filterLogsToLast24Hours(rows.map(normalizeLog), req);
+        const items = filterByHistoryRowId(normalizedItems, paymentCloneIdRaw);
 
         const actors = [];
         const seenActorIds = new Set();
