@@ -738,14 +738,34 @@ export default function PaymentSheet({ me, onCountChange, isActive = true }) {
   const undoStackRef = useRef([]);
   const paletteRootAttr = "data-color-palette-root";
 
+  const currentRole = String(me?.role || me?.user?.role || "")
+    .trim()
+    .toLowerCase();
+
+  const hasAccessFlag = (flagName) => {
+    const directUser = {
+      ...(me?.user || {}),
+      ...(me || {}),
+    };
+
+    const value = directUser[flagName];
+    return (
+      value === true ||
+      value === 1 ||
+      value === "1" ||
+      value === "true" ||
+      value === "TRUE"
+    );
+  };
+
   const canSeeTutorShare =
-    me?.role === "admin" || me?.role === "hod" || !!me?.access_tutor_share;
+    currentRole === "admin" || hasAccessFlag("access_tutor_share");
 
   const canSeeLacasShare =
-    me?.role === "admin" || me?.role === "hod" || !!me?.access_lacas_share;
+    currentRole === "admin" || hasAccessFlag("access_lacas_share");
 
   const canSeeTotalFees =
-    me?.role === "admin" || me?.role === "hod" || !!me?.access_total_fees;
+    currentRole === "admin" || hasAccessFlag("access_total_fees");
 
 const gridColumns = useMemo(() => {
   const cols = [

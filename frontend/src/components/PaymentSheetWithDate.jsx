@@ -1955,15 +1955,12 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
     if (typeof rowIndex === "number") {
       selectEntireRow(rowIndex, false);
     }
-
     const text = getRowTextForClipboard(row);
     const copied = await copyTextToClipboard(text);
-
     if (!copied) {
       alert("Failed to copy row data.");
     }
   };
-
   const parseClipboardText = (text) => {
     const cleaned = String(text || "").replace(/\r/g, "");
     const rows = cleaned.split("\n");
