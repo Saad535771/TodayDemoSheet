@@ -1,4 +1,4 @@
-import { Op } from "sequelize";
+import { Op, Sequelize } from "sequelize";
 
 const DEFAULT_MODULE_NAME = "payment_sheet_with_date";
 const PAKISTAN_TIME_ZONE = "Asia/Karachi";
@@ -14,40 +14,36 @@ function toPositiveInteger(value, fallback) {
   return Math.floor(num);
 }
 
-function resolveHistoryMode(query = {}) {
+function normalizeMode(query = {}) {
   const rawWindow = cleanString(
     query.historyWindow ?? query.window ?? query.mode ?? query.filter,
     ""
   ).toLowerCase();
 
-  const rawHours = Number(query.hours);
-  const hasLast24Flag =
-    query.last24Hours === true ||
-    String(query.last24Hours).toLowerCase() === "true" ||
-    String(query.last24Hours) === "1";
+  const hoursValue = Number(query.hours ?? query.hour ?? query.lastHours);
 
-  if (
+  const isLast24Hours =
     rawWindow === "last-24-hours" ||
     rawWindow === "last_24_hours" ||
     rawWindow === "24h" ||
     rawWindow === "last24" ||
     rawWindow === "last24hours" ||
-    rawHours === 24 ||
-    hasLast24Flag
-  ) {
-    return "last24";
-  }
+    query.last24Hours === true ||
+    String(query.last24Hours).toLowerCase() === "true" ||
+    String(query.last24Hours) === "1" ||
+    hoursValue === 24 ||
+    String(query.strictLast24) === "1";
 
-  if (
+  if (isLast24Hours) return "last24";
+
+  const isToday =
     rawWindow === "today" ||
     rawWindow === "today-history" ||
     query.today === true ||
     String(query.today).toLowerCase() === "true" ||
-    String(query.today) === "1"
-  ) {
-    return "today";
-  }
+    String(query.today) === "1";
 
+  if (isToday) return "today";
   return "complete";
 }
 
@@ -75,17 +71,15 @@ export function getPakistanTodayRange(date = new Date()) {
 
   // Pakistan is UTC+05:00 and has no DST. Midnight PKT = previous day 19:00 UTC.
   const start = new Date(Date.UTC(year, month - 1, day, -5, 0, 0, 0));
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
 
   return { start, end };
 }
 
-export function getRollingLastHoursRange(hours = 24, date = new Date()) {
-  const safeHours = toPositiveInteger(hours, 24);
-  const end = new Date(date);
-  const start = new Date(end.getTime() - safeHours * 60 * 60 * 1000);
-
-  return { start, end };
+function getLast24DisplayRange() {
+  const to = new Date();
+  const from = new Date(to.getTime() - 24 * 60 * 60 * 1000);
+  return { from, to };
 }
 
 export function buildPaymentAuditHistoryQuery(reqQuery = {}, options = {}) {
@@ -104,22 +98,27 @@ export function buildPaymentAuditHistoryQuery(reqQuery = {}, options = {}) {
   const limit = Math.min(requestedLimit, maxLimit);
 
   const where = { moduleName };
-  const mode = resolveHistoryMode(reqQuery);
-  let range = null;
+  const mode = normalizeMode(reqQuery);
+
+  let range = { from: null, to: null };
 
   if (mode === "last24") {
-    range = getRollingLastHoursRange(reqQuery.hours || 24);
-    where.created_at = {
-      [Op.gte]: range.start,
-      [Op.lt]: range.end,
-    };
-  }
+    range = getLast24DisplayRange();
 
-  if (mode === "today") {
-    range = getPakistanTodayRange();
+    // IMPORTANT:
+    // Use MySQL server time, not JS/UTC Date objects.
+    // Do NOT add Op.lte upper bound because DATETIME columns may be stored in local server time.
+    // The upper bound was excluding freshly-created rows on live deployment.
     where.created_at = {
-      [Op.gte]: range.start,
-      [Op.lt]: range.end,
+      [Op.gte]: Sequelize.literal("DATE_SUB(NOW(), INTERVAL 24 HOUR)"),
+    };
+  } else if (mode === "today") {
+    const todayRange = getPakistanTodayRange();
+    range = { from: todayRange.start, to: todayRange.end };
+
+    where.created_at = {
+      [Op.gte]: todayRange.start,
+      [Op.lte]: todayRange.end,
     };
   }
 
@@ -133,8 +132,8 @@ export function buildPaymentAuditHistoryQuery(reqQuery = {}, options = {}) {
       today: mode === "today",
       last24Hours: mode === "last24",
       timezone: PAKISTAN_TIME_ZONE,
-      from: range?.start?.toISOString?.() || null,
-      to: range?.end?.toISOString?.() || null,
+      from: range.from?.toISOString?.() || null,
+      to: range.to?.toISOString?.() || null,
     },
   };
 }

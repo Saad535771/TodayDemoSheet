@@ -2912,7 +2912,7 @@ async function applyColorToSelectedRows(field, colorValue) {
           </div>
         </div>
       </div>
-      <PaymentSheetWithDate isActive={isActive} /> 
+      <PaymentSheetWithDate me={me} isActive={isActive} /> 
     </div>
   );
 }

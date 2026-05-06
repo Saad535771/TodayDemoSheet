@@ -10,39 +10,46 @@ function applyTodayHistoryQuery(req) {
   return req;
 }
 
+function applyLast24HoursQuery(req) {
+  req.query = {
+    ...(req.query || {}),
+    hours: "24",
+    last24Hours: "1",
+    strictLast24: "1",
+    historyWindow: "last-24-hours",
+  };
+  return req;
+}
+
 export function createPaymentChangeRequestRoutes(deps) {
   const router = Router();
   const controller = makePaymentChangeRequestController(deps);
 
-  // Original permanent history routes - kept exactly as your previous concept.
+  // Permanent complete history routes.
   router.get("/summary", controller.summary);
   router.get("/logs", controller.listLogs);
+  router.get("/history", controller.listLogs);
 
-  // Today / 24-hours button routes.
-  // Requirement: show only those records which were entered/changed today.
+  // Today-only routes.
   router.get("/summary/today", (req, res) =>
     controller.summary(applyTodayHistoryQuery(req), res)
   );
   router.get("/logs/today", (req, res) =>
     controller.listLogs(applyTodayHistoryQuery(req), res)
   );
-
-  // Backward-compatible aliases if frontend still calls last-24-hours.
-  // This also returns today's records only, not old previous-day records.
-  router.get("/summary/last-24-hours", (req, res) =>
-    controller.summary(applyTodayHistoryQuery(req), res)
-  );
-  router.get("/logs/last-24-hours", (req, res) =>
-    controller.listLogs(applyTodayHistoryQuery(req), res)
-  );
-
-  // Frontend fallback aliases.
-  router.get("/history", controller.listLogs);
   router.get("/history/today", (req, res) =>
     controller.listLogs(applyTodayHistoryQuery(req), res)
   );
+
+  // Rolling previous 24 hours routes.
+  router.get("/summary/last-24-hours", (req, res) =>
+    controller.summary(applyLast24HoursQuery(req), res)
+  );
+  router.get("/logs/last-24-hours", (req, res) =>
+    controller.listLogs(applyLast24HoursQuery(req), res)
+  );
   router.get("/history/last-24-hours", (req, res) =>
-    controller.listLogs(applyTodayHistoryQuery(req), res)
+    controller.listLogs(applyLast24HoursQuery(req), res)
   );
 
   return router;

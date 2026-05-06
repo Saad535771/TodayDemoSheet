@@ -662,6 +662,44 @@ function resolveCurrentUserRole(me) {
     return "";
   }
 }
+
+function readStoredUserAccess() {
+  try {
+    const storedUserRaw = localStorage.getItem("user");
+    if (!storedUserRaw) return {};
+
+    const storedUser = JSON.parse(storedUserRaw);
+    return {
+      ...(storedUser?.user || {}),
+      ...(storedUser || {}),
+    };
+  } catch (err) {
+    console.error("Stored user access read failed:", err);
+    return {};
+  }
+}
+
+function normalizeAccessValue(value) {
+  return value === true || value === 1 || value === "1" || value === "true" || value === "TRUE";
+}
+
+function resolveAccessFlag(me, flagName) {
+  const directUser = {
+    ...(me?.user || {}),
+    ...(me || {}),
+  };
+
+  if (Object.prototype.hasOwnProperty.call(directUser, flagName)) {
+    return normalizeAccessValue(directUser[flagName]);
+  }
+
+  const storedUser = readStoredUserAccess();
+  if (Object.prototype.hasOwnProperty.call(storedUser, flagName)) {
+    return normalizeAccessValue(storedUser[flagName]);
+  }
+
+  return false;
+}
 export default function PaymentSheetWithDate({ me, isActive = true, onCountChange }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -723,6 +761,10 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
   const pendingScrollRestoreRef = useRef(savedSheetStateRef.current.tableScroll || null);
 
   const currentRole = resolveCurrentUserRole(me);
+  const isPrivilegedRole = currentRole === "admin" || currentRole === "hod";
+  const canSeeTutorShare = isPrivilegedRole || resolveAccessFlag(me, "access_tutor_share");
+  const canSeeLacasShare = isPrivilegedRole || resolveAccessFlag(me, "access_lacas_share");
+  const canSeeTotalFees = isPrivilegedRole || resolveAccessFlag(me, "access_total_fees");
   const canSeeAuditTrail = currentRole === "admin";
   const zoomPercent = `${Math.round(zoomLevel * 100)}%`;
 
@@ -788,8 +830,8 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
       },
     ];
 
-    cols.push(
-      {
+    if (canSeeTutorShare) {
+      cols.push({
         id: "tutorFee",
         label: "Tutor Fee",
         field: "tutorFee",
@@ -797,8 +839,11 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         width: 95,
         type: "number",
         align: "center",
-      },
-      {
+      });
+    }
+
+    if (canSeeLacasShare) {
+      cols.push({
         id: "lacasShare",
         label: "Lacas Share",
         field: "lacasShare",
@@ -806,8 +851,11 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         width: 95,
         type: "number",
         align: "center",
-      },
-      {
+      });
+    }
+
+    if (canSeeTotalFees) {
+      cols.push({
         id: "totalFees",
         label: "Total Fee",
         field: "totalFees",
@@ -815,8 +863,8 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         width: 95,
         type: "number",
         align: "center",
-      }
-    );
+      });
+    }
 
     cols.push(
       {
@@ -856,7 +904,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
     );
 
     return cols;
-  }, []);
+  }, [canSeeTutorShare, canSeeLacasShare, canSeeTotalFees]);
 
   const gridColumnIds = useMemo(() => gridColumns.map((c) => c.id), [gridColumns]);
 
