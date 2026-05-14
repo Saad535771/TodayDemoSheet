@@ -420,25 +420,7 @@ function StatusPill({ value }) {
 }
 
 function highlightText(text, term) {
-  const value = text === null || text === undefined ? "" : String(text);
-  const q = String(term || "").trim();
-
-  if (!q) return value;
-
-  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const regex = new RegExp(`(${escaped})`, "ig");
-  const parts = value.split(regex);
-  const normalizedQ = q.toLowerCase();
-
-  return parts.map((part, index) =>
-    part.toLowerCase() === normalizedQ ? (
-      <mark key={`${part}-${index}`} className="pswd-highlight">
-        {part}
-      </mark>
-    ) : (
-      <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>
-    )
-  );
+  return text === null || text === undefined ? "" : String(text);
 }
 
 const getCellKey = (rowIndex, colId) => `${rowIndex}__${colId}`;
@@ -704,6 +686,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const savedSheetStateRef = useRef(readSavedSheetState());
@@ -719,6 +702,8 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
   const [pageSize, setPageSize] = useState(
     () => Number(savedSheetStateRef.current.pageSize) || DEFAULT_PAGE_SIZE
   );
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [selectedRowIds, setSelectedRowIds] = useState(new Set());
 
@@ -919,13 +904,17 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
   useEffect(() => {
     mountedRef.current = true;
     if (isActive) {
-      loadRows({ initial: true });
+      void loadRows({ initial: currentPage === 1 });
     }
 
     return () => {
       mountedRef.current = false;
     };
-  }, [isActive]);
+  }, [isActive, currentPage, pageSize, selectedMonth, selectedYear, search]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedMonth]);
 
   useEffect(() => {
     itemsRef.current = items;
@@ -952,7 +941,9 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
     };
 
     document.addEventListener("mouseup", stopMouseSelection);
-    return () => document.removeEventListener("mouseup", stopMouseSelection);
+    return () => {
+      document.removeEventListener("mouseup", stopMouseSelection);
+    };
   }, []);
 
   useEffect(() => {
@@ -1210,6 +1201,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
     if (!historyUndoRef.current.length || mutationInFlightRef.current) return;
 
     const entry = historyUndoRef.current.pop();
+    console.log("Undoing action:", entry.type, entry.label);
     syncHistoryMeta();
 
     const previousItems = cloneRows(itemsRef.current);
@@ -1218,6 +1210,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
 
     try {
       if (entry.type === "updateMany") {
+        console.log("Restoring updates for", entry.updates.length, "rows");
         const undoEntries = entry.updates.map((item) => ({
           rowId: item.rowId,
           beforePatch: cloneRow(item.beforePatch),
@@ -1232,13 +1225,16 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
           )
         );
       } else if (entry.type === "reorder") {
+        console.log("Restoring previous order");
         setItemsImmediate(applyReorderPayloadToRows(previousItems, entry.beforeOrder));
         await api.post("/payments-clone/reorder", { items: entry.beforeOrder });
       } else if (entry.type === "deleteRow") {
+        console.log("Restoring deleted row:", getRowId(entry.row));
         setItemsImmediate(insertRowByOrder(previousItems, entry.row));
         const res = await api.post("/payments-clone", entry.row);
         entry.row = cloneRow(res.data?.item || res.data || entry.row);
       } else if (entry.type === "addRow") {
+        console.log("Removing added row:", getRowId(entry.row));
         const currentRowId = getRowId(entry.row);
         setItemsImmediate(
           previousItems.filter((item) => String(getRowId(item)) !== String(currentRowId))
@@ -1339,22 +1335,37 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
       if (initial) {
         setLoading(true);
         setItemsImmediate([]);
+      } else if (!silent) {
+        setLoadingMore(true);
       }
-      const res = await api.get("/payments-clone");
+      const res = await api.get(`/payments-clone?page=${currentPage}&limit=${pageSize}&month=${encodeURIComponent(selectedMonth)}&year=${encodeURIComponent(selectedYear)}&search=${encodeURIComponent(search || "")}`);
       const rows = Array.isArray(res.data?.items)
         ? res.data.items
         : Array.isArray(res.data)
           ? res.data
           : [];
       if (!mountedRef.current) return;
-      syncRowsWithServer(rows);
+      
+      const newItems = rows;
+      if (currentPage === 1) {
+        setItemsImmediate(newItems);
+      } else {
+        setItemsImmediate([...itemsRef.current, ...newItems]);
+      }
+
+      setTotalItems(res.data?.totalItems || rows.length);
+      setTotalPages(res.data?.totalPages || 1);
+      // Removed syncRowsWithServer(rows) because we append now
     } catch (err) {
       console.error("Failed to load payment sheet rows:", err);
       if (!silent && mountedRef.current && initial) {
         setItems([]);
       }
     } finally {
-      if (mountedRef.current && initial) setLoading(false);
+      if (mountedRef.current) {
+        if (initial) setLoading(false);
+        setLoadingMore(false);
+      }
     }
   }
   async function addRow(referenceRow = null) {
@@ -1541,7 +1552,9 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
       return;
     }
 
-
+    if (!window.confirm("Are you sure you want to delete this row?")) {
+      return;
+    }
 
     const previousItems = cloneRows(itemsRef.current);
     setItemsImmediate(
@@ -1661,23 +1674,12 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
     return counts;
   }, [yearFilteredItems]);
 
-  const monthFilteredItems = useMemo(() => {
-    if (selectedMonth === "all") return yearFilteredItems;
-    return yearFilteredItems.filter((row) => getRowMonthKey(row) === selectedMonth);
-  }, [yearFilteredItems, selectedMonth]);
-
-  const totalPages = Math.max(1, Math.ceil(monthFilteredItems.length / pageSize));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const monthFilteredItems = items;
+  const safeCurrentPage = Math.max(1, Math.min(currentPage, totalPages || 1));
   const paginationStartIndex = (safeCurrentPage - 1) * pageSize;
-  const paginationEndIndex = Math.min(
-    paginationStartIndex + pageSize,
-    monthFilteredItems.length
-  );
+  const paginationEndIndex = paginationStartIndex + items.length;
 
-  const filteredItems = useMemo(
-    () => monthFilteredItems.slice(paginationStartIndex, paginationEndIndex),
-    [monthFilteredItems, paginationStartIndex, paginationEndIndex]
-  );
+  const filteredItems = items;
 
 
   useEffect(() => {
@@ -1709,6 +1711,24 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
   useEffect(() => {
     writeSavedSheetState({ selectedMonth, selectedYear, currentPage, pageSize });
   }, [selectedMonth, selectedYear, currentPage, pageSize]);
+
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current;
+    if (!wrapper) return;
+
+    const handleScroll = () => {
+      if (loading || currentPage >= totalPages) return;
+      
+      const { scrollTop, scrollHeight, clientHeight } = wrapper;
+      // Trigger load when 200px from bottom
+      if (scrollTop + clientHeight >= scrollHeight - 200) {
+        setCurrentPage(prev => prev + 1);
+      }
+    };
+
+    wrapper.addEventListener("scroll", handleScroll);
+    return () => wrapper.removeEventListener("scroll", handleScroll);
+  }, [loading, currentPage, totalPages]);
 
   const itemIndexMap = useMemo(() => {
     const next = new Map();
@@ -2798,101 +2818,57 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
               {adding ? "Adding..." : "+ Add Row"}
             </button>
           </div>
-
-          <div className="pswd-month-bar" aria-label="Month filter">
-            {MONTH_FILTERS.map((month) => (
-              <button
-                key={month.key}
-                type="button"
-                className={`pswd-month-btn ${
-                  selectedMonth === month.key ? "pswd-month-btn--active" : ""
-                }`}
-                onClick={() => setSelectedMonth(month.key)}
-                title={`${month.label}: ${monthCounts[month.key] || 0} records`}
-              >
-                {month.shortLabel}
-                <span className="pswd-month-count">{monthCounts[month.key] || 0}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="pswd-pagination-bar">
-            <span className="pswd-pagination-info">
-              Showing {showingFrom}-{showingTo} of {monthFilteredItems.length} records
-            </span>
-
-            <button
-              type="button"
-              className="pswd-pagination-btn"
-              onClick={() => setCurrentPage(1)}
-              disabled={safeCurrentPage <= 1}
-            >
-              First
-            </button>
-
-            <button
-              type="button"
-              className="pswd-pagination-btn"
-              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-              disabled={safeCurrentPage <= 1}
-            >
-              Prev
-            </button>
-
-            <label className="pswd-year-filter">
-              <span>Year</span>
-              <select
-                className="pswd-page-size pswd-year-select"
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value || getCurrentYearKey())}
-                aria-label="Select year"
-              >
-                {yearOptions.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <span className="pswd-pagination-info">
-              Page {safeCurrentPage} / {totalPages}
-            </span>
-
-            <button
-              type="button"
-              className="pswd-pagination-btn"
-              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-              disabled={safeCurrentPage >= totalPages}
-            >
-              Next
-            </button>
-
-            <button
-              type="button"
-              className="pswd-pagination-btn"
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={safeCurrentPage >= totalPages}
-            >
-              Last
-            </button>
-
-            <select
-              className="pswd-page-size"
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value) || DEFAULT_PAGE_SIZE)}
-              aria-label="Rows per page"
-            >
-              {PAGE_SIZE_OPTIONS.map((size) => (
-                <option key={size} value={size}>
-                  {size} / page
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
 
-        <div className="pswd-table-wrapper" ref={tableWrapperRef}>
+        <div className="pswd-footer-row">
+            <div className="pswd-month-bar" aria-label="Month filter">
+              {MONTH_FILTERS.map((month) => (
+                <button
+                  key={month.key}
+                  type="button"
+                  className={`pswd-month-btn ${
+                    selectedMonth === month.key ? "pswd-month-btn--active" : ""
+                  }`}
+                  onClick={() => setSelectedMonth(month.key)}
+                  title={`${month.label}: ${monthCounts[month.key] || 0} records`}
+                >
+                  {month.shortLabel}
+                  <span className="pswd-month-count">{monthCounts[month.key] || 0}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="pswd-pagination-bar">
+              <label className="pswd-year-filter">
+                <span>Year:</span>
+                <select
+                  className="pswd-page-size pswd-year-select"
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value || getCurrentYearKey())}
+                >
+                  {yearOptions.map((year) => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="pswd-infinite-status">
+                {loading ? "Loading more records..." : `Showing ${items.length} of ${totalItems} records`}
+              </div>
+
+              <select
+                className="pswd-page-size"
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value) || DEFAULT_PAGE_SIZE)}
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>{size} / page</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="pswd-table-wrapper" ref={tableWrapperRef}>
           <div className="pswd-table-zoom-wrap" style={{ zoom: zoomLevel }}>
             <table className="pswd-table">
               <thead>
@@ -3032,11 +3008,19 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                     );
                   })
                 )}
+                {loadingMore && (
+                  <tr>
+                    <td colSpan={visibleColumnCount} className="pswd-loading-more">
+                      Loading more records...
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </div>
       </div>
+
       <PaymentSheetHistoryPanel
         open={auditOpen}
         onClose={() => {

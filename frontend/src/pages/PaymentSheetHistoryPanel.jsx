@@ -291,6 +291,27 @@ const styles = {
   sortValue: {
     fontWeight: 700,
   },
+  loadMoreWrap: {
+    padding: "20px",
+    display: "flex",
+    justifyContent: "center",
+    borderTop: "1.5px solid #000000",
+    background: "#fafafa",
+  },
+  loadMoreBtn: {
+    height: "42px",
+    padding: "0 24px",
+    background: "#000000",
+    color: "#ffffff",
+    border: "1.5px solid #000000",
+    borderRadius: "10px",
+    fontWeight: 800,
+    fontSize: "14px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
 };
 
 function safeJsonParse(value) {
@@ -567,15 +588,31 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
   const [tooltip, setTooltip] = useState(null);
   const [historyWindow, setHistoryWindow] = useState("complete");
   const [last24HistoryOpen, setLast24HistoryOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const pageSize = 100;
+
   const isLast24Hours = historyWindow === "24h";
   const historyModeLabel = isLast24Hours ? "Last 24 Hours" : "Complete History";
+
+  useEffect(() => {
+    if (!open) return;
+    setPage(1);
+    setItems([]);
+    setHasMore(true);
+  }, [open, historyWindow, paymentCloneId]);
+
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     const loadHistory = async () => {
       setLoading(true);
       setError("");
-      const queryParts = ["moduleName=payment_sheet_with_date", "limit=500"];
+      const queryParts = [
+        "moduleName=payment_sheet_with_date",
+        `limit=${pageSize}`,
+        `page=${page}`
+      ];
       if (paymentCloneId !== undefined && paymentCloneId !== null) {
         queryParts.push(`paymentCloneId=${encodeURIComponent(paymentCloneId)}`);
       }
@@ -599,11 +636,13 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
 
       let loaded = [];
       let lastError = null;
+      let totalPages = 1;
 
       for (const endpoint of endpoints) {
         try {
           const res = await api.get(endpoint);
           loaded = normalizeHistoryResponse(res.data);
+          totalPages = res.data.totalPages || 1;
           break;
         } catch (err) {
           lastError = err;
@@ -612,11 +651,16 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
 
       if (cancelled) return;
 
-      if (!loaded.length && lastError) {
+      if (!loaded.length && lastError && page === 1) {
         setError(lastError?.response?.data?.message || "Failed to load payment sheet history.");
         setItems([]);
       } else {
-       setItems(loaded);
+        if (page === 1) {
+          setItems(loaded);
+        } else {
+          setItems(prev => [...prev, ...loaded]);
+        }
+        setHasMore(page < totalPages);
       }
 
       setLoading(false);
@@ -628,7 +672,7 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
       cancelled = true;
       setTooltip(null);
     };
-  }, [open, paymentCloneId, isLast24Hours]);
+  }, [open, paymentCloneId, isLast24Hours, page]);
 
   const normalizedItems = useMemo(() => {
    const sourceItems = items;
@@ -955,6 +999,22 @@ export default function PaymentSheetHistoryPanel({ open, onClose, paymentCloneId
                 })}
             </tbody>
           </table>
+          {hasMore && !loading && (
+            <div style={styles.loadMoreWrap}>
+              <button
+                type="button"
+                style={styles.loadMoreBtn}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Load More History
+              </button>
+            </div>
+          )}
+          {loading && page > 1 && (
+            <div style={styles.loadMoreWrap}>
+              <div style={{ fontWeight: 800 }}>Loading more records...</div>
+            </div>
+          )}
         </div>
 
         {tooltip ? (

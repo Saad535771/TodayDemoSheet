@@ -381,30 +381,7 @@ function escapeRegExp(value) {
 
 function highlightText(text, term) {
   const value = text === null || text === undefined ? "" : String(text);
-  const q = String(term || "").trim();
-
-  if (!q) return value;
-
-  const regex = new RegExp(`(${escapeRegExp(q)})`, "ig");
-  const parts = value.split(regex);
-
-  return parts.map((part, index) =>
-    regex.test(part) ? (
-      <mark
-        key={`${part}-${index}`}
-        style={{
-          background: "#fff59d",
-          color: "#111",
-          padding: "0 1px",
-          borderRadius: "2px",
-        }}
-      >
-        {part}
-      </mark>
-    ) : (
-      <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>
-    )
-  );
+  return value;
 }
 
 /* =========================
@@ -1270,8 +1247,16 @@ const effectiveZoom = useMemo(() => {
   }, [onChanged]);
 
   const filteredItems = useMemo(() => {
+    const q = (searchTerm || "").toLowerCase().trim();
+    if (!q) return localItems;
+
+    const header = (slot.slotHeader || "").toLowerCase();
+    if (header.includes(q)) {
+      return localItems;
+    }
+
     return localItems.filter((item) => itemMatchesSearch(item, searchTerm));
-  }, [localItems, searchTerm]);
+  }, [localItems, searchTerm, slot.slotHeader]);
 
   useEffect(() => {
     filteredItemsRef.current = filteredItems;

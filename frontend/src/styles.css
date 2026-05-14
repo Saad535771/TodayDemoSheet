@@ -62,3 +62,58 @@ td div{
 }
 
 /* paymentsheet with date */
+.pswd-footer {
+  padding: 16px;
+  background: #fff;
+  border-top: 2px solid #000000;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 18px;
+}
+.pswd-pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pswd-pagination-btn {
+  padding: 8px 16px;
+  border: 1.5px solid #000000;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #111111;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+.pswd-pagination-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+.pswd-pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.pswd-pagination-info {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111111;
+}
+.pswd-page-size-select {
+  padding: 8px 12px;
+  border: 1.5px solid #000000;
+  border-radius: 10px;
+  outline: none;
+  background: #ffffff;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+}
+.pswd-stats {
+  font-size: 13px;
+  font-weight: 700;
+  color: #4b5563;
+}

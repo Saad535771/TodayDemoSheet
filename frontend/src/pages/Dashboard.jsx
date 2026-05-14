@@ -108,8 +108,8 @@ async function fetchBadgeCountByKey(key) {
       return readCountFromResponse(data);
     }
     case "chat": {
-      const { data } = await api.get("/chat/groups");
-      return readCountFromResponse(data);
+      const { data } = await api.get("/chat/unread-total");
+      return data?.total_unread || 0;
     }
     case "trash": {
       const [monthlyTrashResult, paymentTrashResult] = await Promise.allSettled([
@@ -435,7 +435,16 @@ export default function Dashboard() {
   }, [me, tab]);
 
   const allowedTabs = useMemo(() => {
-    return tabsConfig.filter((item) => hasAccessByRoleOrFlag(me, item.permissionKey));
+    return tabsConfig.filter((item) => {
+      if (item.key === "chat") {
+        return (
+          normalizeRole(me?.role) === "admin" ||
+          Number(me?.access_chat || 0) === 1 ||
+          Number(me?.access_chat_send || 0) === 1
+        );
+      }
+      return hasAccessByRoleOrFlag(me, item.permissionKey);
+    });
   }, [me, tabsConfig]);
 
   const activeTabConfig = useMemo(
@@ -706,9 +715,15 @@ export default function Dashboard() {
                   aria-label={`${item.label} - ${tooltip}`}
                 >
                   <span>{item.label}</span>
-                  {shouldShowBadge ? (
-                    <span style={styles.badge}>{meta.newCount}</span>
-                  ) : null}
+                  {item.key === "chat" ? (
+                    meta.total > 0 && !isActive ? (
+                      <span style={{ ...styles.badge, background: "#ef4444" }}>{meta.total}</span>
+                    ) : null
+                  ) : (
+                    shouldShowBadge ? (
+                      <span style={styles.badge}>{meta.newCount}</span>
+                    ) : null
+                  )}
                 </button>
               );
             })}
