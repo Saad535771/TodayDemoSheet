@@ -13,8 +13,8 @@ const PAGE_TOP_OFFSET = 78;
 const FIXED_TOOLBAR_HEIGHT = 118;
 const STICKY_TOP = -40;
 
-const DEFAULT_PAGE_SIZE = 50;
-const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
+const DEFAULT_PAGE_SIZE = 200;
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200,300,400,500,800,1000];
 const PAKISTAN_TIME_ZONE = "Asia/Karachi";
 const STORAGE_KEY = "pswd-payment-sheet-state-v2";
 
@@ -171,6 +171,7 @@ function parseStatusValue(value) {
 function serializeStatusValue(value) {
   return parseStatusValue(value).join(", ");
 }
+
 function isSelectLikeColumn(col) {
   return col?.kind === "select" || col?.kind === "multiSelect";
 }
@@ -204,22 +205,48 @@ function cloneRows(rows = []) {
 function getDateGroupDay(value) {
   const raw = String(value || "").trim().toLowerCase();
   if (!raw) return Number.MAX_SAFE_INTEGER;
-  const match = raw.match(/^(\d{1,2})/);
-  if (!match) return Number.MAX_SAFE_INTEGER;
-  const day = Number(match[1]);
-  if (!Number.isFinite(day)) return Number.MAX_SAFE_INTEGER;
-  return Math.max(1, Math.min(31, day));
+
+  // Handles values like: 1st Of Month, 2nd of Month, 12th Of Month
+  const ordinalMatch = raw.match(/^(\d{1,2})(st|nd|rd|th)?\b/);
+  if (ordinalMatch) {
+    const day = Number(ordinalMatch[1]);
+    if (Number.isFinite(day)) return Math.max(1, Math.min(31, day));
+  }
+
+  // Fallback for date formats like 2026-05-12 or 12/05/2026
+  const isoMatch = raw.match(/\b\d{4}[-/](\d{1,2})[-/](\d{1,2})\b/);
+  if (isoMatch) {
+    const day = Number(isoMatch[2]);
+    if (Number.isFinite(day)) return Math.max(1, Math.min(31, day));
+  }
+
+  const slashMatch = raw.match(/\b(\d{1,2})[-/.](\d{1,2})(?:[-/.]\d{2,4})?\b/);
+  if (slashMatch) {
+    const first = Number(slashMatch[1]);
+    const second = Number(slashMatch[2]);
+    const day = first > 12 ? first : second > 12 ? second : first;
+    if (Number.isFinite(day)) return Math.max(1, Math.min(31, day));
+  }
+
+  return Number.MAX_SAFE_INTEGER;
 }
+
+function getRowDateGroupDay(row) {
+  return getDateGroupDay(
+    row?.dateWithMonth || row?.date || row?.paymentDate || row?.createdAt || row?.updatedAt
+  );
+}
+
 function sortRowsByDateGroup(rows = []) {
   return cloneRows(rows).sort((a, b) => {
-    const aDay = getDateGroupDay(a?.dateWithMonth);
-    const bDay = getDateGroupDay(b?.dateWithMonth);
+    const aDay = getRowDateGroupDay(a);
+    const bDay = getRowDateGroupDay(b);
     if (aDay !== bDay) return aDay - bDay;
-    const aOrder =
-      typeof a?.orderIndex === "number" ? a.orderIndex : Number.MAX_SAFE_INTEGER;
-    const bOrder =
-      typeof b?.orderIndex === "number" ? b.orderIndex : Number.MAX_SAFE_INTEGER;
+
+    const aOrder = typeof a?.orderIndex === "number" ? a.orderIndex : Number.MAX_SAFE_INTEGER;
+    const bOrder = typeof b?.orderIndex === "number" ? b.orderIndex : Number.MAX_SAFE_INTEGER;
     if (aOrder !== bOrder) return aOrder - bOrder;
+
     return String(a?.tuitionName || "").localeCompare(String(b?.tuitionName || ""));
   });
 }
@@ -691,7 +718,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
   const [search, setSearch] = useState("");
   const savedSheetStateRef = useRef(readSavedSheetState());
   const [selectedMonth, setSelectedMonth] = useState(
-    () => savedSheetStateRef.current.selectedMonth || getCurrentMonthKey()
+    () => savedSheetStateRef.current.selectedMonth || "all"
   );
   const [selectedYear, setSelectedYear] = useState(
     () => savedSheetStateRef.current.selectedYear || getCurrentYearKey()
@@ -904,13 +931,13 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
   useEffect(() => {
     mountedRef.current = true;
     if (isActive) {
-      void loadRows({ initial: currentPage === 1 });
+      void loadRows({ initial: true });
     }
 
     return () => {
       mountedRef.current = false;
     };
-  }, [isActive, currentPage, pageSize, selectedMonth, selectedYear, search]);
+  }, [isActive, selectedMonth, selectedYear, search]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -1334,32 +1361,33 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
     try {
       if (initial) {
         setLoading(true);
-        setItemsImmediate([]);
       } else if (!silent) {
         setLoadingMore(true);
       }
-      const res = await api.get(`/payments-clone?page=${currentPage}&limit=${pageSize}&month=${encodeURIComponent(selectedMonth)}&year=${encodeURIComponent(selectedYear)}&search=${encodeURIComponent(search || "")}`);
+
+      // Fetch all records for the selected filters, then apply frontend sorting + pagination.
+      // This keeps 1st/2nd/3rd...12th Of Month sequence correct across all pages.
+      const fetchLimit = 50000;
+      const res = await api.get(
+        `/payments-clone?page=1&limit=${fetchLimit}&month=${encodeURIComponent(selectedMonth)}&year=${encodeURIComponent(selectedYear)}&search=${encodeURIComponent(search || "")}`
+      );
+
       const rows = Array.isArray(res.data?.items)
         ? res.data.items
         : Array.isArray(res.data)
           ? res.data
           : [];
-      if (!mountedRef.current) return;
-      
-      const newItems = rows;
-      if (currentPage === 1) {
-        setItemsImmediate(newItems);
-      } else {
-        setItemsImmediate([...itemsRef.current, ...newItems]);
-      }
 
-      setTotalItems(res.data?.totalItems || rows.length);
-      setTotalPages(res.data?.totalPages || 1);
-      // Removed syncRowsWithServer(rows) because we append now
+      if (!mountedRef.current) return;
+
+      const sortedRows = sortRowsByDateGroup(rows);
+      setItemsImmediate(sortedRows);
+      setTotalItems(Number(res.data?.totalItems) || sortedRows.length);
+      setTotalPages(Math.max(1, Math.ceil(sortedRows.length / pageSize)));
     } catch (err) {
       console.error("Failed to load payment sheet rows:", err);
       if (!silent && mountedRef.current && initial) {
-        setItems([]);
+        setItemsImmediate([]);
       }
     } finally {
       if (mountedRef.current) {
@@ -1373,20 +1401,29 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
       setAdding(true);
       mutationInFlightRef.current = true;
 
-      const nextOrderIndex =
-        itemsRef.current.reduce((max, item, index) => {
-          const currentOrder =
-            typeof item?.orderIndex === "number" ? item.orderIndex : index;
-          return Math.max(max, currentOrder);
-        }, -1) + 1;
+      const monthForNewRow = selectedMonth === "all" ? getCurrentMonthKey() : selectedMonth;
+      const yearForNewRow = selectedYear || getCurrentYearKey();
+      const fallbackPaymentDate = `${yearForNewRow}-${monthForNewRow}-01`;
 
       const inheritedDateText = String(
-        referenceRow?.dateWithMonth || referenceRow?.date || referenceRow?.paymentDate || ""
+        referenceRow?.dateWithMonth || referenceRow?.date || ""
       ).trim();
+
+      const inheritedPaymentDate = String(
+        referenceRow?.paymentDate || referenceRow?.date || fallbackPaymentDate
+      ).trim();
+
+      const currentRows = sortRowsByDateGroup(itemsRef.current);
+      const referenceId = referenceRow ? getRowId(referenceRow) : null;
+      const referenceIndex = referenceRow
+        ? currentRows.findIndex((item) => String(getRowId(item)) === String(referenceId))
+        : -1;
+
+      const targetIndex = referenceIndex >= 0 ? referenceIndex + 1 : currentRows.length;
 
       const newRow = {
         tuitionId: `manual-${Date.now()}`,
-        paymentDate: "",
+        paymentDate: inheritedPaymentDate,
         date: "",
         dateWithMonth: inheritedDateText,
         tuitionName: "",
@@ -1400,13 +1437,14 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         totalFees: "",
         status: "",
         feedback: "",
+        otmName: "",
         notes: "",
         syncFlag: "",
         assignedStaffId: null,
         isDeleted: false,
         deletedFromTodayDemo: false,
         assignedTo: "",
-        orderIndex: nextOrderIndex,
+        orderIndex: targetIndex,
         rowColor: referenceRow?.rowColor || "",
         tuitionNameColor: "",
       };
@@ -1414,44 +1452,44 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
       const res = await api.post("/payments-clone", newRow);
       const created = res.data?.item || res.data;
 
-      if (created && getRowId(created) !== undefined && getRowId(created) !== null) {
-        const createdRow = {
-          ...created,
-          orderIndex:
-            typeof created?.orderIndex === "number"
-              ? created.orderIndex
-              : nextOrderIndex,
-        };
-        let nextItems = [...itemsRef.current, createdRow];
-        if (referenceRow) {
-          const referenceId = getRowId(referenceRow);
-          const referenceIndex = itemsRef.current.findIndex(
-            (item) => String(getRowId(item)) === String(referenceId));
-          if (referenceIndex >= 0) {
-            nextItems = cloneRows(itemsRef.current);
-            nextItems.splice(referenceIndex + 1, 0, createdRow);
-            nextItems = nextItems.map((item, idx) => ({
-              ...item,
-              orderIndex: idx,
-            }));
-            setItemsImmediate(nextItems);
-            await api.post(`/payments-clone/reorder`, { items: buildReorderPayload(nextItems) });
-          } else {
-            setItemsImmediate(nextItems);
-          }
-        } else {
-          setItemsImmediate(nextItems);
-        }
-        rememberHistoryEntry({
-          type: "addRow",
-          label: referenceRow ? "Add Row After" : "Add Row",
-          row: cloneRow(createdRow),
-        });
-        markMutationSettled();
-        queueSilentReload();
-      } else {
-        queueSilentReload();
+      if (!created || getRowId(created) === undefined || getRowId(created) === null) {
+        await loadRows({ silent: true });
+        return;
       }
+
+      const createdRow = {
+        ...newRow,
+        ...created,
+        paymentDate: created.paymentDate || newRow.paymentDate,
+        dateWithMonth: created.dateWithMonth ?? newRow.dateWithMonth,
+        orderIndex: targetIndex,
+      };
+
+      const nextRows = cloneRows(currentRows);
+      nextRows.splice(targetIndex, 0, createdRow);
+
+      const normalizedRows = nextRows.map((item, idx) => ({
+        ...item,
+        orderIndex: idx,
+      }));
+
+      setItemsImmediate(normalizedRows);
+      await api.post("/payments-clone/reorder", { items: buildReorderPayload(normalizedRows) });
+
+      const createdIndex = normalizedRows.findIndex(
+        (item) => String(getRowId(item)) === String(getRowId(createdRow))
+      );
+      if (createdIndex >= 0) {
+        setCurrentPage(Math.floor(createdIndex / pageSize) + 1);
+      }
+
+      rememberHistoryEntry({
+        type: "addRow",
+        label: referenceRow ? "Add Row After" : "Add Row",
+        row: cloneRow(createdRow),
+      });
+
+      markMutationSettled();
     } catch (err) {
       console.error("Failed to add row:", err);
       alert(err?.response?.data?.message || "Failed to create a new row.");
@@ -1674,12 +1712,23 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
     return counts;
   }, [yearFilteredItems]);
 
-  const monthFilteredItems = items;
-  const safeCurrentPage = Math.max(1, Math.min(currentPage, totalPages || 1));
-  const paginationStartIndex = (safeCurrentPage - 1) * pageSize;
-  const paginationEndIndex = paginationStartIndex + items.length;
+  const monthFilteredItems = useMemo(() => {
+    const rows = selectedMonth === "all"
+      ? yearFilteredItems
+      : yearFilteredItems.filter((row) => getRowMonthKey(row) === selectedMonth);
 
-  const filteredItems = items;
+    return sortRowsByDateGroup(rows);
+  }, [yearFilteredItems, selectedMonth]);
+
+  const clientTotalPages = Math.max(1, Math.ceil(monthFilteredItems.length / pageSize));
+  const safeCurrentPage = Math.max(1, Math.min(currentPage, clientTotalPages));
+  const paginationStartIndex = (safeCurrentPage - 1) * pageSize;
+  const paginationEndIndex = Math.min(paginationStartIndex + pageSize, monthFilteredItems.length);
+
+  const filteredItems = useMemo(
+    () => monthFilteredItems.slice(paginationStartIndex, paginationEndIndex),
+    [monthFilteredItems, paginationStartIndex, paginationEndIndex]
+  );
 
 
   useEffect(() => {
@@ -1705,30 +1754,15 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
 
   useEffect(() => {
     if (loading) return;
-    setCurrentPage((prev) => Math.min(Math.max(prev, 1), totalPages));
-  }, [totalPages, loading]);
+    setCurrentPage((prev) => Math.min(Math.max(prev, 1), clientTotalPages));
+  }, [clientTotalPages, loading]);
 
   useEffect(() => {
     writeSavedSheetState({ selectedMonth, selectedYear, currentPage, pageSize });
   }, [selectedMonth, selectedYear, currentPage, pageSize]);
 
-  useEffect(() => {
-    const wrapper = tableWrapperRef.current;
-    if (!wrapper) return;
-
-    const handleScroll = () => {
-      if (loading || currentPage >= totalPages) return;
-      
-      const { scrollTop, scrollHeight, clientHeight } = wrapper;
-      // Trigger load when 200px from bottom
-      if (scrollTop + clientHeight >= scrollHeight - 200) {
-        setCurrentPage(prev => prev + 1);
-      }
-    };
-
-    wrapper.addEventListener("scroll", handleScroll);
-    return () => wrapper.removeEventListener("scroll", handleScroll);
-  }, [loading, currentPage, totalPages]);
+  // Normal pagination is used here. Infinite-scroll auto page changing is disabled
+  // so that pages stay stable and 200 records remain the default page size.
 
   const itemIndexMap = useMemo(() => {
     const next = new Map();
@@ -2852,14 +2886,51 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                 </select>
               </label>
 
-              <div className="pswd-infinite-status">
-                {loading ? "Loading more records..." : `Showing ${items.length} of ${totalItems} records`}
-              </div>
+              <button
+                type="button"
+                className="pswd-pagination-btn"
+                onClick={() => setCurrentPage(1)}
+                disabled={safeCurrentPage <= 1}
+              >
+                First
+              </button>
+              <button
+                type="button"
+                className="pswd-pagination-btn"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={safeCurrentPage <= 1}
+              >
+                Prev
+              </button>
+
+              <span className="pswd-pagination-info">
+                Showing {showingFrom}-{showingTo} of {monthFilteredItems.length} records | Page {safeCurrentPage} of {clientTotalPages}
+              </span>
+
+              <button
+                type="button"
+                className="pswd-pagination-btn"
+                onClick={() => setCurrentPage((prev) => Math.min(clientTotalPages, prev + 1))}
+                disabled={safeCurrentPage >= clientTotalPages}
+              >
+                Next
+              </button>
+              <button
+                type="button"
+                className="pswd-pagination-btn"
+                onClick={() => setCurrentPage(clientTotalPages)}
+                disabled={safeCurrentPage >= clientTotalPages}
+              >
+                Last
+              </button>
 
               <select
                 className="pswd-page-size"
                 value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value) || DEFAULT_PAGE_SIZE)}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value) || DEFAULT_PAGE_SIZE);
+                  setCurrentPage(1);
+                }}
               >
                 {PAGE_SIZE_OPTIONS.map((size) => (
                   <option key={size} value={size}>{size} / page</option>
@@ -2919,11 +2990,24 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                   filteredItems.map((row, visibleIndex) => {
                     const rowId = getRowId(row);
                     const originalIndex = itemIndexMap.get(String(rowId)) ?? -1;
-                    const displayIndex = paginationStartIndex + visibleIndex + 1;
+                    const globalVisibleIndex = paginationStartIndex + visibleIndex;
+                    const displayIndex = globalVisibleIndex + 1;
 
-                    const canMoveUp = originalIndex > 0;
+                    const previousRow = globalVisibleIndex > 0 ? monthFilteredItems[globalVisibleIndex - 1] : null;
+                    const nextRow =
+                      globalVisibleIndex < monthFilteredItems.length - 1
+                        ? monthFilteredItems[globalVisibleIndex + 1]
+                        : null;
+
+                    const canMoveUp =
+                      originalIndex > 0 &&
+                      previousRow &&
+                      getRowDateGroupDay(previousRow) === getRowDateGroupDay(row);
                     const canMoveDown =
-                      originalIndex >= 0 && originalIndex < items.length - 1;
+                      originalIndex >= 0 &&
+                      originalIndex < items.length - 1 &&
+                      nextRow &&
+                      getRowDateGroupDay(nextRow) === getRowDateGroupDay(row);
 
                     return (
                       <tr
@@ -3007,13 +3091,6 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                       </tr>
                     );
                   })
-                )}
-                {loadingMore && (
-                  <tr>
-                    <td colSpan={visibleColumnCount} className="pswd-loading-more">
-                      Loading more records...
-                    </td>
-                  </tr>
                 )}
               </tbody>
             </table>
