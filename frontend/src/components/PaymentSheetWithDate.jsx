@@ -964,54 +964,43 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
     if (isActive) {
       void loadRows({ initial: true });
     }
-
     return () => {
       mountedRef.current = false;
     };
   }, [isActive]);
-
   useEffect(() => {
     setCurrentPage(1);
   }, [selectedMonth]);
-
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
-
   useEffect(() => {
     if (typeof onCountChange === "function") {
       onCountChange(items.length);
     }
   }, [items.length, onCountChange]);
-
   useEffect(() => {
     editingCellRef.current = editingCell;
   }, [editingCell]);
-
   useEffect(() => {
     editValueRef.current = editValue;
   }, [editValue]);
-
   useEffect(() => {
     const stopMouseSelection = () => {
       isMouseSelectingRef.current = false;
       dragAnchorCellRef.current = null;
     };
-
     document.addEventListener("mouseup", stopMouseSelection);
     return () => {
       document.removeEventListener("mouseup", stopMouseSelection);
     };
   }, []);
-
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setSearch(searchInput);
     }, 180);
-
     return () => window.clearTimeout(timer);
   }, [searchInput]);
-
   useEffect(() => () => {
     if (silentReloadTimerRef.current) {
       window.clearTimeout(silentReloadTimerRef.current);
