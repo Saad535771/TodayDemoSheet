@@ -171,7 +171,50 @@ function parseStatusValue(value) {
 function serializeStatusValue(value) {
   return parseStatusValue(value).join(", ");
 }
+function normalizeSearchText(value) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
+function buildPaymentSearchText(row = {}) {
+  return normalizeSearchText(
+    [
+      row?.dateWithMonth,
+      row?.date,
+      row?.paymentDate,
+
+      row?.tuitionName,
+      row?.totalStudents,
+      row?.country,
+      row?.subjects,
+      row?.className,
+      row?.tutorName,
+
+      row?.tutorFee,
+      row?.tutorShare,
+      row?.lacasShare,
+      row?.totalFees,
+
+      row?.status,
+      row?.feedback,
+      row?.otmName,
+    ].join(" ")
+  );
+}
+
+function rowMatchesPaymentSearch(row, query) {
+  const q = normalizeSearchText(query);
+  if (!q) return true;
+
+  const haystack = buildPaymentSearchText(row);
+
+  return q
+    .split(" ")
+    .filter(Boolean)
+    .every((word) => haystack.includes(word));
+}
 function isSelectLikeColumn(col) {
   return col?.kind === "select" || col?.kind === "multiSelect";
 }
@@ -556,27 +599,21 @@ const ColorSwatch = ({
             top: popupPos.top,
             left: popupPos.left,
           }}
-          onClick={(e) => e.stopPropagation()}
-        >
+          onClick={(e) => e.stopPropagation()}>
           <div
             style={{
-
               fontSize: "13px",
               fontWeight: "700",
               color: "#111111",
-            }}
-          >
+            }}>
             Default Colors
           </div>
-
           <div
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(6, 28px)",
               gap: "6px",
-
-            }}
-          >
+            }}>
             {presets.map((c, i) => (
               <div
                 key={i}
@@ -604,7 +641,6 @@ const ColorSwatch = ({
               />
             ))}
           </div>
-
           <div style={{ borderTop: "1px solid #d1d5db", paddingTop: "8px" }}>
             <div style={{ fontSize: "13px", marginBottom: "4px", fontWeight: "700" }}>
               Custom Color
@@ -621,14 +657,11 @@ const ColorSwatch = ({
     </div>
   );
 };
-
 function parseJwtPayload(token) {
   try {
     if (!token || typeof token !== "string") return null;
-
     const parts = token.split(".");
     if (parts.length < 2) return null;
-
     const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
     const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
     const json = atob(padded);
@@ -638,12 +671,10 @@ function parseJwtPayload(token) {
     return null;
   }
 }
-
 function resolveCurrentUserRole(me) {
   try {
     const meRole = String(me?.role || me?.user?.role || "").trim().toLowerCase();
     if (meRole) return meRole;
-
     const storedUserRaw = localStorage.getItem("user");
     if (storedUserRaw) {
       const storedUser = JSON.parse(storedUserRaw);
@@ -937,7 +968,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
     return () => {
       mountedRef.current = false;
     };
-  }, [isActive, selectedMonth, selectedYear, search]);
+  }, [isActive]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -1369,8 +1400,8 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
       // This keeps 1st/2nd/3rd...12th Of Month sequence correct across all pages.
       const fetchLimit = 50000;
       const res = await api.get(
-        `/payments-clone?page=1&limit=${fetchLimit}&month=${encodeURIComponent(selectedMonth)}&year=${encodeURIComponent(selectedYear)}&search=${encodeURIComponent(search || "")}`
-      );
+  `/payments-clone?page=1&limit=${fetchLimit}&month=all&year=all`
+);
 
       const rows = Array.isArray(res.data?.items)
         ? res.data.items
@@ -1650,39 +1681,13 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
       totalFees: calculateAutoTotalFees(nextTutorFee, nextLacasShare),
     };
   }
-  const searchedItems = useMemo(() => {
-    const q = search.trim().toLowerCase();
+ const searchedItems = useMemo(() => {
+  const baseRows = !normalizeSearchText(search)
+    ? items
+    : items.filter((item) => rowMatchesPaymentSearch(item, search));
 
-    const baseRows = !q
-      ? items
-      : items.filter((item) => {
-        const haystack = [
-          item.tuitionId,
-          item.dateWithMonth,
-          item.date,
-          item.paymentDate,
-          item.tuitionName,
-          item.totalStudents,
-          item.country,
-          item.subjects,
-          item.className,
-          item.tutorName,
-          item.tutorFee,
-          item.lacasShare,
-          item.totalFees,
-          item.status,
-          item.otmName,
-          item.feedback,
-          item.notes,
-        ]
-          .map((v) => String(v ?? "").toLowerCase())
-          .join(" ");
-
-        return haystack.includes(q);
-      });
-
-    return sortRowsByDateGroup(baseRows);
-  }, [items, search]);
+  return sortRowsByDateGroup(baseRows);
+}, [items, search]);
 
   const yearOptions = useMemo(() => {
     const years = new Set([getCurrentYearKey(), selectedYear]);

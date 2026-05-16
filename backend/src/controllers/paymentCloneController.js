@@ -166,22 +166,39 @@ function statusHasTuitionCancelled(value) {
 
 function applyPaymentCycleFields(payload = {}, beforeData = null) {
   const currentCycleDate = getPakistanMonthStartDateString();
+
   const hasStatusPatch = Object.prototype.hasOwnProperty.call(payload, "status");
-  const beforeCancelled = statusHasTuitionCancelled(beforeData?.status);
-  const nextStatus = hasStatusPatch ? payload.status : beforeData?.status;
+  const beforeStatus = beforeData?.status;
+  const nextStatus = hasStatusPatch ? payload.status : beforeStatus;
+
+  const beforeCancelled = statusHasTuitionCancelled(beforeStatus);
   const nextCancelled = statusHasTuitionCancelled(nextStatus);
 
-  if (nextCancelled) {
-    const frozenCycle =
-      beforeCancelled && (beforeData?.paymentDate || beforeData?.date)
-        ? toMonthStartDateString(beforeData.paymentDate || beforeData.date, currentCycleDate)
-        : currentCycleDate;
-
-    payload.paymentDate = frozenCycle;
-    payload.date = frozenCycle;
+  // Agar tuition newly cancelled ho rahi hai,
+  // to system current month me hi lock karega.
+  // Example: May me cancel hui to 2026-05-01.
+  if (nextCancelled && !beforeCancelled) {
+    payload.paymentDate = currentCycleDate;
+    payload.date = currentCycleDate;
     return payload;
   }
 
+  // Agar tuition pehle se cancelled hai,
+  // to uski old/cancel month date same rahegi.
+  // Example: May me cancel hui thi, June me bhi May me hi rahegi.
+  if (nextCancelled && beforeCancelled) {
+    const lockedCycleDate = toMonthStartDateString(
+      beforeData?.paymentDate || beforeData?.date || currentCycleDate,
+      currentCycleDate
+    );
+
+    payload.paymentDate = lockedCycleDate;
+    payload.date = lockedCycleDate;
+    return payload;
+  }
+
+  // Agar status cancelled se active/status wapas change ho jaye,
+  // to current month me aa jaye.
   payload.paymentDate = currentCycleDate;
   payload.date = currentCycleDate;
   return payload;
