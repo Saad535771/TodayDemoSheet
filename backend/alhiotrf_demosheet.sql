@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `alhiotrf_demosheet`
+-- Database: `app_todaydemo`
 --
 
 -- --------------------------------------------------------
@@ -164,7 +164,7 @@ CREATE TABLE `otm_tuition_entries` (
   `updated_by` int(10) UNSIGNED DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `otm_tuition_entries`
@@ -9495,7 +9495,7 @@ CREATE TABLE `tuitions` (
   `payment_approved_at` datetime DEFAULT NULL,
   `payment_approved_by` int(10) UNSIGNED DEFAULT NULL,
   `payment_rejection_reason` text DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `tuitions`
@@ -9539,7 +9539,7 @@ CREATE TABLE `users` (
   `access_hod_approvals` tinyint(4) DEFAULT 0,
   `access_staff` tinyint(4) DEFAULT 0,
   `access_otm_management` tinyint(4) DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `users`
@@ -9572,11 +9572,9 @@ CREATE TABLE `user_presence` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
-
 --
 -- Dumping data for table `user_presence`
 --
-
 INSERT INTO `user_presence` (`id`, `user_id`, `session_id`, `current_sheet`, `is_online`, `login_at`, `last_seen_at`, `user_agent`, `ip_address`, `created_at`, `updated_at`) VALUES
 (1, 2, 'sess-1773326012417-bukl7bevr', 'main', 1, '2026-03-14 18:35:59', '2026-03-12 14:40:08', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '127.0.0.1', '2026-03-12 14:35:59', '2026-03-12 14:40:08'),
 (2, 1, 'sess-1773326012382-g9pfpc793', 'staff', 1, '2026-03-15 02:35:59', '2026-03-12 14:40:10', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36', '127.0.0.1', '2026-03-12 14:35:59', '2026-03-12 14:40:10'),
@@ -9670,11 +9668,9 @@ INSERT INTO `user_presence` (`id`, `user_id`, `session_id`, `current_sheet`, `is
 (90, 1, 'sess-1776786134478-zddxbh6vn', 'main', 0, '2026-05-22 23:42:15', '2026-04-21 16:55:47', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36', '127.0.0.1', '2026-04-21 15:42:15', '2026-04-21 16:55:47'),
 (91, 1, 'sess-1776789224622-rqwe547rg', 'trash', 1, '2026-05-02 16:33:45', '2026-04-21 16:55:26', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36', '127.0.0.1', '2026-04-21 16:33:45', '2026-04-21 16:55:26'),
 (92, 1, 'sess-1776868618088-z21zvp9ba', 'payment', 1, '2026-05-09 02:36:59', '2026-04-22 15:21:35', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36', '127.0.0.1', '2026-04-22 14:36:59', '2026-04-22 15:21:35');
-
 --
 -- Indexes for dumped tables
 --
-
 --
 -- Indexes for table `otm_class_times`
 --

@@ -174,21 +174,21 @@ function applyPaymentCycleFields(payload = {}, beforeData = null) {
   const beforeCancelled = statusHasTuitionCancelled(beforeStatus);
   const nextCancelled = statusHasTuitionCancelled(nextStatus);
 
-  // Agar tuition newly cancelled ho rahi hai,
-  // to system current month me hi lock karega.
-  // Example: May me cancel hui to 2026-05-01.
+  // Case 1: Status abhi abhi Tuition Cancelled hua
+  // Is waqt jis month ki system date hai, usi month me lock hoga.
+  // April me cancel -> April
+  // May me cancel -> May
   if (nextCancelled && !beforeCancelled) {
     payload.paymentDate = currentCycleDate;
     payload.date = currentCycleDate;
     return payload;
   }
 
-  // Agar tuition pehle se cancelled hai,
-  // to uski old/cancel month date same rahegi.
-  // Example: May me cancel hui thi, June me bhi May me hi rahegi.
+  // Case 2: Record pehle se Tuition Cancelled hai
+  // Iski old locked date ko change nahi karna.
   if (nextCancelled && beforeCancelled) {
     const lockedCycleDate = toMonthStartDateString(
-      beforeData?.paymentDate || beforeData?.date || currentCycleDate,
+      beforeData?.paymentDate || beforeData?.date || beforeData?.createdAt || beforeData?.created_at,
       currentCycleDate
     );
 
@@ -197,8 +197,8 @@ function applyPaymentCycleFields(payload = {}, beforeData = null) {
     return payload;
   }
 
-  // Agar status cancelled se active/status wapas change ho jaye,
-  // to current month me aa jaye.
+  // Case 3: Active / Fee Receive / Pending / Invoice Share etc.
+  // Ye records current month me move honge.
   payload.paymentDate = currentCycleDate;
   payload.date = currentCycleDate;
   return payload;
@@ -570,35 +570,33 @@ export function makePaymentCloneController({
     };
   }
 
-  async function syncCurrentPakistanPaymentCycle() {
-    const rows = await PaymentClone.findAll();
-    const currentCycleDate = getPakistanMonthStartDateString();
+ async function syncCurrentPakistanPaymentCycle() {
+  const rows = await PaymentClone.findAll();
+  const currentCycleDate = getPakistanMonthStartDateString();
 
-    for (const row of rows) {
-      const raw = toPlain(row);
-      const cancelled = statusHasTuitionCancelled(raw?.status);
-      let nextCycleDate = currentCycleDate;
+  for (const row of rows) {
+    const raw = toPlain(row);
+    const cancelled = statusHasTuitionCancelled(raw?.status);
 
-      if (cancelled) {
-        const existingCycleSource =
-          normalizeDateOnly(raw?.paymentDate ?? raw?.payment_date, null) ||
-          normalizeDateOnly(raw?.date, null) ||
-          raw?.createdAt ||
-          raw?.created_at ||
-          raw?.updatedAt ||
-          raw?.updated_at;
+    // IMPORTANT:
+    // Tuition Cancelled rows ko sync kabhi touch nahi karega.
+    // Jo month cancel hote waqt set hua tha, wohi locked rahega.
+    if (cancelled) {
+      continue;
+    }
 
-        nextCycleDate = toMonthStartDateString(existingCycleSource, currentCycleDate);
-      }
+    const currentPaymentDate = normalizeDateOnly(raw?.paymentDate ?? raw?.payment_date ?? null, null);
+    const currentDate = normalizeDateOnly(raw?.date ?? null, null);
 
-      const currentPaymentDate = normalizeDateOnly(raw?.paymentDate ?? raw?.payment_date ?? null, null);
-      const currentDate = normalizeDateOnly(raw?.date ?? null, null);
-
-      if (currentPaymentDate !== nextCycleDate || currentDate !== nextCycleDate) {
-        await row.update({ paymentDate: nextCycleDate, date: nextCycleDate }, { silent: true });
-      }
+    // Sirf active / non-cancelled rows current month me move hongi.
+    if (currentPaymentDate !== currentCycleDate || currentDate !== currentCycleDate) {
+      await row.update(
+        { paymentDate: currentCycleDate, date: currentCycleDate },
+        { silent: true }
+      );
     }
   }
+}
 
   return {
     async list(req, res) {

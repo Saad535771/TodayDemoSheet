@@ -253,7 +253,6 @@ function EnhancedSlotShell({ children }) {
 export default function TargetBoard({ onCountChange, isActive = true }) {
   const [slots, setSlots] = useState([]);
   const [filter, setFilter] = useState("");
-  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [globalZoom, setGlobalZoom] = useState(1);
@@ -262,19 +261,6 @@ export default function TargetBoard({ onCountChange, isActive = true }) {
   const mountedRef = useRef(true);
   const latestRequestRef = useRef(0);
   const lastChildRefreshAtRef = useRef(0);
-
-  // Debounce the search term so API isn't hit on every keystroke
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-      // Sync with global search manager for highlighting/local filtering
-      if (typeof window !== "undefined" && window.__SLOT_GLOBAL_SEARCH) {
-        window.__SLOT_GLOBAL_SEARCH.setTerm(search);
-      }
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [search]);
 
   const handleGlobalZoom = (factor) => {
     setGlobalZoom((prev) => {
@@ -309,15 +295,13 @@ export default function TargetBoard({ onCountChange, isActive = true }) {
       }
 
       try {
-        const params = {};
-        if (filter) params.filter = filter;
-        if (debouncedSearch) params.search = debouncedSearch;
-
-        const { data } = await api.get("/target", { params });
+        const { data } = await api.get("/target", {
+          params: filter ? { filter } : {},
+        });
 
         if (!mountedRef.current || latestRequestRef.current !== requestId) return;
 
-        let nextSlots = Array.isArray(data?.slots) ? data.slots : [];
+        const nextSlots = Array.isArray(data?.slots) ? data.slots : [];
         setSlots((prev) => (areSlotsEqual(prev, nextSlots) ? prev : nextSlots));
       } catch (e) {
         if (!mountedRef.current || latestRequestRef.current !== requestId) return;
@@ -329,7 +313,7 @@ export default function TargetBoard({ onCountChange, isActive = true }) {
         inFlightRef.current = false;
       }
     },
-    [filter, debouncedSearch]
+    [filter]
   );
 
   useEffect(() => {
@@ -415,20 +399,6 @@ export default function TargetBoard({ onCountChange, isActive = true }) {
             ))}
           </select>
 
-          <input
-            type="text"
-            placeholder="🔍 Search entity..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{
-              width: 220,
-              padding: "8px 12px",
-              borderRadius: 10,
-              border: "1px solid #d1d5db",
-              fontSize: 13,
-              outline: "none",
-            }}
-          />
           <div
             style={{
               display: "flex",
