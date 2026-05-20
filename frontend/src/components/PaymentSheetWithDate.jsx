@@ -803,12 +803,22 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
   const didMountFilterResetRef = useRef(false);
   const pendingScrollRestoreRef = useRef(savedSheetStateRef.current.tableScroll || null);
 
-  const currentRole = resolveCurrentUserRole(me);
-  const isPrivilegedRole = currentRole === "admin" || currentRole === "hod";
-  const canSeeTutorShare = isPrivilegedRole || resolveAccessFlag(me, "access_tutor_share");
-  const canSeeLacasShare = isPrivilegedRole || resolveAccessFlag(me, "access_lacas_share");
-  const canSeeTotalFees = isPrivilegedRole || resolveAccessFlag(me, "access_total_fees");
-  const canSeeAuditTrail = currentRole === "admin";
+ const currentRole = resolveCurrentUserRole(me);
+
+// Sirf admin ko default full access hoga.
+// HOD, OTM, Staff ke liye admin panel wali permissions follow hongi.
+const isAdminRole = currentRole === "admin";
+
+const canSeeTutorShare =
+  isAdminRole || resolveAccessFlag(me, "access_tutor_share");
+
+const canSeeLacasShare =
+  isAdminRole || resolveAccessFlag(me, "access_lacas_share");
+
+const canSeeTotalFees =
+  isAdminRole || resolveAccessFlag(me, "access_total_fees");
+
+const canSeeAuditTrail = isAdminRole;
   const zoomPercent = `${Math.round(zoomLevel * 100)}%`;
 
   const changeZoom = (direction) => {
@@ -908,7 +918,6 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         align: "center",
       });
     }
-
     cols.push(
       {
         id: "status",
