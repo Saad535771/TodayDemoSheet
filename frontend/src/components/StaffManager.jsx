@@ -29,7 +29,7 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "1380px",
+    minWidth: "1580px",
   },
   th: {
     textAlign: "center",
@@ -238,26 +238,29 @@ export default function StaffManager() {
 
       <div style={styles.tableWrap}>
         <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Email</th>
-              <th style={styles.th}>Role</th>
-              <th style={{ ...styles.th, textAlign: "center" }}>Show HOD Approvals</th>
-              <th style={{ ...styles.th, textAlign: "center" }}>Show Staff</th>
-              <th style={{ ...styles.th, textAlign: "center" }}>Show OTM Portal</th>
-              <th style={{ ...styles.th, textAlign: "center" }}>Show Monthly</th>
-              <th style={{ ...styles.th, textAlign: "center" }}>Show Demo</th>
-              <th style={{ ...styles.th, textAlign: "center" }}>Show Trash</th>
-              <th style={{ ...styles.th, textAlign: "center" }}>Show Payment Sheet</th>
-              <th style={{ ...styles.th, textAlign: "center" }}>Tutor Share</th>
-              <th style={{ ...styles.th, textAlign: "center" }}>Lacas Share</th>
-              <th style={{ ...styles.th, textAlign: "center" }}>Total Fees</th>
-              <th style={{ ...styles.th, textAlign: "center" }}>Show Chat</th>
-              <th style={{ ...styles.th, textAlign: "center" }}>Send Chat Msg</th>
-              <th style={{ ...styles.th, textAlign: "right" }}>Actions</th>
-              <th style={{ ...styles.th, textAlign: "center" }}>Payment Actions</th>
-            </tr>
-          </thead>
+     <thead>
+  <tr>
+    <th style={styles.th}>Email</th>
+    <th style={styles.th}>Role</th>
+    <th style={{ ...styles.th, textAlign: "center" }}>Show HOD Approvals</th>
+    <th style={{ ...styles.th, textAlign: "center" }}>Show Staff</th>
+    <th style={{ ...styles.th, textAlign: "center" }}>Show OTM Portal</th>
+    <th style={{ ...styles.th, textAlign: "center" }}>Show Monthly</th>
+    <th style={{ ...styles.th, textAlign: "center" }}>Show Demo</th>
+    <th style={{ ...styles.th, textAlign: "center" }}>Show Trash</th>
+    <th style={{ ...styles.th, textAlign: "center" }}>Show Payment Sheet</th>
+    <th style={{ ...styles.th, textAlign: "center" }}>Tutor Share</th>
+    <th style={{ ...styles.th, textAlign: "center" }}>Lacas Share</th>
+    <th style={{ ...styles.th, textAlign: "center" }}>Total Fees</th>
+
+    {/* Action column hide/show toggle */}
+    <th style={{ ...styles.th, textAlign: "center" }}>Payment Actions</th>
+
+    <th style={{ ...styles.th, textAlign: "center" }}>Show Chat</th>
+    <th style={{ ...styles.th, textAlign: "center" }}>Send Chat Msg</th>
+    <th style={{ ...styles.th, textAlign: "right" }}>Actions</th>
+  </tr>
+</thead>
 
           <tbody>
             {users.map((user) => {
