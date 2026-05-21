@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/api.js";
 import PaymentSheetHistoryPanel from "../pages/PaymentSheetHistoryPanel.jsx";
+import PaymentSheetInvoiceActions from "./PaymentSheetInvoiceActions.jsx";
 import "./PaymentSheetWithDate.global.css";
 
 const MIN_ZOOM = 0.7;
@@ -171,6 +172,25 @@ function parseStatusValue(value) {
 function serializeStatusValue(value) {
   return parseStatusValue(value).join(", ");
 }
+
+function getContactValue(row = {}) {
+  return (
+    row?.contactNumber ??
+    row?.contactNo ??
+    row?.contact ??
+    row?.contact_number ??
+    row?.phone ??
+    row?.mobile ??
+    ""
+  );
+}
+
+function normalizePaymentRow(row = {}) {
+  return {
+    ...row,
+    contactNumber: getContactValue(row),
+  };
+}
 function normalizeSearchText(value) {
   return String(value ?? "")
     .toLowerCase()
@@ -196,6 +216,12 @@ function buildPaymentSearchText(row = {}) {
       row?.tutorShare,
       row?.lacasShare,
       row?.totalFees,
+      row?.contactNumber,
+      row?.contactNo,
+      row?.contact,
+      row?.contact_number,
+      row?.phone,
+      row?.mobile,
 
       row?.status,
       row?.feedback,
@@ -946,6 +972,14 @@ const canSeeAuditTrail = isAdminRole;
         align: "center",
       },
       {
+        id: "contactNumber",
+        label: "Contact",
+        field: "contactNumber",
+        editable: true,
+        width: 135,
+        align: "center",
+      },
+      {
         id: "notes",
         label: "Notes",
         field: "notes",
@@ -1409,7 +1443,8 @@ const canSeeAuditTrail = isAdminRole;
 
       if (!mountedRef.current) return;
 
-      const sortedRows = sortRowsByDateGroup(rows);
+      const normalizedRows = rows.map(normalizePaymentRow);
+      const sortedRows = sortRowsByDateGroup(normalizedRows);
       setItemsImmediate(sortedRows);
       setTotalItems(Number(res.data?.totalItems) || sortedRows.length);
       setTotalPages(Math.max(1, Math.ceil(sortedRows.length / pageSize)));
@@ -1467,6 +1502,7 @@ const canSeeAuditTrail = isAdminRole;
         status: "",
         feedback: "",
         otmName: "",
+        contactNumber: "",
         notes: "",
         syncFlag: "",
         assignedStaffId: null,
@@ -1491,6 +1527,7 @@ const canSeeAuditTrail = isAdminRole;
         ...created,
         paymentDate: created.paymentDate || newRow.paymentDate,
         dateWithMonth: created.dateWithMonth ?? newRow.dateWithMonth,
+        contactNumber: getContactValue(created) || newRow.contactNumber || "",
         orderIndex: targetIndex,
       };
 
@@ -1498,7 +1535,7 @@ const canSeeAuditTrail = isAdminRole;
       nextRows.splice(targetIndex, 0, createdRow);
 
       const normalizedRows = nextRows.map((item, idx) => ({
-        ...item,
+        ...normalizePaymentRow(item),
         orderIndex: idx,
       }));
 
@@ -1941,12 +1978,16 @@ const canSeeAuditTrail = isAdminRole;
 
   const getCellValue = (row, col) => {
     if (!row || !col) return "";
+    if (col.field === "contactNumber") return getContactValue(row);
     return row[col.field] ?? "";
   };
 
   const buildPatchForColumn = (colId, value) => {
     const col = gridColumnMap[colId];
     if (!col?.field) return {};
+    if (col.field === "contactNumber") {
+      return { contactNumber: String(value ?? "").trim() };
+    }
     return { [col.field]: value };
   };
 
@@ -2796,7 +2837,7 @@ const canSeeAuditTrail = isAdminRole;
 
             <input
               type="text"
-              placeholder="Search by date text, tuition name, tutor fee, lacas share, total fee, status..."
+              placeholder="Search by date text, tuition name, contact, tutor fee, lacas share, total fee, status..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               className="pswd-search-input"
@@ -2972,7 +3013,7 @@ const canSeeAuditTrail = isAdminRole;
                     </th>
                   ))}
                   <th className="pswd-th" style={{ "--pswd-th-top": tableHeadTop, "--pswd-col-width": "60px" }}>Add Row</th>
-                  <th className="pswd-th" style={{ "--pswd-th-top": tableHeadTop, "--pswd-col-width": "100px" }}>Action</th>
+                  <th className="pswd-th" style={{ "--pswd-th-top": tableHeadTop, "--pswd-col-width": "230px" }}>Action</th>
                 </tr>
               </thead>
 
@@ -3084,6 +3125,7 @@ const canSeeAuditTrail = isAdminRole;
                               className="pswd-copy-btn"
                               onClick={() => void copyRowToClipboard(row, visibleIndex)}
                               title="Copy row">Copy</button>
+                            <PaymentSheetInvoiceActions row={row} rowIndex={displayIndex} />
                             <button
                               type="button"
                               className="pswd-delete-btn"
