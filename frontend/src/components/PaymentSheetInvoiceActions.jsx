@@ -518,31 +518,43 @@ function openWhatsapp(row, rowIndex) {
   }, 1100);
 }
 
-export default function PaymentSheetInvoiceActions({ row, rowIndex }) {
+export default function PaymentSheetInvoiceActions({
+  row,
+  rowIndex,
+  canPrintInvoice = true,
+  canWhatsappInvoice = true,
+}) {
+  if (!canPrintInvoice && !canWhatsappInvoice) return null;
+
   return (
     <>
-      <button
-        type="button"
-        className="pswd-invoice-btn pswd-invoice-print-btn"
-        onClick={() => printInvoice(row, rowIndex)}
-        title="Print invoice"
-      >
-        Print Invoice
-      </button>
-      <button
-        type="button"
-        className="pswd-invoice-btn pswd-invoice-whatsapp-btn"
-        onClick={() => openWhatsapp(row, rowIndex)}
-        title="Open WhatsApp for this contact"
-        aria-label="Open WhatsApp"
-      >
-        <svg viewBox="0 0 32 32" width="15" height="15" aria-hidden="true">
-          <path
-            fill="currentColor"
-            d="M16.02 3.2A12.72 12.72 0 0 0 5.23 22.65L3.8 28.8l6.3-1.45A12.71 12.71 0 1 0 16.02 3.2Zm0 22.93c-2.08 0-4.02-.62-5.64-1.69l-.4-.26-3.74.86.84-3.65-.27-.42a10.17 10.17 0 1 1 9.21 5.16Zm5.7-7.62c-.31-.15-1.84-.91-2.13-1.01-.28-.1-.49-.15-.7.15-.2.31-.8 1.01-.98 1.22-.18.2-.36.23-.67.08-.31-.16-1.31-.48-2.5-1.53-.92-.82-1.55-1.84-1.73-2.15-.18-.31-.02-.48.14-.63.14-.14.31-.36.46-.54.15-.18.2-.31.31-.52.1-.21.05-.39-.03-.54-.08-.15-.7-1.68-.95-2.3-.25-.6-.5-.52-.7-.53h-.59c-.2 0-.54.08-.82.39-.28.31-1.08 1.05-1.08 2.56 0 1.51 1.1 2.97 1.25 3.17.15.2 2.17 3.31 5.26 4.64.74.32 1.31.51 1.76.65.74.23 1.42.2 1.95.12.6-.09 1.84-.75 2.1-1.47.26-.72.26-1.34.18-1.47-.08-.13-.28-.2-.59-.36Z"
-          />
-        </svg>
-      </button>
+      {canPrintInvoice && (
+        <button
+          type="button"
+          className="pswd-invoice-btn pswd-invoice-print-btn"
+          onClick={() => printInvoice(row, rowIndex)}
+          title="Print invoice"
+        >
+          Print Invoice
+        </button>
+      )}
+
+      {canWhatsappInvoice && (
+        <button
+          type="button"
+          className="pswd-invoice-btn pswd-invoice-whatsapp-btn"
+          onClick={() => openWhatsapp(row, rowIndex)}
+          title="Open WhatsApp for this contact"
+          aria-label="Open WhatsApp"
+        >
+          <svg viewBox="0 0 32 32" width="15" height="15" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M16.02 3.2A12.72 12.72 0 0 0 5.23 22.65L3.8 28.8l6.3-1.45A12.71 12.71 0 1 0 16.02 3.2Zm0 22.93c-2.08 0-4.02-.62-5.64-1.69l-.4-.26-3.74.86.84-3.65-.27-.42a10.17 10.17 0 1 1 9.21 5.16Zm5.7-7.62c-.31-.15-1.84-.91-2.13-1.01-.28-.1-.49-.15-.7.15-.2.31-.8 1.01-.98 1.22-.18.2-.36.23-.67.08-.31-.16-1.31-.48-2.5-1.53-.92-.82-1.55-1.84-1.73-2.15-.18-.31-.02-.48.14-.63.14-.14.31-.36.46-.54.15-.18.2-.31.31-.52.1-.21.05-.39-.03-.54-.08-.15-.7-1.68-.95-2.3-.25-.6-.5-.52-.7-.53h-.59c-.2 0-.54.08-.82.39-.28.31-1.08 1.05-1.08 2.56 0 1.51 1.1 2.97 1.25 3.17.15.2 2.17 3.31 5.26 4.64.74.32 1.31.51 1.76.65.74.23 1.42.2 1.95.12.6-.09 1.84-.75 2.1-1.47.26-.72.26-1.34.18-1.47-.08-.13-.28-.2-.59-.36Z"
+            />
+          </svg>
+        </button>
+      )}
     </>
   );
 }

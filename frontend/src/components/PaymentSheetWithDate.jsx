@@ -844,6 +844,11 @@ const canSeeLacasShare =
 const canSeeTotalFees =
   isAdminRole || resolveAccessFlag(me, "access_total_fees");
 
+  const canPrintInvoice =
+  isAdminRole || resolveAccessFlag(me, "access_print_invoice");
+
+const canWhatsappInvoice =
+  isAdminRole || resolveAccessFlag(me, "access_whatsapp_invoice");
 const canSeeAuditTrail = isAdminRole;
   const zoomPercent = `${Math.round(zoomLevel * 100)}%`;
 
@@ -3125,7 +3130,14 @@ const canSeeAuditTrail = isAdminRole;
                               className="pswd-copy-btn"
                               onClick={() => void copyRowToClipboard(row, visibleIndex)}
                               title="Copy row">Copy</button>
-                            <PaymentSheetInvoiceActions row={row} rowIndex={displayIndex} />
+                           {(canPrintInvoice || canWhatsappInvoice) && (
+  <PaymentSheetInvoiceActions
+    row={row}
+    rowIndex={displayIndex}
+    canPrintInvoice={canPrintInvoice}
+    canWhatsappInvoice={canWhatsappInvoice}
+  />
+)}
                             <button
                               type="button"
                               className="pswd-delete-btn"

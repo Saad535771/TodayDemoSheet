@@ -21,6 +21,8 @@ const PERMISSION_FIELDS = [
   { key: "access_tutor_share", label: "Tutor Share" },
   { key: "access_lacas_share", label: "LACAS Share" },
   { key: "access_total_fees", label: "Total Fees" },
+  { key: "access_print_invoice", label: "Print Invoice" },
+  { key: "access_whatsapp_invoice", label: "WhatsApp Invoice" },
 ];
 
 const defaultPermissions = PERMISSION_FIELDS.reduce((acc, item) => {

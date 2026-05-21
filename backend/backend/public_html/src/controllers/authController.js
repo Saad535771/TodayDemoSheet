@@ -25,14 +25,18 @@ export function makeAuthController({ User, UserPresence }) {
     access_payment_sheet = 0,
     access_tutor_share = 0,
     access_lacas_share = 0,
-    access_total_fees = 0
+    access_total_fees = 0,
+    access_print_invoice = 0,
+    access_whatsapp_invoice = 0,
   }) => {
     if (role === "admin") {
       return {
         accessPaymentSheet: 1,
         accessTutorShare: 1,
         accessLacasShare: 1,
-        accessTotalFees: 1
+        accessTotalFees: 1,
+        accessPrintInvoice: 1,
+        accessWhatsappInvoice: 1,
       };
     }
 
@@ -43,7 +47,9 @@ export function makeAuthController({ User, UserPresence }) {
         accessPaymentSheet: 0,
         accessTutorShare: 0,
         accessLacasShare: 0,
-        accessTotalFees: 0
+        accessTotalFees: 0,
+        accessPrintInvoice: 0,
+        accessWhatsappInvoice: 0,
       };
     }
 
@@ -51,7 +57,9 @@ export function makeAuthController({ User, UserPresence }) {
       accessPaymentSheet: 1,
       accessTutorShare: toBoolInt(access_tutor_share),
       accessLacasShare: toBoolInt(access_lacas_share),
-      accessTotalFees: toBoolInt(access_total_fees)
+      accessTotalFees: toBoolInt(access_total_fees),
+      accessPrintInvoice: toBoolInt(access_print_invoice),
+accessWhatsappInvoice: toBoolInt(access_whatsapp_invoice),
     };
   };
 
@@ -67,6 +75,8 @@ export function makeAuthController({ User, UserPresence }) {
     access_tutor_share: user.accessTutorShare,
     access_lacas_share: user.accessLacasShare,
     access_total_fees: user.accessTotalFees,
+    access_print_invoice: user.accessPrintInvoice,
+    access_whatsapp_invoice: user.accessWhatsappInvoice,
     access_hod_approvals: user.accessHodApprovals,
     access_staff: user.accessStaff,
     access_otm_management: user.accessOtmManagement,
@@ -198,7 +208,9 @@ export function makeAuthController({ User, UserPresence }) {
           access_payment_sheet: 0,
           access_tutor_share: 0,
           access_lacas_share: 0,
-          access_total_fees: 0
+          access_total_fees: 0,
+          access_print_invoice: 0,
+          access_whatsapp_invoice: 0,
         });
 
         const newUser = await User.create({
@@ -213,7 +225,9 @@ export function makeAuthController({ User, UserPresence }) {
           accessTutorShare: paymentPermissions.accessTutorShare,
           accessLacasShare: paymentPermissions.accessLacasShare,
           accessTotalFees: paymentPermissions.accessTotalFees,
-           accessChat: finalRole === "admin" ? 1 : 0,
+          accessPrintInvoice: finalRole === "admin" ? 1 : paymentPermissions.accessPrintInvoice,
+          accessWhatsappInvoice: finalRole === "admin" ? 1 : paymentPermissions.accessWhatsappInvoice,
+          accessChat: finalRole === "admin" ? 1 : 0,
   accessChatSend: finalRole === "admin" ? 1 : 0,
         });
 
@@ -296,6 +310,8 @@ export function makeAuthController({ User, UserPresence }) {
         access_tutor_share,
         access_lacas_share,
         access_total_fees,
+        access_print_invoice,
+        access_whatsapp_invoice,
         access_hod_approvals,
         access_staff,
         access_otm_management,
@@ -317,7 +333,9 @@ export function makeAuthController({ User, UserPresence }) {
           access_payment_sheet,
           access_tutor_share,
           access_lacas_share,
-          access_total_fees
+          access_total_fees,
+          access_print_invoice,
+          access_whatsapp_invoice,
         });
 
         await User.update(
