@@ -185,10 +185,22 @@ function getContactValue(row = {}) {
   );
 }
 
+function getPaymentDateValue(row = {}) {
+  return (
+    row?.paymentDate ??
+    row?.payment_date ??
+    row?.invoiceDate ??
+    row?.invoice_date ??
+    row?.date ??
+    ""
+  );
+}
+
 function normalizePaymentRow(row = {}) {
   return {
     ...row,
     contactNumber: getContactValue(row),
+    paymentDate: getPaymentDateValue(row),
   };
 }
 function normalizeSearchText(value) {
@@ -225,6 +237,7 @@ function buildPaymentSearchText(row = {}) {
 
       row?.status,
       row?.feedback,
+      row?.notes,
       row?.otmName,
     ].join(" ")
   );
@@ -844,11 +857,9 @@ const canSeeLacasShare =
 const canSeeTotalFees =
   isAdminRole || resolveAccessFlag(me, "access_total_fees");
 
-  const canPrintInvoice =
-  isAdminRole || resolveAccessFlag(me, "access_print_invoice");
+ const canSeePaymentActions =
+  isAdminRole || resolveAccessFlag(me, "access_payment_actions");
 
-const canWhatsappInvoice =
-  isAdminRole || resolveAccessFlag(me, "access_whatsapp_invoice");
 const canSeeAuditTrail = isAdminRole;
   const zoomPercent = `${Math.round(zoomLevel * 100)}%`;
 
@@ -969,6 +980,14 @@ const canSeeAuditTrail = isAdminRole;
         align: "center",
       },
       {
+        id: "notes",
+        label: "Notes",
+        field: "notes",
+        editable: true,
+        width: 180,
+        align: "center",
+      },
+      {
         id: "otmName",
         label: "OTM Name",
         field: "otmName",
@@ -985,11 +1004,12 @@ const canSeeAuditTrail = isAdminRole;
         align: "center",
       },
       {
-        id: "notes",
-        label: "Notes",
-        field: "notes",
+        id: "paymentDate",
+        label: "Payment Date",
+        field: "paymentDate",
         editable: true,
-        width: 180,
+        width: 135,
+        type: "date",
         align: "center",
       }
     );
@@ -1005,7 +1025,7 @@ const canSeeAuditTrail = isAdminRole;
   );
 
   const firstEditableColumnId = gridColumns[0]?.id || "tuitionId";
-  const visibleColumnCount = gridColumns.length + 6;
+ const visibleColumnCount = gridColumns.length + 5 + (canSeePaymentActions ? 1 : 0);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -1506,9 +1526,9 @@ const canSeeAuditTrail = isAdminRole;
         totalFees: "",
         status: "",
         feedback: "",
+        notes: "",
         otmName: "",
         contactNumber: "",
-        notes: "",
         syncFlag: "",
         assignedStaffId: null,
         isDeleted: false,
@@ -1530,7 +1550,7 @@ const canSeeAuditTrail = isAdminRole;
       const createdRow = {
         ...newRow,
         ...created,
-        paymentDate: created.paymentDate || newRow.paymentDate,
+        paymentDate: getPaymentDateValue(created) || newRow.paymentDate,
         dateWithMonth: created.dateWithMonth ?? newRow.dateWithMonth,
         contactNumber: getContactValue(created) || newRow.contactNumber || "",
         orderIndex: targetIndex,
@@ -1992,6 +2012,10 @@ const canSeeAuditTrail = isAdminRole;
     if (!col?.field) return {};
     if (col.field === "contactNumber") {
       return { contactNumber: String(value ?? "").trim() };
+    }
+    if (col.field === "paymentDate") {
+      // Frontend uses camelCase; backend model should map this to DB column payment_date.
+      return { paymentDate: String(value ?? "").trim() };
     }
     return { [col.field]: value };
   };
@@ -3018,7 +3042,9 @@ const canSeeAuditTrail = isAdminRole;
                     </th>
                   ))}
                   <th className="pswd-th" style={{ "--pswd-th-top": tableHeadTop, "--pswd-col-width": "60px" }}>Add Row</th>
-                  <th className="pswd-th" style={{ "--pswd-th-top": tableHeadTop, "--pswd-col-width": "230px" }}>Action</th>
+                  {canSeePaymentActions && (<th
+    className="pswd-th"
+    style={{ "--pswd-th-top": tableHeadTop, "--pswd-col-width": "230px" }}>Action</th>)}
                 </tr>
               </thead>
 
@@ -3123,28 +3149,31 @@ const canSeeAuditTrail = isAdminRole;
                             </button>
                           </div>
                         </td>
-                        <td className="pswd-td">
-                          <div className="pswd-action-group">
-                            <button
-                              type="button"
-                              className="pswd-copy-btn"
-                              onClick={() => void copyRowToClipboard(row, visibleIndex)}
-                              title="Copy row">Copy</button>
-                           {(canPrintInvoice || canWhatsappInvoice) && (
-  <PaymentSheetInvoiceActions
-    row={row}
-    rowIndex={displayIndex}
-    canPrintInvoice={canPrintInvoice}
-    canWhatsappInvoice={canWhatsappInvoice}
-  />
+                        {canSeePaymentActions && (
+  <td className="pswd-td">
+    <div className="pswd-action-group">
+      <button
+        type="button"
+        className="pswd-copy-btn"
+        onClick={() => void copyRowToClipboard(row, visibleIndex)}
+        title="Copy row"
+      >
+        Copy
+      </button>
+
+      <PaymentSheetInvoiceActions row={row} rowIndex={displayIndex} />
+
+      <button
+        type="button"
+        className="pswd-delete-btn"
+        onClick={() => void deleteRow(row)}
+        title="Delete row"
+      >
+        Delete
+      </button>
+    </div>
+  </td>
 )}
-                            <button
-                              type="button"
-                              className="pswd-delete-btn"
-                              onClick={() => void deleteRow(row)}
-                              title="Delete row">Delete</button>
-                          </div>
-                        </td>
                       </tr>
                     );
                   })

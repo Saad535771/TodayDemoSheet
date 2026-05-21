@@ -172,8 +172,7 @@ export default function StaffManager() {
         updatedUser.access_tutor_share = 0;
         updatedUser.access_lacas_share = 0;
         updatedUser.access_total_fees = 0;
-        updatedUser.access_print_invoice = 0;
-        updatedUser.access_whatsapp_invoice = 0;
+        updatedUser.access_payment_actions = 0;
       }
 
       return updatedUser;
@@ -192,8 +191,7 @@ export default function StaffManager() {
         access_tutor_share: toInt(user.access_tutor_share),
         access_lacas_share: toInt(user.access_lacas_share),
         access_total_fees: toInt(user.access_total_fees),
-        access_print_invoice: toInt(user.access_print_invoice),
-        access_whatsapp_invoice: toInt(user.access_whatsapp_invoice),
+        access_payment_actions: toInt(user.access_payment_actions),
         access_hod_approvals: toInt(user.access_hod_approvals),
         access_staff: toInt(user.access_staff),
         access_otm_management: toInt(user.access_otm_management),
@@ -254,11 +252,10 @@ export default function StaffManager() {
               <th style={{ ...styles.th, textAlign: "center" }}>Tutor Share</th>
               <th style={{ ...styles.th, textAlign: "center" }}>Lacas Share</th>
               <th style={{ ...styles.th, textAlign: "center" }}>Total Fees</th>
-              <th style={{ ...styles.th, textAlign: "center" }}>Print Invoice</th>
-              <th style={{ ...styles.th, textAlign: "center" }}>WhatsApp Invoice</th>
               <th style={{ ...styles.th, textAlign: "center" }}>Show Chat</th>
               <th style={{ ...styles.th, textAlign: "center" }}>Send Chat Msg</th>
               <th style={{ ...styles.th, textAlign: "right" }}>Actions</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Payment Actions</th>
             </tr>
           </thead>
 
@@ -329,18 +326,15 @@ export default function StaffManager() {
                       <div style={styles.toggleCircle(user.access_demo)} />
                     </button>
                   </td>
-
                   <td style={{ ...styles.td, ...styles.centerCell }}>
                     <button
                       style={styles.toggleBtn(user.access_trash)}
                       onClick={() =>
                         togglePermission(user.id, "access_trash", user.access_trash)
-                      }
-                    >
+                      }>
                       <div style={styles.toggleCircle(user.access_trash)} />
                     </button>
                   </td>
-
                   <td style={{ ...styles.td, ...styles.centerCell }}>
                     <button
                       style={styles.toggleBtn(user.access_payment_sheet)}
@@ -350,12 +344,10 @@ export default function StaffManager() {
                           "access_payment_sheet",
                           user.access_payment_sheet
                         )
-                      }
-                    >
+                      }>
                       <div style={styles.toggleCircle(user.access_payment_sheet)} />
                     </button>
                   </td>
-
                   <td style={{ ...styles.td, ...styles.centerCell }}>
                     {paymentEnabled ? (
                       <button
@@ -366,8 +358,7 @@ export default function StaffManager() {
                             "access_tutor_share",
                             user.access_tutor_share
                           )
-                        }
-                      >
+                        }>
                         <div style={styles.toggleCircle(user.access_tutor_share)} />
                       </button>
                     ) : (
@@ -415,35 +406,16 @@ export default function StaffManager() {
                   <td style={{ ...styles.td, ...styles.centerCell }}>
                     {paymentEnabled ? (
                       <button
-                        style={styles.toggleBtn(user.access_print_invoice)}
+                        style={styles.toggleBtn(user.access_payment_actions)}
                         onClick={() =>
                           togglePermission(
                             user.id,
-                            "access_print_invoice",
-                            user.access_print_invoice
+                            "access_payment_actions",
+                            user.access_payment_actions
                           )
                         }
                       >
-                        <div style={styles.toggleCircle(user.access_print_invoice)} />
-                      </button>
-                    ) : (
-                      <span style={styles.mutedText}>Enable payment sheet</span>
-                    )}
-                  </td>
-
-                  <td style={{ ...styles.td, ...styles.centerCell }}>
-                    {paymentEnabled ? (
-                      <button
-                        style={styles.toggleBtn(user.access_whatsapp_invoice)}
-                        onClick={() =>
-                          togglePermission(
-                            user.id,
-                            "access_whatsapp_invoice",
-                            user.access_whatsapp_invoice
-                          )
-                        }
-                      >
-                        <div style={styles.toggleCircle(user.access_whatsapp_invoice)} />
+                        <div style={styles.toggleCircle(user.access_payment_actions)} />
                       </button>
                     ) : (
                       <span style={styles.mutedText}>Enable payment sheet</span>

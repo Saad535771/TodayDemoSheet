@@ -1,4 +1,5 @@
 import React from "react";
+import html2canvas from "html2canvas";
 import lacasLogo from "../assets/invoice/lacas-invoice-logo.png";
 import stampImage from "../assets/invoice/Stemp.png";
 import signatureImage from "../assets/invoice/Sajjad-Signature.png";
@@ -145,7 +146,8 @@ function buildWhatsappMessage(row) {
 function buildInvoiceHtml(row, rowIndex, { autoPrint = true } = {}) {
   const tuitionName = valueOf(row, ["tuitionName", "description", "studentName"], "LACAS Home Tutors");
   const teacherName = valueOf(row, ["tutorName", "teacherName", "teacher"], "-");
-  const invoiceDate = formatDate(valueOf(row, ["invoiceDate", "paymentDate", "date"]));
+  // Use manual Payment Date from Payment Sheet first. Backend DB column should be payment_date, mapped to paymentDate in API/model.
+  const invoiceDate = formatDate(valueOf(row, ["paymentDate", "payment_date", "invoiceDate", "invoice_date", "date"]));
   const explicitDueDate = valueOf(row, ["dueDate", "invoiceDueDate"]);
   const dueDate = explicitDueDate ? formatDate(explicitDueDate) : addOneDayToDate(invoiceDate);
   const invoiceNo = getInvoiceNumber(row, rowIndex);
@@ -491,7 +493,86 @@ function printInvoice(row, rowIndex) {
   openInvoiceWindow(row, rowIndex, { autoPrint: true });
 }
 
-function openWhatsapp(row, rowIndex) {
+
+function waitForInvoiceAssets(doc) {
+  const images = Array.from(doc.images || []);
+  if (!images.length) return Promise.resolve();
+
+  return Promise.all(
+    images.map((img) => {
+      if (img.complete) return Promise.resolve();
+      return new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = resolve;
+      });
+    })
+  );
+}
+
+async function buildInvoiceImageFile(row, rowIndex) {
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.left = "-99999px";
+  iframe.style.top = "0";
+  iframe.style.width = "768px";
+  iframe.style.height = "1024px";
+  iframe.style.opacity = "0";
+  iframe.style.pointerEvents = "none";
+  iframe.setAttribute("aria-hidden", "true");
+  document.body.appendChild(iframe);
+
+  try {
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) throw new Error("Invoice image document could not be created.");
+
+    doc.open();
+    doc.write(buildInvoiceHtml(row, rowIndex, { autoPrint: false }));
+    doc.close();
+
+    await new Promise((resolve) => {
+      iframe.onload = resolve;
+      window.setTimeout(resolve, 600);
+    });
+    await waitForInvoiceAssets(doc);
+    await new Promise((resolve) => window.setTimeout(resolve, 250));
+
+    const invoicePage = doc.querySelector(".invoice-page");
+    if (!invoicePage) throw new Error("Invoice template not found.");
+
+    const canvas = await html2canvas(invoicePage, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      width: 768,
+      height: 1024,
+      windowWidth: 768,
+      windowHeight: 1024,
+    });
+
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 1));
+    if (!blob) throw new Error("Invoice image could not be generated.");
+
+    const safeInvoiceNo = getInvoiceNumber(row, rowIndex).replace(/[^a-z0-9-]/gi, "-");
+    return new File([blob], `LACAS-Invoice-${safeInvoiceNo}.png`, { type: "image/png" });
+  } finally {
+    iframe.remove();
+  }
+}
+
+function downloadInvoiceImage(file) {
+  const url = URL.createObjectURL(file);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = file.name || "LACAS-Invoice.png";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+async function openWhatsapp(row, rowIndex) {
   const contactNumber = getContactNumber(row);
   const phone = normalizeWhatsappNumber(contactNumber);
 
@@ -500,22 +581,32 @@ function openWhatsapp(row, rowIndex) {
     return;
   }
 
-  // Same invoice layout opens as preview, then WhatsApp opens for the selected contact.
-  // Browser/desktop WhatsApp does not allow auto-attaching an image through URL scheme,
-  // so the invoice preview uses the exact same design for manual sending/screenshot/PDF.
-  openInvoiceWindow(row, rowIndex, { autoPrint: false });
+  try {
+    const invoiceFile = await buildInvoiceImageFile(row, rowIndex);
 
-  const encodedMessage = encodeURIComponent(buildWhatsappMessage(row));
-  const appUrl = `whatsapp://send?phone=${phone}&text=${encodedMessage}`;
-  const webUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
+    // Best option: native share sheet sends the generated invoice IMAGE file, not text.
+    // On supported devices/browsers, choose WhatsApp/Desktop WhatsApp from the share popup.
+    if (navigator.canShare?.({ files: [invoiceFile] }) && navigator.share) {
+      await navigator.share({
+        files: [invoiceFile],
+        title: "LACAS Invoice",
+      });
+      return;
+    }
 
-  window.setTimeout(() => {
-    window.location.href = appUrl;
-  }, 250);
-
-  window.setTimeout(() => {
-    window.open(webUrl, "_blank", "noopener,noreferrer");
-  }, 1100);
+    // Desktop fallback: browsers cannot auto-attach image files to whatsapp:// or wa.me links.
+    // So download the image and open only the WhatsApp chat without any text.
+    downloadInvoiceImage(invoiceFile);
+    window.location.href = `whatsapp://send?phone=${phone}`;
+    window.setTimeout(() => {
+      window.open(`https://wa.me/${phone}`, "_blank", "noopener,noreferrer");
+    }, 900);
+    alert("Invoice image has been downloaded. WhatsApp chat is opening without text; please attach/paste the downloaded invoice image.");
+  } catch (err) {
+    console.error("WHATSAPP INVOICE IMAGE ERROR:", err);
+    openInvoiceWindow(row, rowIndex, { autoPrint: false });
+    window.location.href = `whatsapp://send?phone=${phone}`;
+  }
 }
 
 export default function PaymentSheetInvoiceActions({
