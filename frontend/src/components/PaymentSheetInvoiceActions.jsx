@@ -1,13 +1,9 @@
 import React from "react";
 import html2canvas from "html2canvas";
-import lacasLogo from "../assets/invoice/lacas-invoice-logo.png";
-import stampImage from "../assets/invoice/Stemp.png";
-import signatureImage from "../assets/invoice/Sajjad-Signature.png";
+import invoiceTemplate from "../assets/invoice/FORM-PNG.png";
 
-const LACAS_PHONE = "03174859190";
-const LACAS_EMAIL = "info@lacashometutors.com";
-const LACAS_WEBSITE = "www.lacashometutors.com";
-const LACAS_ADDRESS = "H Block 51, Johar Town, Lahore";
+const INVOICE_WIDTH = 882;
+const INVOICE_HEIGHT = 1024;
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -130,24 +126,20 @@ function teacherHtml(value) {
     .replace(/,\s*/g, ",<br />");
 }
 
-function buildWhatsappMessage(row) {
-  const tuitionName = valueOf(row, ["tuitionName", "description", "studentName"], "your tuition");
-  const totalFormatted = formatAmount(getTotalAmount(row));
-
-  return [
-    "Assalam o Alaikum,",
-    "Please find your LACAS Home Tutors invoice.",
-    `Tuition: ${tuitionName}`,
-    `Due Amount: PKR ${totalFormatted}`,
-    "Thank you.",
-  ].join("\n");
-}
-
 function buildInvoiceHtml(row, rowIndex, { autoPrint = true } = {}) {
-  const tuitionName = valueOf(row, ["tuitionName", "description", "studentName"], "LACAS Home Tutors");
+  const tuitionName = valueOf(
+    row,
+    ["tuitionName", "description", "studentName"],
+    "LACAS Home Tutors"
+  );
   const teacherName = valueOf(row, ["tutorName", "teacherName", "teacher"], "-");
-  // Use manual Payment Date from Payment Sheet first. Backend DB column should be payment_date, mapped to paymentDate in API/model.
-  const invoiceDate = formatDate(valueOf(row, ["paymentDate", "payment_date", "invoiceDate", "invoice_date", "date"]));
+
+  // PaymentSheetWithDate wali manual Payment Date ko invoice date banaya gaya hai.
+  // Backend DB column payment_date ho to API/model isko paymentDate ya payment_date me send kare.
+  const invoiceDate = formatDate(
+    valueOf(row, ["paymentDate", "payment_date", "invoiceDate", "invoice_date", "date"])
+  );
+
   const explicitDueDate = valueOf(row, ["dueDate", "invoiceDueDate"]);
   const dueDate = explicitDueDate ? formatDate(explicitDueDate) : addOneDayToDate(invoiceDate);
   const invoiceNo = getInvoiceNumber(row, rowIndex);
@@ -161,229 +153,165 @@ function buildInvoiceHtml(row, rowIndex, { autoPrint = true } = {}) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>LACAS Invoice - ${escapeHtml(tuitionName)}</title>
   <style>
-    @page { size: 768px 1024px; margin: 0; }
+    @page { size: ${INVOICE_WIDTH}px ${INVOICE_HEIGHT}px; margin: 0; }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
     body {
-      background: #e5e7eb;
+      background: #ffffff;
       font-family: Arial, Helvetica, sans-serif;
-      color: #111111;
+      color: #000000;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
     .invoice-page {
       position: relative;
-      width: 768px;
-      min-height: 1024px;
+      width: ${INVOICE_WIDTH}px;
+      height: ${INVOICE_HEIGHT}px;
+      min-height: ${INVOICE_HEIGHT}px;
       margin: 0 auto;
-      background: #ffffff;
       overflow: hidden;
-      padding: 0 32px;
+      background: #ffffff;
     }
-    .top-orange,
-    .bottom-orange {
+    .invoice-template-bg {
       position: absolute;
-      left: 0;
+      inset: 0;
       width: 100%;
-      height: 37px;
-      background: #ef4023;
-      z-index: 1;
-    }
-    .top-orange { top: 0; }
-    .bottom-orange { bottom: 0; }
-    .top-slashes,
-    .bottom-slashes {
-      position: absolute;
-      right: 0;
-      width: 270px;
-      height: 92px;
-      z-index: 2;
-      pointer-events: none;
-    }
-    .top-slashes { top: 0; }
-    .bottom-slashes { bottom: 0; transform: rotate(180deg); }
-    .slash {
-      position: absolute;
-      width: 82px;
-      height: 126px;
-      top: -36px;
-      transform: skewX(-42deg);
-      background: #170b52;
-    }
-    .slash.s1 { right: 116px; }
-    .slash.s2 { right: 20px; }
-    .slash-accent {
-      position: absolute;
-      width: 13px;
-      height: 116px;
-      top: -20px;
-      transform: skewX(-42deg);
-      background: #24407e;
-    }
-    .slash-accent.a1 { right: 107px; }
-    .slash-accent.a2 { right: 12px; }
-    .header-area {
-      position: relative;
-      height: 214px;
-      z-index: 3;
-    }
-    .logo {
-      position: absolute;
-      left: 2px;
-      top: 98px;
-      width: 256px;
-      height: auto;
+      height: 100%;
       object-fit: contain;
-    }
-    .title {
-      position: absolute;
-      right: 45px;
-      top: 128px;
-      color: #ef4023;
-      font-size: 50px;
-      line-height: 1;
-      letter-spacing: 8px;
-      font-weight: 900;
-    }
-    .client-name {
-      font-size: 17px;
-      line-height: 20px;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: .15px;
-      display: inline-block;
-      min-width: 280px;
-      border-bottom: 1.7px solid #111111;
-      padding: 0 8px 6px 0;
-      margin-bottom: 55px;
-      position: relative;
-      z-index: 3;
-    }
-    .invoice-meta {
-      width: 315px;
-      font-size: 17px;
-      font-weight: 900;
-      line-height: 1.45;
-      margin-bottom: 50px;
-      position: relative;
-      z-index: 3;
-    }
-    .invoice-meta .label { display: inline-block; width: 88px; }
-    .invoice-meta .colon { display: inline-block; width: 20px; }
-    .table-wrap {
-      position: relative;
-      z-index: 3;
-      width: 681px;
-      margin-top: 0;
-    }
-    .stamp-watermark {
-      position: absolute;
-      width: 372px;
-      left: 105px;
-      top: 36px;
-      opacity: 0.045;
       z-index: 0;
       pointer-events: none;
+      user-select: none;
+    }
+    .dynamic-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+    }
+
+    .client-name {
+      position: absolute;
+      left: 42px;
+      top: 248px;
+      width: 475px;
+      color: #000000;
+      font-size: 18px;
+      line-height: 24px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      border-bottom: 2px solid rgba(9, 9, 9, 0.88);
+      padding: 0 8px 7px 0;
+    }
+    .invoice-meta {
+      position: absolute;
+      left: 32px;
+      top: 304px;
+      width: 330px;
+      padding: 11px 14px 12px;
+      background: rgb(255, 255, 255);
+      color: #030303;
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1.6;
+      letter-spacing: .4px;
+    }
+    .invoice-meta .row {
+      display: grid;
+      grid-template-columns: 105px 16px 1fr;
+      align-items: center;
+    }
+    .invoice-meta .label { color: #010101; }
+    .invoice-meta .colon,
+    .invoice-meta .value { color: #000000; }
+
+    .table-wrap {
+      position: absolute;
+      left: 44px;
+      top: 426px;
+      width: 704px;
     }
     table.invoice-table {
-      position: relative;
-      z-index: 2;
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 900;
+      border: 2px solid #ffffff;
     }
     .invoice-table th {
       background: #ef4023;
       color: #ffffff;
-      font-size: 19px;
-      padding: 12px 10px;
-      border-right: 3px solid #ffffff;
+      font-size: 18px;
+      padding: 12px 8px;
+      border-right: 2px solid #ffffff;
       text-align: center;
-      height: 41px;
+      height: 44px;
     }
     .invoice-table th:last-child { border-right: 0; }
     .invoice-table td {
       border: 2px solid #ef4023;
-      padding: 10px 12px;
-      height: 132px;
+      padding: 10px 10px;
+      height: 94px;
       text-align: center;
       vertical-align: middle;
-      background: rgba(255,255,255,.88);
+      background: rgb(255, 255, 255);
+      color: #111111;
     }
-    .invoice-table .col-no { width: 74px; }
-    .invoice-table .col-desc { width: 260px; text-align: left; }
-    .invoice-table .col-teacher { width: 138px; font-size: 12px; line-height: 1.13; }
+    .invoice-table .col-no { width: 70px; }
+    .invoice-table .col-desc { width: 248px; }
+    .invoice-table td.col-desc { text-align: left; padding-left: 18px; }
+    .invoice-table .col-teacher { width: 156px; font-size: 13px; line-height: 1.18; }
     .invoice-table .col-fee,
-    .invoice-table .col-total { width: 104px; font-size: 21px; }
+    .invoice-table .col-total { width: 115px; font-size: 20px; }
+
     .totals {
-      width: 340px;
-      margin: 54px 22px 0 auto;
-      font-size: 21px;
-      line-height: 1.85;
+      position: absolute;
+      right: 64px;
+      top: 628px;
+      width: 320px;
+      padding: 14px 12px;
+      color: #1b1b1b;
+      font-size: 19px;
+      line-height: 1.9;
       font-weight: 900;
-      position: relative;
-      z-index: 3;
     }
     .totals .line {
       display: grid;
-      grid-template-columns: 155px 20px 1fr;
-      column-gap: 10px;
+      grid-template-columns: 145px 18px 1fr;
+      column-gap: 8px;
       align-items: center;
     }
-    .signature-block {
-      position: relative;
-      margin-top: 34px;
-      width: 240px;
-      z-index: 3;
-    }
-    .signature-stamp {
-      position: absolute;
-      width: 250px;
-      left: -2px;
-      top: -40px;
-      opacity: .18;
-      z-index: 0;
-    }
-    .signature-img {
-      position: relative;
-      width: 182px;
-      height: 79px;
-      object-fit: contain;
-      z-index: 2;
-      display: block;
-    }
-    .sign-line {
-      width: 195px;
-      border-bottom: 2px solid #ef4023;
-      margin-top: -10px;
-    }
-    .accounts {
-      font-size: 22px;
-      line-height: 1.1;
-      font-weight: 900;
-      margin-top: 8px;
-    }
+    .totals .amount,
+    .totals .colon { color: #000000; }
+
     .footer-note {
-      margin-top: 34px;
-      font-size: 18px;
-      font-weight: 900;
-      z-index: 3;
-      position: relative;
+      position: absolute;
+      left: 44px;
+      bottom: 148px;
+      color: #020202;
+      font-size: 16px;
+      font-weight: 800;
     }
     .contact-grid {
+      position: absolute;
+      left: 44px;
+      right: 44px;
+      bottom: 76px;
       display: grid;
-      grid-template-columns: 250px 310px;
-      column-gap: 45px;
-      row-gap: 12px;
-      margin-top: 22px;
-      font-size: 16px;
-      font-weight: 900;
-      position: relative;
-      z-index: 3;
+      grid-template-columns: 285px 1fr;
+      column-gap: 40px;
+      row-gap: 11px;
+      color: #121212;
+      font-size: 15px;
+      font-weight: 800;
+     
     }
-    .contact-item { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      min-width: 0;
+    }
     .icon {
       width: 22px;
       height: 22px;
@@ -397,107 +325,89 @@ function buildInvoiceHtml(row, rowIndex, { autoPrint = true } = {}) {
       font-weight: 900;
       flex: 0 0 auto;
     }
-    @media screen and (max-width: 800px) {
+    @media screen and (max-width: 850px) {
       body { background: #ffffff; }
       .invoice-page { transform-origin: top left; }
     }
     @media print {
-      html, body { width: 768px; height: 1024px; background: #ffffff; overflow: hidden; }
-      .invoice-page { width: 768px; height: 1024px; min-height: 1024px; margin: 0; box-shadow: none; }
+      html, body {
+        width: ${INVOICE_WIDTH}px;
+        height: ${INVOICE_HEIGHT}px;
+        background: #ffffff;
+        overflow: hidden;
+      }
+      .invoice-page {
+        width: ${INVOICE_WIDTH}px;
+        height: ${INVOICE_HEIGHT}px;
+        min-height: ${INVOICE_HEIGHT}px;
+        margin: 0;
+        box-shadow: none;
+      }
     }
   </style>
 </head>
 <body>
   <div class="invoice-page">
-    <div class="top-orange"></div>
-    <div class="top-slashes"><span class="slash s1"></span><span class="slash s2"></span><span class="slash-accent a1"></span><span class="slash-accent a2"></span></div>
-    <div class="bottom-orange"></div>
-    <div class="bottom-slashes"><span class="slash s1"></span><span class="slash s2"></span><span class="slash-accent a1"></span><span class="slash-accent a2"></span></div>
+    <img class="invoice-template-bg" src="${invoiceTemplate}" alt="LACAS invoice template" />
 
-    <div class="header-area">
-      <img class="logo" src="${lacasLogo}" alt="LACAS Home Tutors" />
-      <div class="title">INVOICE</div>
-    </div>
+    <div class="dynamic-layer">
+      <div class="client-name">${escapeHtml(tuitionName)}</div>
 
-    <div class="client-name">${escapeHtml(tuitionName)}</div>
+      <div class="invoice-meta">
+        <div class="row"><span class="label">INVOICE</span><span class="colon">:</span><span class="value">${escapeHtml(invoiceNo)}</span></div>
+        <div class="row"><span class="label">DATE</span><span class="colon">:</span><span class="value">${escapeHtml(invoiceDate)}</span></div>
+        <div class="row"><span class="label">DUE DATE</span><span class="colon">:</span><span class="value">${escapeHtml(dueDate)}</span></div>
+      </div>
 
-    <div class="invoice-meta">
-      <div><span class="label">INVOICE</span><span class="colon">:</span><span>${escapeHtml(invoiceNo)}</span></div>
-      <div><span class="label">DATE</span><span class="colon">:</span><span>${escapeHtml(invoiceDate)}</span></div>
-      <div><span class="label">DUE DATE</span><span class="colon">:</span><span>${escapeHtml(dueDate)}</span></div>
-    </div>
+      <div class="table-wrap">
+        <table class="invoice-table">
+          <thead>
+            <tr>
+              <th class="col-no">No#</th>
+              <th class="col-desc">Description</th>
+              <th class="col-teacher">Teacher</th>
+              <th class="col-fee">Fee</th>
+              <th class="col-total">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-no">1</td>
+              <td class="col-desc">${escapeHtml(tuitionName)}</td>
+              <td class="col-teacher">${teacherHtml(teacherName)}</td>
+              <td class="col-fee">${totalFormatted}</td>
+              <td class="col-total">${totalFormatted}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-    <div class="table-wrap">
-      <img class="stamp-watermark" src="${stampImage}" alt="LACAS stamp watermark" />
-      <table class="invoice-table">
-        <thead>
-          <tr>
-            <th class="col-no">No#</th>
-            <th class="col-desc">Description</th>
-            <th class="col-teacher">Teacher</th>
-            <th class="col-fee">Fee</th>
-            <th class="col-total">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="col-no">1</td>
-            <td class="col-desc">${escapeHtml(tuitionName)}</td>
-            <td class="col-teacher">${teacherHtml(teacherName)}</td>
-            <td class="col-fee">${totalFormatted}</td>
-            <td class="col-total">${totalFormatted}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="totals">
-      <div class="line"><span>Subtotal</span><span>:</span><span>${totalFormatted}</span></div>
-      <div class="line"><span>Due Amount</span><span>:</span><span>${totalFormatted}</span></div>
-    </div>
-
-    <div class="signature-block">
-      <img class="signature-stamp" src="${stampImage}" alt="LACAS stamp" />
-      <img class="signature-img" src="${signatureImage}" alt="Accounts Signature" />
-      <div class="sign-line"></div>
-      <div class="accounts">Accounts</div>
-    </div>
-
-    <div class="footer-note">If you have any questions about this invoice, please contact us.</div>
-    <div class="contact-grid">
-      <div class="contact-item"><span class="icon">☎</span><span>${LACAS_PHONE}</span></div>
-      <div class="contact-item"><span class="icon">✉</span><span>${LACAS_EMAIL}</span></div>
-      <div class="contact-item"><span class="icon">🌐</span><span>${LACAS_WEBSITE}</span></div>
-      <div class="contact-item"><span class="icon">●</span><span>${LACAS_ADDRESS}</span></div>
-    </div>
+      <div class="totals">
+        <div class="line"><span>Subtotal</span><span class="colon">:</span><span class="amount">${totalFormatted}</span></div>
+        <div class="line"><span>Due Amount</span><span class="colon">:</span><span class="amount">${totalFormatted}</span></div>
+      </div>
   </div>
-  ${autoPrint ? `<script>window.addEventListener('load', function () { setTimeout(function () { window.focus(); window.print(); }, 500); });</script>` : ""}
+  ${autoPrint ? `<script>window.addEventListener('load', function () { setTimeout(function () { window.focus(); window.print(); }, 700); });</script>` : ""}
 </body>
 </html>`;
 }
-
 function openInvoiceWindow(row, rowIndex, options = {}) {
-  const invoiceWindow = window.open("", "_blank", "width=820,height=1080");
+  const invoiceWindow = window.open("", "_blank", "width=850,height=1080");
   if (!invoiceWindow) {
     alert("Popup blocked. Please allow popups for this site to open invoice.");
     return false;
   }
-
   invoiceWindow.document.open();
   invoiceWindow.document.write(buildInvoiceHtml(row, rowIndex, options));
   invoiceWindow.document.close();
   return true;
 }
-
 function printInvoice(row, rowIndex) {
   openInvoiceWindow(row, rowIndex, { autoPrint: true });
 }
-
-
 function waitForInvoiceAssets(doc) {
   const images = Array.from(doc.images || []);
   if (!images.length) return Promise.resolve();
-
   return Promise.all(
     images.map((img) => {
       if (img.complete) return Promise.resolve();
@@ -508,59 +418,50 @@ function waitForInvoiceAssets(doc) {
     })
   );
 }
-
 async function buildInvoiceImageFile(row, rowIndex) {
   const iframe = document.createElement("iframe");
   iframe.style.position = "fixed";
   iframe.style.left = "-99999px";
   iframe.style.top = "0";
-  iframe.style.width = "768px";
-  iframe.style.height = "1024px";
+  iframe.style.width = `${INVOICE_WIDTH}px`;
+  iframe.style.height = `${INVOICE_HEIGHT}px`;
   iframe.style.opacity = "0";
   iframe.style.pointerEvents = "none";
   iframe.setAttribute("aria-hidden", "true");
   document.body.appendChild(iframe);
-
   try {
     const doc = iframe.contentDocument || iframe.contentWindow?.document;
     if (!doc) throw new Error("Invoice image document could not be created.");
-
     doc.open();
     doc.write(buildInvoiceHtml(row, rowIndex, { autoPrint: false }));
     doc.close();
-
     await new Promise((resolve) => {
       iframe.onload = resolve;
-      window.setTimeout(resolve, 600);
+      window.setTimeout(resolve, 800);
     });
     await waitForInvoiceAssets(doc);
-    await new Promise((resolve) => window.setTimeout(resolve, 250));
-
+    await new Promise((resolve) => window.setTimeout(resolve, 300));
     const invoicePage = doc.querySelector(".invoice-page");
     if (!invoicePage) throw new Error("Invoice template not found.");
-
     const canvas = await html2canvas(invoicePage, {
-      backgroundColor: "#ffffff",
+      backgroundColor: "#000000",
       scale: 2,
       useCORS: true,
       allowTaint: true,
       logging: false,
-      width: 768,
-      height: 1024,
-      windowWidth: 768,
-      windowHeight: 1024,
+      width: INVOICE_WIDTH,
+      height: INVOICE_HEIGHT,
+      windowWidth: INVOICE_WIDTH,
+      windowHeight: INVOICE_HEIGHT,
     });
-
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 1));
     if (!blob) throw new Error("Invoice image could not be generated.");
-
     const safeInvoiceNo = getInvoiceNumber(row, rowIndex).replace(/[^a-z0-9-]/gi, "-");
     return new File([blob], `LACAS-Invoice-${safeInvoiceNo}.png`, { type: "image/png" });
   } finally {
     iframe.remove();
   }
 }
-
 function downloadInvoiceImage(file) {
   const url = URL.createObjectURL(file);
   const a = document.createElement("a");
@@ -584,8 +485,7 @@ async function openWhatsapp(row, rowIndex) {
   try {
     const invoiceFile = await buildInvoiceImageFile(row, rowIndex);
 
-    // Best option: native share sheet sends the generated invoice IMAGE file, not text.
-    // On supported devices/browsers, choose WhatsApp/Desktop WhatsApp from the share popup.
+    // Supported mobile browsers/direct share sheet: image file send ho sakti hai.
     if (navigator.canShare?.({ files: [invoiceFile] }) && navigator.share) {
       await navigator.share({
         files: [invoiceFile],
@@ -594,8 +494,8 @@ async function openWhatsapp(row, rowIndex) {
       return;
     }
 
-    // Desktop fallback: browsers cannot auto-attach image files to whatsapp:// or wa.me links.
-    // So download the image and open only the WhatsApp chat without any text.
+    // Desktop browser security ki wajah se WhatsApp URL me image auto-attach nahi hoti.
+    // Isliye image download hogi aur WhatsApp chat open hogi; user image attach/paste kar de.
     downloadInvoiceImage(invoiceFile);
     window.location.href = `whatsapp://send?phone=${phone}`;
     window.setTimeout(() => {
