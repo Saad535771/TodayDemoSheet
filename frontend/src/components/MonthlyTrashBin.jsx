@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/api.js";
-
 const PAGE_SIZE = 100;
-
 const styles = {
   page: {
     background: "#f4f6f8",
