@@ -262,25 +262,19 @@ function to24Hour(value) {
     if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return "";
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
   }
-
   match = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/);
   if (!match) return "";
-
   let hours = Number(match[1]);
   const minutes = Number(match[2] || "00");
   const ampm = match[3];
-
   if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) return "";
-
   if (ampm === "AM") {
     if (hours === 12) hours = 0;
   } else if (hours !== 12) {
     hours += 12;
   }
-
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
-
 function openNativePicker(el) {
   if (!el || typeof el.showPicker !== "function") return;
   try {
@@ -289,7 +283,6 @@ function openNativePicker(el) {
     // ignore unsupported browsers
   }
 }
-
 export default function MonthlyTuition({ onLoad }) {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(emptyForm());
@@ -297,11 +290,9 @@ export default function MonthlyTuition({ onLoad }) {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [otmUserOptions, setOtmUserOptions] = useState([""]);
-
   const rootRef = useRef(null);
   const dropdownPortalRef = useRef(null);
   const fieldRefs = useRef({});
-
   const fieldOrder = [
     "tuitionId",
     "date",
@@ -325,33 +316,25 @@ export default function MonthlyTuition({ onLoad }) {
     "sync",
     "submit",
   ];
-
   useEffect(() => {
     const handleClickOutside = (e) => {
       const clickedInsideForm = rootRef.current?.contains(e.target);
       const clickedInsideDropdown = dropdownPortalRef.current?.contains(e.target);
-
       if (!clickedInsideForm && !clickedInsideDropdown) {
         setOpenDropdown(null);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     requestAnimationFrame(() => focusField("tuitionId"));
-
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-
-
   useEffect(() => {
     let mounted = true;
-
     function extractOtmUserOptions(payload) {
       const directUsers = Array.isArray(payload?.users) ? payload.users : [];
       const metaUsers = Array.isArray(payload?.otmUsers) ? payload.otmUsers : [];
-
       return [
         "",
         ...new Set(
@@ -361,19 +344,16 @@ export default function MonthlyTuition({ onLoad }) {
         ),
       ];
     }
-
     async function loadOtmUsers() {
       const endpoints = [
         "/tuitions/otm-users",
         "/otm-management/meta",
         "/otm-management/users",
       ];
-
       for (const endpoint of endpoints) {
         try {
           const response = await api.get(endpoint);
           if (!mounted) return;
-
           const options = extractOtmUserOptions(response.data);
           if (options.length > 1) {
             setOtmUserOptions(options);
@@ -383,23 +363,18 @@ export default function MonthlyTuition({ onLoad }) {
           console.warn(`Failed to load OTM users from ${endpoint}`, error?.response?.status || error?.message || error);
         }
       }
-
       if (mounted) {
         setOtmUserOptions([""]);
       }
     }
-
     loadOtmUsers();
-
     return () => {
       mounted = false;
     };
   }, []);
-
   function setCreateField(key, val) {
     setForm((prev) => ({ ...prev, [key]: val }));
   }
-
   function getOptionsByField(fieldName) {
     if (fieldName === "source") return sourcesList;
     if (fieldName === "status") return statusList;
@@ -407,21 +382,16 @@ export default function MonthlyTuition({ onLoad }) {
     if (fieldName === "otmName") return otmUserOptions;
     return [];
   }
-
   function focusField(fieldName) {
     const el = fieldRefs.current[fieldName];
     if (!el) return;
-
     setFocusedField(fieldName);
     setOpenDropdown(null);
-
     requestAnimationFrame(() => {
       el.focus();
-
       if (fieldName === "date" || fieldName === "demoDate") {
         openNativePicker(el);
       }
-
       if (fieldName === "source" || fieldName === "status" || fieldName === "demoRating" || fieldName === "otmName") {
         const options = getOptionsByField(fieldName);
         const currentIndex = Math.max(options.indexOf(form[fieldName]), 0);
@@ -430,17 +400,13 @@ export default function MonthlyTuition({ onLoad }) {
       }
     });
   }
-
   function moveFocus(currentField, direction) {
     const currentIndex = fieldOrder.indexOf(currentField);
     if (currentIndex === -1) return;
-
     const nextIndex = currentIndex + direction;
     if (nextIndex < 0 || nextIndex >= fieldOrder.length) return;
-
     focusField(fieldOrder[nextIndex]);
   }
-
   function handleTextLikeKeyDown(fieldName, e) {
     const isTextInput = e.target.tagName === "INPUT" && e.target.type !== "date";
     const valueLength = e.target.value?.length ?? 0;
@@ -486,16 +452,13 @@ export default function MonthlyTuition({ onLoad }) {
     setHighlightedIndex(currentIndex);
     setOpenDropdown(fieldName);
   }
-
   function selectDropdownValue(fieldName, value) {
     setCreateField(fieldName, value);
     setOpenDropdown(null);
     requestAnimationFrame(() => moveFocus(fieldName, 1));
   }
-
   function handleDropdownKeyDown(fieldName, e) {
     const options = getOptionsByField(fieldName);
-
     if (e.key === "ArrowDown") {
       e.preventDefault();
       if (openDropdown !== fieldName) {
@@ -505,7 +468,6 @@ export default function MonthlyTuition({ onLoad }) {
       setHighlightedIndex((prev) => Math.min(prev + 1, options.length - 1));
       return;
     }
-
     if (e.key === "ArrowUp") {
       e.preventDefault();
       if (openDropdown !== fieldName) {
@@ -515,7 +477,6 @@ export default function MonthlyTuition({ onLoad }) {
       setHighlightedIndex((prev) => Math.max(prev - 1, 0));
       return;
     }
-
     if (e.key === "Enter") {
       e.preventDefault();
       if (openDropdown !== fieldName) {
@@ -525,31 +486,26 @@ export default function MonthlyTuition({ onLoad }) {
       selectDropdownValue(fieldName, options[highlightedIndex] ?? "");
       return;
     }
-
     if (e.key === "ArrowRight") {
       e.preventDefault();
       setOpenDropdown(null);
       moveFocus(fieldName, 1);
       return;
     }
-
     if (e.key === "ArrowLeft") {
       e.preventDefault();
       setOpenDropdown(null);
       moveFocus(fieldName, -1);
       return;
     }
-
     if (e.key === "Escape") {
       e.preventDefault();
       setOpenDropdown(null);
     }
   }
-
   async function create(e) {
     e.preventDefault();
     setCreating(true);
-
     try {
       const demoTime24 = to24Hour(form.demoTime);
       const payloadToSubmit = {
@@ -557,7 +513,6 @@ export default function MonthlyTuition({ onLoad }) {
         demoTime: demoTime24,
         time: demoTime24 || "12:00",
       };
-
       await api.post("/tuitions", payloadToSubmit);
       setForm(emptyForm());
       setOpenDropdown(null);
@@ -569,26 +524,22 @@ export default function MonthlyTuition({ onLoad }) {
       setCreating(false);
     }
   }
-
   const getInputStyle = (fieldName, extra = {}) => ({
     ...styles.createInput,
     ...(focusedField === fieldName ? styles.focusedInput : {}),
     ...extra,
   });
-
   const getDropdownTriggerStyle = (fieldName, extra = {}) => ({
     ...styles.dropdownTrigger,
     ...(focusedField === fieldName ? styles.focusedInput : {}),
     ...extra,
   });
-
   return (
     <div style={styles.card} ref={rootRef}>
       <div style={styles.summaryBtn}>
         <span style={{ fontSize: 20, color: "#107c41", marginRight: 5 }}>+</span>
         Add New Tuition (Quick Entry)
       </div>
-
       <form onSubmit={create} style={styles.singleLineForm}>
         <CreateField
           label="Tuition ID"

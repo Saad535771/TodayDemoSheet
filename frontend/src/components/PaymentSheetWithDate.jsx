@@ -128,6 +128,53 @@ function extractYearKeyFromText(value) {
 
   return "";
 }
+function extractDayKeyFromDateText(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
+
+  // Handles: 1st Of Month, 2nd of Month, 30th Of Month
+  const ordinalMatch = raw.match(/^\s*(\d{1,2})(?:st|nd|rd|th)?(?:\s+of\s+month)?\b/i);
+  if (ordinalMatch) {
+    const day = Number(ordinalMatch[1]);
+    if (day >= 1 && day <= 31) return String(day).padStart(2, "0");
+  }
+
+  const isoMatch = raw.match(/\b\d{4}[-/]\d{1,2}[-/](\d{1,2})\b/);
+  if (isoMatch) {
+    const day = Number(isoMatch[1]);
+    if (day >= 1 && day <= 31) return String(day).padStart(2, "0");
+  }
+
+  const numericMatch = raw.match(/\b(\d{1,2})[-/.](\d{1,2})(?:[-/.]\d{2,4})?\b/);
+  if (numericMatch) {
+    const first = Number(numericMatch[1]);
+    const second = Number(numericMatch[2]);
+    const day = first > 12 ? first : second > 12 ? second : first;
+    if (day >= 1 && day <= 31) return String(day).padStart(2, "0");
+  }
+
+  return "";
+}
+
+function buildIsoDateFromDateText(value, monthKey, yearKey) {
+  const dayKey = extractDayKeyFromDateText(value);
+  const month = String(monthKey || "").padStart(2, "0");
+  const year = String(yearKey || "").trim();
+
+  if (!dayKey || month === "all" || !/^\d{2}$/.test(month) || !/^\d{4}$/.test(year)) {
+    return "";
+  }
+
+  const monthNumber = Number(month);
+  const yearNumber = Number(year);
+  if (monthNumber < 1 || monthNumber > 12 || !Number.isFinite(yearNumber)) return "";
+
+  const maxDay = new Date(yearNumber, monthNumber, 0).getDate();
+  const safeDay = Math.min(Number(dayKey), maxDay);
+
+  return `${year}-${month}-${String(safeDay).padStart(2, "0")}`;
+}
+
 
 function getRowMonthKey(row) {
   return (
@@ -1485,6 +1532,54 @@ const canSeeAuditTrail = isAdminRole;
       }
     }
   }
+  function getContextMonthForDate(row = {}, dateText = "") {
+    if (selectedMonth && selectedMonth !== "all") return selectedMonth;
+
+    return (
+      extractMonthKeyFromText(dateText) ||
+      extractMonthKeyFromText(row?.paymentDate) ||
+      extractMonthKeyFromText(row?.date) ||
+      extractMonthKeyFromText(row?.dateWithMonth) ||
+      getCurrentMonthKey()
+    );
+  }
+
+  function getContextYearForDate(row = {}, dateText = "") {
+    return (
+      selectedYear ||
+      extractYearKeyFromText(dateText) ||
+      extractYearKeyFromText(row?.paymentDate) ||
+      extractYearKeyFromText(row?.date) ||
+      extractYearKeyFromText(row?.dateWithMonth) ||
+      getCurrentYearKey()
+    );
+  }
+
+  function resolvePaymentDateFromDateColumn(dateText, row = {}) {
+    return buildIsoDateFromDateText(
+      dateText,
+      getContextMonthForDate(row, dateText),
+      getContextYearForDate(row, dateText)
+    );
+  }
+
+  function buildInvoiceActionRow(row = {}) {
+    const dateText = row?.dateWithMonth || row?.date || "";
+    const resolvedDate = resolvePaymentDateFromDateColumn(dateText, row);
+
+    if (!resolvedDate) return row;
+
+    return {
+      ...row,
+      paymentDate: resolvedDate,
+      payment_date: resolvedDate,
+      invoiceDate: resolvedDate,
+      invoice_date: resolvedDate,
+      dueDate: resolvedDate,
+      invoiceDueDate: resolvedDate,
+    };
+  }
+
   async function addRow(referenceRow = null) {
     try {
       setAdding(true);
@@ -1499,7 +1594,10 @@ const canSeeAuditTrail = isAdminRole;
       ).trim();
 
       const inheritedPaymentDate = String(
-        referenceRow?.paymentDate || referenceRow?.date || fallbackPaymentDate
+        resolvePaymentDateFromDateColumn(inheritedDateText, referenceRow || {}) ||
+        referenceRow?.paymentDate ||
+        referenceRow?.date ||
+        fallbackPaymentDate
       ).trim();
 
       const currentRows = sortRowsByDateGroup(itemsRef.current);
@@ -2007,11 +2105,19 @@ const canSeeAuditTrail = isAdminRole;
     return row[col.field] ?? "";
   };
 
-  const buildPatchForColumn = (colId, value) => {
+  const buildPatchForColumn = (colId, value, row = {}) => {
     const col = gridColumnMap[colId];
     if (!col?.field) return {};
     if (col.field === "contactNumber") {
       return { contactNumber: String(value ?? "").trim() };
+    }
+    if (col.field === "dateWithMonth") {
+      const dateText = String(value ?? "").trim();
+      const resolvedPaymentDate = resolvePaymentDateFromDateColumn(dateText, row);
+
+      return resolvedPaymentDate
+        ? { dateWithMonth: dateText, paymentDate: resolvedPaymentDate }
+        : { dateWithMonth: dateText, paymentDate: "" };
     }
     if (col.field === "paymentDate") {
       // Frontend uses camelCase; backend model should map this to DB column payment_date.
@@ -2260,7 +2366,7 @@ const canSeeAuditTrail = isAdminRole;
     const oldValue = String(getCellValue(row, col) ?? "");
 
     if (newValue !== oldValue) {
-      const patch = buildPatchForColumn(colId, newValue);
+      const patch = buildPatchForColumn(colId, newValue, row);
       if (Object.keys(patch).length > 0) {
         await updateRowFields(row, patch);
       }
@@ -2283,7 +2389,7 @@ const canSeeAuditTrail = isAdminRole;
 
       if (!row || !col?.editable) return;
 
-      const patch = buildPatchForColumn(colId, "");
+      const patch = buildPatchForColumn(colId, "", row);
       if (!Object.keys(patch).length) return;
 
       const rowId = getRowId(row);
@@ -3161,23 +3267,21 @@ const canSeeAuditTrail = isAdminRole;
         Copy
       </button>
 
-      <PaymentSheetInvoiceActions row={row} rowIndex={displayIndex} />
+      <PaymentSheetInvoiceActions row={buildInvoiceActionRow(row)} rowIndex={displayIndex} />
 
       <button
         type="button"
         className="pswd-delete-btn"
         onClick={() => void deleteRow(row)}
-        title="Delete row"
-      >
+        title="Delete row">
         Delete
       </button>
     </div>
   </td>
 )}
-                      </tr>
-                    );
-                  })
-                )}
+</tr>
+);
+}))}
               </tbody>
             </table>
           </div>

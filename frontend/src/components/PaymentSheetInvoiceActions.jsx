@@ -107,14 +107,22 @@ function getContactNumber(row) {
 }
 
 function normalizeWhatsappNumber(number) {
-  let raw = String(number || "").trim();
+  const raw = String(number || "").trim();
   if (!raw) return "";
 
-  raw = raw.replace(/[^\d+]/g, "");
-  if (raw.startsWith("+")) return raw.replace("+", "");
-  if (raw.startsWith("00")) return raw.slice(2);
-  if (raw.startsWith("0")) return `92${raw.slice(1)}`;
-  return raw;
+  // Contact column me agar space/dash/slash ya multiple numbers hon,
+  // to WhatsApp ke liye first valid Pakistani number pick karega.
+  const firstPhoneMatch = raw.match(/(?:\+|00)?92[\s-]*3[\d\s-]{9,13}|0?3[\d\s-]{9,13}/);
+  const selectedNumber = firstPhoneMatch ? firstPhoneMatch[0] : raw;
+
+  let digits = selectedNumber.replace(/\D/g, "");
+  if (!digits) return "";
+
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  if (digits.startsWith("0")) digits = `92${digits.slice(1)}`;
+  if (digits.startsWith("3") && digits.length === 10) digits = `92${digits}`;
+
+  return digits;
 }
 
 function teacherHtml(value) {
@@ -494,18 +502,25 @@ async function openWhatsapp(row, rowIndex) {
       return;
     }
 
-    // Desktop browser security ki wajah se WhatsApp URL me image auto-attach nahi hoti.
-    // Isliye image download hogi aur WhatsApp chat open hogi; user image attach/paste kar de.
+    // Desktop: pehle invoice image download hogi, phir exact Contact column wala number
+    // WhatsApp Web/Desktop me phone parameter ke sath open hoga.
     downloadInvoiceImage(invoiceFile);
-    window.location.href = `whatsapp://send?phone=${phone}`;
-    window.setTimeout(() => {
-      window.open(`https://wa.me/${phone}`, "_blank", "noopener,noreferrer");
-    }, 900);
-    alert("Invoice image has been downloaded. WhatsApp chat is opening without text; please attach/paste the downloaded invoice image.");
+
+    const whatsappUrl = `https://web.whatsapp.com/send?phone=${encodeURIComponent(phone)}`;
+    const fallbackUrl = `https://api.whatsapp.com/send?phone=${encodeURIComponent(phone)}&type=phone_number&app_absent=0`;
+
+    const opened = window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    if (!opened) {
+      window.location.href = fallbackUrl;
+    }
+
+    alert("Invoice image has been downloaded. WhatsApp is opening with the selected contact number; please attach/paste the downloaded invoice image.");
   } catch (err) {
     console.error("WHATSAPP INVOICE IMAGE ERROR:", err);
     openInvoiceWindow(row, rowIndex, { autoPrint: false });
-    window.location.href = `whatsapp://send?phone=${phone}`;
+
+    const fallbackUrl = `https://api.whatsapp.com/send?phone=${encodeURIComponent(phone)}&type=phone_number&app_absent=0`;
+    window.open(fallbackUrl, "_blank", "noopener,noreferrer");
   }
 }
 
