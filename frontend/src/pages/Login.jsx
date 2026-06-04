@@ -2,9 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, storeToken } from "../api/api";
 import Logo from "../assets/logo-white.png";
-
 const SESSION_KEY = "dashboard_session_id";
-
 function getOrCreateSessionId() {
   let sessionId = sessionStorage.getItem(SESSION_KEY);
   if (!sessionId) {
@@ -13,7 +11,6 @@ function getOrCreateSessionId() {
   }
   return sessionId;
 }
-
 const styles = {
   container: {
     display: "flex",

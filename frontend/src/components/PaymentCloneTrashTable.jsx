@@ -15,7 +15,7 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     padding: "8px 10px",
-    background: "#111827",
+    background: "#d19d00",
     color: "#fff",
     borderBottom: "1px solid #111827",
     gap: "8px",
@@ -34,7 +34,7 @@ const styles = {
     letterSpacing: "0.2px",
   },
   countBadge: {
-    background: "#0f172a",
+    background: "#797979",
     border: "1px solid #475569",
     color: "#fff",
     padding: "3px 8px",

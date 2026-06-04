@@ -8,6 +8,7 @@ import HodApprovals from "../components/HodApprovals.jsx";
 import ActiveUsersPanel from "../components/ActiveUsersPanel.jsx";
 import FloatingChatWidget from "../components/FloatingChatWidget.jsx";
 import { api, clearToken, getStoredToken, setAuthToken } from "../api/api.js";
+import { getRealtimeSocket } from "../api/realtime.js";
 import NewStaffCreate from "../components/NewStaffCreate.jsx";
 import Logo from "../assets/Logo-1-Blue.png";
 import OtmManagement from "../components/OtmManagement.jsx";
@@ -344,6 +345,52 @@ export default function Dashboard() {
     });
   }
 
+
+  function applyNotificationSummary(summary = {}, activeKey = tab) {
+    const modules = summary?.modules || {};
+    const next = { ...DEFAULT_BADGE_META, ...badgeMetaRef.current };
+
+    Object.keys(DEFAULT_BADGE_META).forEach((key) => {
+      if (key === "chat") return; // chat ka apna unread system already hai
+
+      const moduleMeta = modules[key] || {};
+      const unread = Number(
+        moduleMeta.newCount ?? moduleMeta.unread_count ?? moduleMeta.total ?? 0
+      ) || 0;
+      const prev = next[key] || { total: 0, newCount: 0 };
+
+      next[key] = {
+        ...prev,
+        newCount: key === activeKey ? 0 : Math.max(0, unread),
+      };
+    });
+
+    persistBadgeMeta(next);
+  }
+
+  async function loadNotificationSummary(activeKey = tab) {
+    try {
+      const { data } = await api.get("/notifications/unread-summary");
+      applyNotificationSummary(data, activeKey);
+    } catch (error) {
+      console.error("Notification summary failed:", error?.response?.data || error.message);
+    }
+  }
+
+  async function markNotificationSeen(moduleKey) {
+    if (!moduleKey || moduleKey === "chat") return;
+
+    try {
+      const { data } = await api.post("/notifications/mark-seen", {
+        module_key: moduleKey,
+      });
+      applyNotificationSummary(data?.summary || {}, moduleKey);
+    } catch (error) {
+      console.error("Mark notification seen failed:", error?.response?.data || error.message);
+      clearTabNewCount(moduleKey);
+    }
+  }
+
   const tabsConfig = useMemo(() => {
     return [
       {
@@ -546,6 +593,7 @@ export default function Dashboard() {
     if (nextTab === tab) return;
     saveTabPosition(tab);
     clearTabNewCount(nextTab);
+    void markNotificationSeen(nextTab);
     setTab(nextTab);
   }
 
@@ -594,7 +642,8 @@ export default function Dashboard() {
         hasBadgeBaselineRef.current = false;
         clearTabNewCount(firstTab);
 
-        await loadAllTabBadgesForUser(userData, firstTab, { initialize: true });
+        await markNotificationSeen(firstTab);
+        await loadNotificationSummary(firstTab);
         hasBadgeBaselineRef.current = true;
       })
       .catch((err) => {
@@ -635,6 +684,75 @@ export default function Dashboard() {
     };
   }, [tab]);
 
+
+
+  useEffect(() => {
+    if (!me) return undefined;
+
+    const socket = getRealtimeSocket();
+    if (!socket) return undefined;
+
+    const requestSummary = () => {
+      socket.emit("notifications:summary");
+    };
+
+    const handleSummary = (summary) => {
+      applyNotificationSummary(summary, tab);
+    };
+
+    const handleNewNotification = (payload = {}) => {
+      const moduleKey = payload.module_key || payload.moduleKey;
+
+      if (!moduleKey) {
+        requestSummary();
+        return;
+      }
+
+      if (moduleKey === tab) {
+        void markNotificationSeen(moduleKey);
+        return;
+      }
+
+      const prev = badgeMetaRef.current[moduleKey] || { total: 0, newCount: 0 };
+      persistBadgeMeta({
+        ...badgeMetaRef.current,
+        [moduleKey]: {
+          ...prev,
+          newCount: Number(prev.newCount || 0) + 1,
+        },
+      });
+
+      requestSummary();
+    };
+
+    const handleSeen = (payload = {}) => {
+      const moduleKey = payload.module_key || payload.moduleKey;
+      if (!moduleKey || moduleKey === tab) {
+        requestSummary();
+      }
+    };
+
+    socket.on("connect", requestSummary);
+    socket.on("notifications:summary", handleSummary);
+    socket.on("notifications:new", handleNewNotification);
+    socket.on("notification:new", handleNewNotification);
+    socket.on("notifications:seen", handleSeen);
+
+    if (!socket.connected) {
+      socket.connect();
+    } else {
+      requestSummary();
+    }
+
+    return () => {
+      socket.off("connect", requestSummary);
+      socket.off("notifications:summary", handleSummary);
+      socket.off("notifications:new", handleNewNotification);
+      socket.off("notification:new", handleNewNotification);
+      socket.off("notifications:seen", handleSeen);
+    };
+  }, [me, tab]);
+
   useEffect(() => {
     if (!me || !tab) return;
 
@@ -644,11 +762,8 @@ export default function Dashboard() {
       void sendHeartbeat(tab);
     }, HEARTBEAT_MS);
 
-    badgeIntervalRef.current = window.setInterval(() => {
-      if (document.hidden) return;
-      if (!hasBadgeBaselineRef.current) return;
-      void loadAllTabBadgesForUser(me, tab);
-    }, BADGE_POLL_MS);
+    // Realtime notifications now come from Socket.IO + /notifications/unread-summary.
+    // Old 15-second badge polling is disabled to avoid duplicate counts.
 
     const handleBeforeUnload = () => {
       saveTabPosition(tab);
