@@ -26,18 +26,14 @@ export function getRealtimeSocket() {
     reconnectionDelay: 800,
     reconnectionDelayMax: 5000,
   });
-
   socketInstance.on("connect", () => {
     console.log("Realtime notification socket connected:", socketInstance.id);
   });
-
   socketInstance.on("connect_error", (error) => {
     console.warn("Realtime notification socket connect error:", error?.message || error);
   });
-
   return socketInstance;
 }
-
 export function disconnectRealtimeSocket() {
   if (!socketInstance) return;
   socketInstance.disconnect();

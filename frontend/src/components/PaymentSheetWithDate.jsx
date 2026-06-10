@@ -178,7 +178,6 @@ function buildIsoDateFromDateText(value, monthKey, yearKey) {
 
 function getRowMonthKey(row) {
   return (
-    extractMonthKeyFromText(row?.paymentDate) ||
     extractMonthKeyFromText(row?.date) ||
     extractMonthKeyFromText(row?.dateWithMonth) ||
     extractMonthKeyFromText(row?.updatedAt) ||
@@ -189,7 +188,6 @@ function getRowMonthKey(row) {
 
 function getRowYearKey(row) {
   return (
-    extractYearKeyFromText(row?.paymentDate) ||
     extractYearKeyFromText(row?.date) ||
     extractYearKeyFromText(row?.dateWithMonth) ||
     extractYearKeyFromText(row?.updatedAt) ||
@@ -238,16 +236,45 @@ function getPaymentDateValue(row = {}) {
     row?.payment_date ??
     row?.invoiceDate ??
     row?.invoice_date ??
-    row?.date ??
     ""
   );
 }
 
+function getCycleDateValue(row = {}) {
+  return row?.date ?? row?.cycleDate ?? row?.paymentCycleDate ?? "";
+}
+
+function isIsoDateOnly(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "").trim());
+}
+
+function isMonthStartDate(value) {
+  return /^\d{4}-\d{2}-01$/.test(String(value || "").trim());
+}
+
+function getManualPaymentDateForDisplay(row = {}) {
+  const paymentDate = String(getPaymentDateValue(row) || "").trim();
+  const cycleDate = String(getCycleDateValue(row) || "").trim();
+
+  if (!paymentDate || paymentDate === "0000-00-00") return "";
+
+  // Backend/cycle default date ko manual Payment Date column mein show nahi karna.
+  // Example: date = 2026-06-01 aur paymentDate bhi 2026-06-01 ho to column blank rahega.
+  if (isIsoDateOnly(paymentDate) && isMonthStartDate(paymentDate) && paymentDate === cycleDate) {
+    return "";
+  }
+
+  return paymentDate;
+}
+
 function normalizePaymentRow(row = {}) {
+  const cycleDate = getCycleDateValue(row);
+
   return {
     ...row,
     contactNumber: getContactValue(row),
-    paymentDate: getPaymentDateValue(row),
+    paymentDate: getManualPaymentDateForDisplay({ ...row, date: cycleDate }),
+    date: cycleDate, // hidden month/tab cycle date
   };
 }
 function normalizeSearchText(value) {
@@ -1284,11 +1311,40 @@ const canSeeAuditTrail = isAdminRole;
     }
   };
 
+  const getStableCycleDateForRow = (row = {}) => {
+    const existingDate = String(row?.date || "").trim();
+    if (isIsoDateOnly(existingDate)) return existingDate;
+
+    const month =
+      selectedMonth && selectedMonth !== "all"
+        ? selectedMonth
+        : getRowMonthKey(row) || getCurrentMonthKey();
+    const year = selectedYear || getRowYearKey(row) || getCurrentYearKey();
+
+    return `${year}-${String(month).padStart(2, "0")}-01`;
+  };
+
+  const withStableCycleDatePatch = (row = {}, patch = {}) => {
+    const nextPatch = { ...(patch || {}) };
+
+    // Har update ke sath hidden cycle date bhejna zaroori hai,
+    // warna backend active row ko current month mein move kar deta hai
+    // aur selected old month tab se row ghaib ho jati hai.
+    if (!Object.prototype.hasOwnProperty.call(nextPatch, "date")) {
+      nextPatch.date = getStableCycleDateForRow(row);
+    }
+
+    return nextPatch;
+  };
+
   const applyUpdateEntries = async (updates, { historyLabel = "Edit", recordHistory = true } = {}) => {
-    const updatesWithAutoTotal = updates.map(({ row, patch }) => ({
-      row,
-      patch: withAutoTotalFee(row, patch),
-    }));
+    const updatesWithAutoTotal = updates.map(({ row, patch }) => {
+      const stablePatch = withStableCycleDatePatch(row, patch);
+      return {
+        row,
+        patch: withAutoTotalFee(row, stablePatch),
+      };
+    });
 
     const normalized = buildMergedPatchEntries(updatesWithAutoTotal);
     if (!normalized.length) return false;
@@ -1533,29 +1589,29 @@ const canSeeAuditTrail = isAdminRole;
     }
   }
   function getContextMonthForDate(row = {}, dateText = "") {
-    if (selectedMonth && selectedMonth !== "all") return selectedMonth;
+  if (selectedMonth && selectedMonth !== "all") return selectedMonth;
 
-    return (
-      extractMonthKeyFromText(dateText) ||
-      extractMonthKeyFromText(row?.paymentDate) ||
-      extractMonthKeyFromText(row?.date) ||
-      extractMonthKeyFromText(row?.dateWithMonth) ||
-      getCurrentMonthKey()
-    );
-  }
+  return (
+    extractMonthKeyFromText(row?.date) ||
+    extractMonthKeyFromText(dateText) ||
+    extractMonthKeyFromText(row?.paymentDate) ||
+    extractMonthKeyFromText(row?.dateWithMonth) ||
+    getCurrentMonthKey()
+  );
+}
 
   function getContextYearForDate(row = {}, dateText = "") {
-    return (
-      selectedYear ||
-      extractYearKeyFromText(dateText) ||
-      extractYearKeyFromText(row?.paymentDate) ||
-      extractYearKeyFromText(row?.date) ||
-      extractYearKeyFromText(row?.dateWithMonth) ||
-      getCurrentYearKey()
-    );
-  }
+  return (
+    selectedYear ||
+    extractYearKeyFromText(row?.date) ||
+    extractYearKeyFromText(dateText) ||
+    extractYearKeyFromText(row?.paymentDate) ||
+    extractYearKeyFromText(row?.dateWithMonth) ||
+    getCurrentYearKey()
+  );
+}
 
-  function resolvePaymentDateFromDateColumn(dateText, row = {}) {
+  function resolveCycleDateFromDateColumn(dateText, row = {}) {
     return buildIsoDateFromDateText(
       dateText,
       getContextMonthForDate(row, dateText),
@@ -1564,19 +1620,18 @@ const canSeeAuditTrail = isAdminRole;
   }
 
   function buildInvoiceActionRow(row = {}) {
-    const dateText = row?.dateWithMonth || row?.date || "";
-    const resolvedDate = resolvePaymentDateFromDateColumn(dateText, row);
-
-    if (!resolvedDate) return row;
+    const manualPaymentDate = getManualPaymentDateForDisplay(row);
 
     return {
       ...row,
-      paymentDate: resolvedDate,
-      payment_date: resolvedDate,
-      invoiceDate: resolvedDate,
-      invoice_date: resolvedDate,
-      dueDate: resolvedDate,
-      invoiceDueDate: resolvedDate,
+      // Invoice component date fallback use karta hai, is liye yahan date bhi manual Payment Date hi bhejte hain.
+      date: manualPaymentDate,
+      paymentDate: manualPaymentDate,
+      payment_date: manualPaymentDate,
+      invoiceDate: manualPaymentDate,
+      invoice_date: manualPaymentDate,
+      dueDate: manualPaymentDate,
+      invoiceDueDate: manualPaymentDate,
     };
   }
 
@@ -1585,20 +1640,20 @@ const canSeeAuditTrail = isAdminRole;
       setAdding(true);
       mutationInFlightRef.current = true;
 
-      const monthForNewRow = selectedMonth === "all" ? getCurrentMonthKey() : selectedMonth;
-      const yearForNewRow = selectedYear || getCurrentYearKey();
-      const fallbackPaymentDate = `${yearForNewRow}-${monthForNewRow}-01`;
+      const monthForNewRow =
+        selectedMonth && selectedMonth !== "all"
+          ? selectedMonth
+          : referenceRow
+            ? getRowMonthKey(referenceRow)
+            : getCurrentMonthKey();
 
-      const inheritedDateText = String(
-        referenceRow?.dateWithMonth || referenceRow?.date || ""
-      ).trim();
+      const yearForNewRow =
+        selectedYear ||
+        (referenceRow ? getRowYearKey(referenceRow) : "") ||
+        getCurrentYearKey();
 
-      const inheritedPaymentDate = String(
-        resolvePaymentDateFromDateColumn(inheritedDateText, referenceRow || {}) ||
-        referenceRow?.paymentDate ||
-        referenceRow?.date ||
-        fallbackPaymentDate
-      ).trim();
+      const cycleDateForNewRow = `${yearForNewRow}-${monthForNewRow}-01`;
+      const inheritedDateText = String(referenceRow?.dateWithMonth || "").trim();
 
       const currentRows = sortRowsByDateGroup(itemsRef.current);
       const referenceId = referenceRow ? getRowId(referenceRow) : null;
@@ -1610,8 +1665,17 @@ const canSeeAuditTrail = isAdminRole;
 
       const newRow = {
         tuitionId: `manual-${Date.now()}`,
-        paymentDate: inheritedPaymentDate,
-        date: "",
+
+        // date backend/month tab ke liye hai. Is ko update patch mein preserve karna zaroori hai.
+        date: cycleDateForNewRow,
+
+        // Payment Date manual column hai. Default blank rahegi.
+        paymentDate: "",
+
+        // Backend ko selected tab/month ka clear signal.
+        targetMonth: monthForNewRow,
+        targetYear: yearForNewRow,
+
         dateWithMonth: inheritedDateText,
         tuitionName: "",
         totalStudents: "",
@@ -1645,10 +1709,12 @@ const canSeeAuditTrail = isAdminRole;
         return;
       }
 
+      const createdCycleDate = created.date || newRow.date;
       const createdRow = {
         ...newRow,
         ...created,
-        paymentDate: getPaymentDateValue(created) || newRow.paymentDate,
+        date: createdCycleDate,
+        paymentDate: getManualPaymentDateForDisplay({ ...created, date: createdCycleDate }),
         dateWithMonth: created.dateWithMonth ?? newRow.dateWithMonth,
         contactNumber: getContactValue(created) || newRow.contactNumber || "",
         orderIndex: targetIndex,
@@ -2102,28 +2168,38 @@ const canSeeAuditTrail = isAdminRole;
   const getCellValue = (row, col) => {
     if (!row || !col) return "";
     if (col.field === "contactNumber") return getContactValue(row);
+    if (col.field === "paymentDate") return getManualPaymentDateForDisplay(row);
     return row[col.field] ?? "";
   };
 
   const buildPatchForColumn = (colId, value, row = {}) => {
     const col = gridColumnMap[colId];
     if (!col?.field) return {};
+
     if (col.field === "contactNumber") {
-      return { contactNumber: String(value ?? "").trim() };
+      return { contactNumber: String(value ?? "").trim(), date: getStableCycleDateForRow(row) };
     }
+
     if (col.field === "dateWithMonth") {
       const dateText = String(value ?? "").trim();
-      const resolvedPaymentDate = resolvePaymentDateFromDateColumn(dateText, row);
+      const resolvedCycleDate = resolveCycleDateFromDateColumn(dateText, row);
 
-      return resolvedPaymentDate
-        ? { dateWithMonth: dateText, paymentDate: resolvedPaymentDate }
-        : { dateWithMonth: dateText, paymentDate: "" };
+      return {
+        dateWithMonth: dateText,
+        date: resolvedCycleDate || getStableCycleDateForRow(row),
+      };
     }
+
     if (col.field === "paymentDate") {
-      // Frontend uses camelCase; backend model should map this to DB column payment_date.
-      return { paymentDate: String(value ?? "").trim() };
+      // Payment Date manual column hai. Is update ke sath date cycle preserve hoti hai,
+      // is liye backend ise current/default month date se overwrite nahi karega.
+      return {
+        paymentDate: String(value ?? "").trim(),
+        date: getStableCycleDateForRow(row),
+      };
     }
-    return { [col.field]: value };
+
+    return { [col.field]: value, date: getStableCycleDateForRow(row) };
   };
 
   const getSelectedTextForClipboard = () => {
@@ -2831,20 +2907,29 @@ const canSeeAuditTrail = isAdminRole;
 
       return (
         <td key={cellKey} className="pswd-td pswd-data-cell" style={editingStyleVars}>
-          <EditingControl
-            ref={inputRef}
-            autoFocus
-            type={isSingleLineInput ? col.type || "text" : undefined}
-            rows={isSingleLineInput ? undefined : 2}
-            value={editValue}
-            onChange={(e) => {
-              editValueRef.current = e.target.value;
-              setEditValue(e.target.value);
-            }}
-            onBlur={() => void commitEdit({ rowIndex, colId: col.id })}
-            onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
-            className="pswd-input"
-          />
+        <EditingControl
+  ref={inputRef}
+  autoFocus
+  type={col.type === "date" ? "date" : col.type === "number" ? "number" : undefined}
+  value={editValue || ""}
+  onFocus={(e) => {
+    if (col.type === "date") {
+      tryOpenPicker(e.currentTarget, col);
+    }
+  }}
+  onClick={(e) => {
+    if (col.type === "date") {
+      tryOpenPicker(e.currentTarget, col);
+    }
+  }}
+  onChange={(e) => {
+    editValueRef.current = e.target.value;
+    setEditValue(e.target.value);
+  }}
+  onBlur={() => void commitEdit({ rowIndex, colId: col.id })}
+  onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
+  className="pswd-input"
+/>
         </td>
       );
     }
@@ -2895,6 +2980,9 @@ const canSeeAuditTrail = isAdminRole;
         className="pswd-td pswd-data-cell pswd-excel-cell"
         onMouseDown={(e) => handleCellMouseDown(rowIndex, col.id, e)}
         onMouseEnter={() => handleCellMouseEnter(rowIndex, col.id)}
+        onClick={() => {
+          if (col.type === "date" && col.editable) startEditingCell(rowIndex, col.id);
+        }}
         onDoubleClick={() => {
           if (col.editable) startEditingCell(rowIndex, col.id);
         }}
