@@ -15,7 +15,7 @@ const FIXED_TOOLBAR_HEIGHT = 118;
 const STICKY_TOP = -40;
 
 const DEFAULT_PAGE_SIZE = 200;
-const PAGE_SIZE_OPTIONS = [25, 50, 100, 200,300,400,500,800,1000];
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200, 300, 400, 500, 800, 1000];
 const PAKISTAN_TIME_ZONE = "Asia/Karachi";
 const STORAGE_KEY = "pswd-payment-sheet-state-v2";
 
@@ -916,25 +916,25 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
   const didMountFilterResetRef = useRef(false);
   const pendingScrollRestoreRef = useRef(savedSheetStateRef.current.tableScroll || null);
 
- const currentRole = resolveCurrentUserRole(me);
+  const currentRole = resolveCurrentUserRole(me);
 
-// Sirf admin ko default full access hoga.
-// HOD, OTM, Staff ke liye admin panel wali permissions follow hongi.
-const isAdminRole = currentRole === "admin";
+  // Sirf admin ko default full access hoga.
+  // HOD, OTM, Staff ke liye admin panel wali permissions follow hongi.
+  const isAdminRole = currentRole === "admin";
 
-const canSeeTutorShare =
-  isAdminRole || resolveAccessFlag(me, "access_tutor_share");
+  const canSeeTutorShare =
+    isAdminRole || resolveAccessFlag(me, "access_tutor_share");
 
-const canSeeLacasShare =
-  isAdminRole || resolveAccessFlag(me, "access_lacas_share");
+  const canSeeLacasShare =
+    isAdminRole || resolveAccessFlag(me, "access_lacas_share");
 
-const canSeeTotalFees =
-  isAdminRole || resolveAccessFlag(me, "access_total_fees");
+  const canSeeTotalFees =
+    isAdminRole || resolveAccessFlag(me, "access_total_fees");
 
- const canSeePaymentActions =
-  isAdminRole || resolveAccessFlag(me, "access_payment_actions");
+  const canSeePaymentActions =
+    isAdminRole || resolveAccessFlag(me, "access_payment_actions");
 
-const canSeeAuditTrail = isAdminRole;
+  const canSeeAuditTrail = isAdminRole;
   const zoomPercent = `${Math.round(zoomLevel * 100)}%`;
 
   const changeZoom = (direction) => {
@@ -1099,7 +1099,7 @@ const canSeeAuditTrail = isAdminRole;
   );
 
   const firstEditableColumnId = gridColumns[0]?.id || "tuitionId";
- const visibleColumnCount = gridColumns.length + 5 + (canSeePaymentActions ? 1 : 0);
+  const visibleColumnCount = gridColumns.length + 5 + (canSeePaymentActions ? 1 : 0);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -1560,8 +1560,8 @@ const canSeeAuditTrail = isAdminRole;
       // This keeps 1st/2nd/3rd...12th Of Month sequence correct across all pages.
       const fetchLimit = 50000;
       const res = await api.get(
-  `/payments-clone?page=1&limit=${fetchLimit}&month=all&year=all`
-);
+        `/payments-clone?page=1&limit=${fetchLimit}&month=all&year=all`
+      );
 
       const rows = Array.isArray(res.data?.items)
         ? res.data.items
@@ -1589,27 +1589,27 @@ const canSeeAuditTrail = isAdminRole;
     }
   }
   function getContextMonthForDate(row = {}, dateText = "") {
-  if (selectedMonth && selectedMonth !== "all") return selectedMonth;
+    if (selectedMonth && selectedMonth !== "all") return selectedMonth;
 
-  return (
-    extractMonthKeyFromText(row?.date) ||
-    extractMonthKeyFromText(dateText) ||
-    extractMonthKeyFromText(row?.paymentDate) ||
-    extractMonthKeyFromText(row?.dateWithMonth) ||
-    getCurrentMonthKey()
-  );
-}
+    return (
+      extractMonthKeyFromText(row?.date) ||
+      extractMonthKeyFromText(dateText) ||
+      extractMonthKeyFromText(row?.paymentDate) ||
+      extractMonthKeyFromText(row?.dateWithMonth) ||
+      getCurrentMonthKey()
+    );
+  }
 
   function getContextYearForDate(row = {}, dateText = "") {
-  return (
-    selectedYear ||
-    extractYearKeyFromText(row?.date) ||
-    extractYearKeyFromText(dateText) ||
-    extractYearKeyFromText(row?.paymentDate) ||
-    extractYearKeyFromText(row?.dateWithMonth) ||
-    getCurrentYearKey()
-  );
-}
+    return (
+      selectedYear ||
+      extractYearKeyFromText(row?.date) ||
+      extractYearKeyFromText(dateText) ||
+      extractYearKeyFromText(row?.paymentDate) ||
+      extractYearKeyFromText(row?.dateWithMonth) ||
+      getCurrentYearKey()
+    );
+  }
 
   function resolveCycleDateFromDateColumn(dateText, row = {}) {
     return buildIsoDateFromDateText(
@@ -1691,7 +1691,7 @@ const canSeeAuditTrail = isAdminRole;
         notes: "",
         otmName: "",
         contactNumber: "",
-        syncFlag: "",
+        syncFlag: "manual-month-locked",
         assignedStaffId: null,
         isDeleted: false,
         deletedFromTodayDemo: false,
@@ -1905,13 +1905,13 @@ const canSeeAuditTrail = isAdminRole;
       totalFees: calculateAutoTotalFees(nextTutorFee, nextLacasShare),
     };
   }
- const searchedItems = useMemo(() => {
-  const baseRows = !normalizeSearchText(search)
-    ? items
-    : items.filter((item) => rowMatchesPaymentSearch(item, search));
+  const searchedItems = useMemo(() => {
+    const baseRows = !normalizeSearchText(search)
+      ? items
+      : items.filter((item) => rowMatchesPaymentSearch(item, search));
 
-  return sortRowsByDateGroup(baseRows);
-}, [items, search]);
+    return sortRowsByDateGroup(baseRows);
+  }, [items, search]);
 
   const yearOptions = useMemo(() => {
     const years = new Set([getCurrentYearKey(), selectedYear]);
@@ -2907,29 +2907,29 @@ const canSeeAuditTrail = isAdminRole;
 
       return (
         <td key={cellKey} className="pswd-td pswd-data-cell" style={editingStyleVars}>
-        <EditingControl
-  ref={inputRef}
-  autoFocus
-  type={col.type === "date" ? "date" : col.type === "number" ? "number" : undefined}
-  value={editValue || ""}
-  onFocus={(e) => {
-    if (col.type === "date") {
-      tryOpenPicker(e.currentTarget, col);
-    }
-  }}
-  onClick={(e) => {
-    if (col.type === "date") {
-      tryOpenPicker(e.currentTarget, col);
-    }
-  }}
-  onChange={(e) => {
-    editValueRef.current = e.target.value;
-    setEditValue(e.target.value);
-  }}
-  onBlur={() => void commitEdit({ rowIndex, colId: col.id })}
-  onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
-  className="pswd-input"
-/>
+          <EditingControl
+            ref={inputRef}
+            autoFocus
+            type={col.type === "date" ? "date" : col.type === "number" ? "number" : undefined}
+            value={editValue || ""}
+            onFocus={(e) => {
+              if (col.type === "date") {
+                tryOpenPicker(e.currentTarget, col);
+              }
+            }}
+            onClick={(e) => {
+              if (col.type === "date") {
+                tryOpenPicker(e.currentTarget, col);
+              }
+            }}
+            onChange={(e) => {
+              editValueRef.current = e.target.value;
+              setEditValue(e.target.value);
+            }}
+            onBlur={() => void commitEdit({ rowIndex, colId: col.id })}
+            onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
+            className="pswd-input"
+          />
         </td>
       );
     }
@@ -3019,11 +3019,11 @@ const canSeeAuditTrail = isAdminRole;
           style={
             isHeaderPinned
               ? {
-                  top: `${STICKY_TOP}px`,
-                  left: `${headerMetrics.left}px`,
-                  width: `${headerMetrics.width}px`,
-                  zIndex: 2000,
-                }
+                top: `${STICKY_TOP}px`,
+                left: `${headerMetrics.left}px`,
+                width: `${headerMetrics.width}px`,
+                zIndex: 2000,
+              }
               : undefined
           }
         >
@@ -3122,91 +3122,90 @@ const canSeeAuditTrail = isAdminRole;
         </div>
 
         <div className="pswd-footer-row">
-            <div className="pswd-month-bar" aria-label="Month filter">
-              {MONTH_FILTERS.map((month) => (
-                <button
-                  key={month.key}
-                  type="button"
-                  className={`pswd-month-btn ${
-                    selectedMonth === month.key ? "pswd-month-btn--active" : ""
+          <div className="pswd-month-bar" aria-label="Month filter">
+            {MONTH_FILTERS.map((month) => (
+              <button
+                key={month.key}
+                type="button"
+                className={`pswd-month-btn ${selectedMonth === month.key ? "pswd-month-btn--active" : ""
                   }`}
-                  onClick={() => setSelectedMonth(month.key)}
-                  title={`${month.label}: ${monthCounts[month.key] || 0} records`}
-                >
-                  {month.shortLabel}
-                  <span className="pswd-month-count">{monthCounts[month.key] || 0}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="pswd-pagination-bar">
-              <label className="pswd-year-filter">
-                <span>Year:</span>
-                <select
-                  className="pswd-page-size pswd-year-select"
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value || getCurrentYearKey())}
-                >
-                  {yearOptions.map((year) => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-              </label>
-
-              <button
-                type="button"
-                className="pswd-pagination-btn"
-                onClick={() => setCurrentPage(1)}
-                disabled={safeCurrentPage <= 1}
+                onClick={() => setSelectedMonth(month.key)}
+                title={`${month.label}: ${monthCounts[month.key] || 0} records`}
               >
-                First
+                {month.shortLabel}
+                <span className="pswd-month-count">{monthCounts[month.key] || 0}</span>
               </button>
-              <button
-                type="button"
-                className="pswd-pagination-btn"
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                disabled={safeCurrentPage <= 1}
-              >
-                Prev
-              </button>
-
-              <span className="pswd-pagination-info">
-                Showing {showingFrom}-{showingTo} of {monthFilteredItems.length} records | Page {safeCurrentPage} of {clientTotalPages}
-              </span>
-
-              <button
-                type="button"
-                className="pswd-pagination-btn"
-                onClick={() => setCurrentPage((prev) => Math.min(clientTotalPages, prev + 1))}
-                disabled={safeCurrentPage >= clientTotalPages}
-              >
-                Next
-              </button>
-              <button
-                type="button"
-                className="pswd-pagination-btn"
-                onClick={() => setCurrentPage(clientTotalPages)}
-                disabled={safeCurrentPage >= clientTotalPages}
-              >
-                Last
-              </button>
-
-              <select
-                className="pswd-page-size"
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value) || DEFAULT_PAGE_SIZE);
-                  setCurrentPage(1);
-                }}
-              >
-                {PAGE_SIZE_OPTIONS.map((size) => (
-                  <option key={size} value={size}>{size} / page</option>
-                ))}
-              </select>
-            </div>
+            ))}
           </div>
 
-          <div className="pswd-table-wrapper" ref={tableWrapperRef}>
+          <div className="pswd-pagination-bar">
+            <label className="pswd-year-filter">
+              <span>Year:</span>
+              <select
+                className="pswd-page-size pswd-year-select"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value || getCurrentYearKey())}
+              >
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </label>
+
+            <button
+              type="button"
+              className="pswd-pagination-btn"
+              onClick={() => setCurrentPage(1)}
+              disabled={safeCurrentPage <= 1}
+            >
+              First
+            </button>
+            <button
+              type="button"
+              className="pswd-pagination-btn"
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              disabled={safeCurrentPage <= 1}
+            >
+              Prev
+            </button>
+
+            <span className="pswd-pagination-info">
+              Showing {showingFrom}-{showingTo} of {monthFilteredItems.length} records | Page {safeCurrentPage} of {clientTotalPages}
+            </span>
+
+            <button
+              type="button"
+              className="pswd-pagination-btn"
+              onClick={() => setCurrentPage((prev) => Math.min(clientTotalPages, prev + 1))}
+              disabled={safeCurrentPage >= clientTotalPages}
+            >
+              Next
+            </button>
+            <button
+              type="button"
+              className="pswd-pagination-btn"
+              onClick={() => setCurrentPage(clientTotalPages)}
+              disabled={safeCurrentPage >= clientTotalPages}
+            >
+              Last
+            </button>
+
+            <select
+              className="pswd-page-size"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value) || DEFAULT_PAGE_SIZE);
+                setCurrentPage(1);
+              }}
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>{size} / page</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="pswd-table-wrapper" ref={tableWrapperRef}>
           <div className="pswd-table-zoom-wrap" style={{ zoom: zoomLevel }}>
             <table className="pswd-table">
               <thead>
@@ -3237,8 +3236,8 @@ const canSeeAuditTrail = isAdminRole;
                   ))}
                   <th className="pswd-th" style={{ "--pswd-th-top": tableHeadTop, "--pswd-col-width": "60px" }}>Add Row</th>
                   {canSeePaymentActions && (<th
-    className="pswd-th"
-    style={{ "--pswd-th-top": tableHeadTop, "--pswd-col-width": "230px" }}>Action</th>)}
+                    className="pswd-th"
+                    style={{ "--pswd-th-top": tableHeadTop, "--pswd-col-width": "230px" }}>Action</th>)}
                 </tr>
               </thead>
 
@@ -3317,7 +3316,7 @@ const canSeeAuditTrail = isAdminRole;
                               checked={selectedRowIds.has(rowId)}
                               onChange={(e) => toggleRowSelection(rowId, e.target.checked)}
                               className="pswd-checkbox"
-                              aria-label={`Select row ${displayIndex}`}  />
+                              aria-label={`Select row ${displayIndex}`} />
                           </div>
                         </td>
                         <td className="pswd-td">
@@ -3328,7 +3327,7 @@ const canSeeAuditTrail = isAdminRole;
                               pickerId={`rowColor-${rowId}`}
                               activeColorPicker={activeColorPicker}
                               onOpen={setActiveColorPicker}
-                              onClose={() => setActiveColorPicker(null)}/>
+                              onClose={() => setActiveColorPicker(null)} />
                           </div>
                         </td>
                         {gridColumns.map((col) => renderGridCell(row, visibleIndex, col))}
@@ -3344,32 +3343,32 @@ const canSeeAuditTrail = isAdminRole;
                           </div>
                         </td>
                         {canSeePaymentActions && (
-  <td className="pswd-td">
-    <div className="pswd-action-group">
-      <button
-        type="button"
-        className="pswd-copy-btn"
-        onClick={() => void copyRowToClipboard(row, visibleIndex)}
-        title="Copy row"
-      >
-        Copy
-      </button>
+                          <td className="pswd-td">
+                            <div className="pswd-action-group">
+                              <button
+                                type="button"
+                                className="pswd-copy-btn"
+                                onClick={() => void copyRowToClipboard(row, visibleIndex)}
+                                title="Copy row"
+                              >
+                                Copy
+                              </button>
 
-      <PaymentSheetInvoiceActions row={buildInvoiceActionRow(row)} rowIndex={displayIndex} />
+                              <PaymentSheetInvoiceActions row={buildInvoiceActionRow(row)} rowIndex={displayIndex} />
 
-      <button
-        type="button"
-        className="pswd-delete-btn"
-        onClick={() => void deleteRow(row)}
-        title="Delete row">
-        Delete
-      </button>
-    </div>
-  </td>
-)}
-</tr>
-);
-}))}
+                              <button
+                                type="button"
+                                className="pswd-delete-btn"
+                                onClick={() => void deleteRow(row)}
+                                title="Delete row">
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  }))}
               </tbody>
             </table>
           </div>
