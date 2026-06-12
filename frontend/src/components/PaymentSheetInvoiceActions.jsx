@@ -142,14 +142,29 @@ function buildInvoiceHtml(row, rowIndex, { autoPrint = true } = {}) {
   );
   const teacherName = valueOf(row, ["tutorName", "teacherName", "teacher"], "-");
 
-  // PaymentSheetWithDate wali manual Payment Date ko invoice date banaya gaya hai.
-  // Backend DB column payment_date ho to API/model isko paymentDate ya payment_date me send kare.
+  // DATE invoice mein sheet ke Date/Start column se aayegi.
+  // DUE DATE invoice mein sirf manual Payment Date column se aayegi.
   const invoiceDate = formatDate(
-    valueOf(row, ["paymentDate", "payment_date", "invoiceDate", "invoice_date", "date"])
+    valueOf(row, [
+      "invoiceDisplayDate",
+      "dateWithMonth",
+      "startDate",
+      "start_date",
+      "cycleDate",
+      "paymentCycleDate",
+      "date",
+      "invoiceDate",
+      "invoice_date",
+    ])
   );
 
-  const explicitDueDate = valueOf(row, ["dueDate", "invoiceDueDate"]);
-  const dueDate = explicitDueDate ? formatDate(explicitDueDate) : addOneDayToDate(invoiceDate);
+  const explicitDueDate = valueOf(row, [
+    "dueDate",
+    "invoiceDueDate",
+    "paymentDate",
+    "payment_date",
+  ]);
+  const dueDate = explicitDueDate ? formatDate(explicitDueDate) : "";
   const invoiceNo = getInvoiceNumber(row, rowIndex);
   const totalAmount = getTotalAmount(row);
   const totalFormatted = formatAmount(totalAmount);

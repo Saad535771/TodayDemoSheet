@@ -234,8 +234,8 @@ function getPaymentDateValue(row = {}) {
   return (
     row?.paymentDate ??
     row?.payment_date ??
-    row?.invoiceDate ??
-    row?.invoice_date ??
+    row?.dueDate ??
+    row?.invoiceDueDate ??
     ""
   );
 }
@@ -1621,15 +1621,28 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
 
   function buildInvoiceActionRow(row = {}) {
     const manualPaymentDate = getManualPaymentDateForDisplay(row);
+    const stableCycleDate = getStableCycleDateForRow(row);
+    const sheetDateForInvoice = String(
+      row?.dateWithMonth ||
+      row?.startDate ||
+      row?.start_date ||
+      row?.cycleDate ||
+      row?.paymentCycleDate ||
+      row?.date ||
+      stableCycleDate ||
+      ""
+    ).trim();
 
     return {
       ...row,
-      // Invoice component date fallback use karta hai, is liye yahan date bhi manual Payment Date hi bhejte hain.
-      date: manualPaymentDate,
+      // Invoice DATE = sheet ka Date/Start column.
+      // Invoice DUE DATE = sheet ka manual Payment Date column.
+      date: stableCycleDate,
+      invoiceDisplayDate: sheetDateForInvoice,
+      invoiceDate: sheetDateForInvoice,
+      invoice_date: sheetDateForInvoice,
       paymentDate: manualPaymentDate,
       payment_date: manualPaymentDate,
-      invoiceDate: manualPaymentDate,
-      invoice_date: manualPaymentDate,
       dueDate: manualPaymentDate,
       invoiceDueDate: manualPaymentDate,
     };
