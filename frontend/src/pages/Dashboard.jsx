@@ -142,7 +142,6 @@ async function fetchBadgeCountByKey(key) {
       return 0;
   }
 }
-
 function DashboardFallback({ title }) {
   return (
     <div
@@ -153,16 +152,14 @@ function DashboardFallback({ title }) {
         borderRadius: "14px",
         padding: "20px",
         boxShadow: "0 6px 20px rgba(0,0,0,0.04)",
-      }}
-    >
+      }}>
       <h3 style={{ marginTop: 0 }}>{title}</h3>
       <p style={{ marginBottom: 0, color: "#666" }}>
-        Is tab ka component available nahin hai.
+       Please Refresh Page...
       </p>
     </div>
   );
 }
-
 const styles = {
   dashboardContainer: {
     minHeight: "100vh",

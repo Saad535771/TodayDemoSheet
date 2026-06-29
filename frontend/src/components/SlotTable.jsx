@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { api } from "../api/api.js";
+
 const styles = {
   card: {
     background: "#ffffff",
@@ -23,9 +24,9 @@ const styles = {
     transition: "all 0.3s ease",
     borderBottom: isOpen ? "none" : "1px solid #eee",
   }),
-  headerTitle: { fontSize: "20px", fontWeight: "700", margin: 0 },
+  headerTitle: { fontSize: "23px", fontWeight: "700", margin: 0 },
   headerMeta: {
-    fontSize: "12px",
+    fontSize: "23px",
     opacity: 0.85,
     marginTop: "4px",
     display: "block",
@@ -49,7 +50,7 @@ const styles = {
     minWidth: "auto",
     height: "100%",
     borderCollapse: "collapse",
-    fontSize: "14px",
+    fontSize: "23px",
     tableLayout: "auto",
   },
   th: {
@@ -59,7 +60,6 @@ const styles = {
     padding: "8px 10px",
     textAlign: "center",
     border: "1px solid #000000",
-   
     top: 0,
     zIndex: 10,
     whiteSpace: "nowrap",
@@ -77,10 +77,9 @@ const styles = {
     padding: "8px 10px",
     border: "none",
     borderRadius: "0",
-    fontSize: "14px",
+    fontSize: "23px",
     background: "transparent",
     outline: "none",
-  
     fontFamily: "'Calibri', sans-serif",
   },
   inlineSelect: {
@@ -89,10 +88,9 @@ const styles = {
     padding: "8px 10px",
     border: "none",
     borderRadius: "0",
-    fontSize: "14px",
+    fontSize: "23px",
     background: "transparent",
     outline: "none",
-   
     fontFamily: "'Calibri', sans-serif",
     cursor: "pointer",
   },
@@ -102,10 +100,9 @@ const styles = {
     padding: "8px 10px",
     border: "none",
     borderRadius: "0",
-    fontSize: "14px",
+    fontSize: "23px",
     background: "transparent",
     outline: "none",
-  
     fontFamily: "'Calibri', sans-serif",
     resize: "vertical",
     lineHeight: 1.4,
@@ -114,7 +111,6 @@ const styles = {
     width: "100%",
     minHeight: "76px",
     padding: "8px",
-   
     display: "flex",
     flexDirection: "column",
     gap: "8px",
@@ -136,7 +132,7 @@ const styles = {
     minWidth: "90px",
     border: "none",
     outline: "none",
-    fontSize: "13px",
+    fontSize: "23px",
     padding: "4px 2px",
     background: "transparent",
     fontFamily: "'Calibri', sans-serif",
@@ -155,9 +151,9 @@ const styles = {
     border: "none",
     borderBottom: "1px solid #eef2f7",
     background: "#ffffff",
-    textalign: "center",
+    textAlign: "center",
     cursor: "pointer",
-    fontSize: "14px",
+    fontSize: "23px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -167,7 +163,7 @@ const styles = {
     padding: "6px 10px",
     borderRadius: "4px",
     border: "none",
-    fontSize: "12px",
+    fontSize: "23px",
     fontWeight: "600",
     cursor: "pointer",
     background: "#fee2e2",
@@ -178,7 +174,7 @@ const styles = {
     cursor: "pointer",
     border: "none",
     background: "transparent",
-    fontSize: "14px",
+    fontSize: "23px",
     padding: "2px 6px",
     color: "#555",
   },
@@ -188,7 +184,6 @@ const styles = {
     border: "2px solid #666",
     cursor: "pointer",
     borderRadius: "4px",
-    // overflow: "hidden",
     display: "inline-block",
   },
   pickerPopup: {
@@ -236,7 +231,7 @@ const styles = {
     color: "white",
     border: "none",
     borderRadius: "4px",
-    fontSize: "13px",
+    fontSize: "23px",
     fontWeight: "600",
     cursor: loading ? "not-allowed" : "pointer",
     transition: "transform 0.1s",
@@ -492,9 +487,8 @@ function GlobalSearchHost() {
               border: "1px solid #000000",
               borderRadius: "8px",
               padding: "10px 12px",
-              fontSize: "12px",
+              fontSize: "23px",
               outline: "none",
-            
             }}
             onKeyDown={(e) => {
               if (e.key === "Escape") {
@@ -548,7 +542,7 @@ function areItemListsEqual(left = [], right = []) {
 }
 const gridColumns = [
   { id: "demoTime", label: "Demo Time", width: 100, editable: true, field: "demoTime", type: "time" },
-  {id: "classTime",label: "Class Time",width: 100,editable: true,field: "classTime",type: "text",},
+  { id: "classTime", label: "Class Time", width: 100, editable: true, field: "classTime", type: "text" },
   { id: "tuitionName", label: "Tuition Name", width: 60, editable: true, field: "tuitionName", kind: "tuitionName" },
   { id: "source", label: "Source", width: 70, editable: true, field: "source", kind: "select", options: SOURCES_LIST, pill: "source" },
   { id: "country", label: "Country", width: 70, editable: true, field: "country" },
@@ -567,7 +561,7 @@ const gridColumns = [
   { id: "syncFlag", label: "Sync", width: 80, editable: true, field: "syncFlag" },
 ];
 
-const BASE_TABLE_MIN_WIDTH = gridColumns.reduce((sum, col) => sum + Number(col.width || 0), 0) + 120;
+const BASE_TABLE_MIN_WIDTH = gridColumns.reduce((sum, col) => sum + Number(col.width || 0), 0) + 160; // extra for index, checkbox, sort, color, action
 
 const gridColumnIds = gridColumns.map((c) => c.id);
 const gridColumnMap = Object.fromEntries(gridColumns.map((c) => [c.id, c]));
@@ -634,7 +628,7 @@ const renderPill = (val, styleFn, searchTerm = "") => {
       style={{
         padding: "4px 10px",
         borderRadius: "999px",
-        fontSize: "12px",
+        fontSize: "23px",
         fontWeight: "bold",
         display: "inline-flex",
         alignItems: "center",
@@ -694,7 +688,14 @@ const renderPillList = (val, styleFn, searchTerm = "") => {
   );
 };
 
-const feedbackContainsSatisfied = (value) => /\bsatisfied\b/i.test(String(value || ""));
+const isSatisfiedFeedback = (value) => {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  const notSatisfiedPattern = /\bnot\s+satisfied\b/i;
+  if (notSatisfiedPattern.test(text)) return false;
+  const satisfiedPattern = /\bsatisfied\b/i;
+  return satisfiedPattern.test(text);
+};
 
 function StatusMultiEditor({
   value,
@@ -812,7 +813,7 @@ function StatusMultiEditor({
               gap: "6px",
               borderRadius: "999px",
               padding: "4px 10px",
-              fontSize: "12px",
+              fontSize: "23px",
               fontWeight: 700,
               lineHeight: 1.2,
             }}
@@ -828,7 +829,7 @@ function StatusMultiEditor({
                 color: "inherit",
                 cursor: "pointer",
                 padding: 0,
-                fontSize: "14px",
+                fontSize: "23px",
                 lineHeight: 1,
                 fontWeight: 700,
               }}
@@ -872,7 +873,7 @@ function StatusMultiEditor({
             );
           })
         ) : (
-          <div style={{ padding: "10px 12px", fontSize: "13px", color: "#6b7280" }}>
+          <div style={{ padding: "10px 12px", fontSize: "23px", color: "#6b7280" }}>
             No matching status
           </div>
         )}
@@ -1006,8 +1007,9 @@ const ColorSwatch = ({
             ...styles.pickerPopup,
             left: popupPos.left,
           }}
-          onClick={(e) => e.stopPropagation()} >
-          <div style={{ marginBottom: "8px", fontSize: "13px", fontWeight: "600", color: "#444" }}>
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ marginBottom: "8px", fontSize: "23px", fontWeight: "600", color: "#444" }}>
             Default Colors
           </div>
           <div
@@ -1038,7 +1040,7 @@ const ColorSwatch = ({
           </div>
 
           <div style={{ borderTop: "1px solid #eee", paddingTop: "8px" }}>
-            <div style={{ fontSize: "13px", marginBottom: "4px" }}>Custom Color</div>
+            <div style={{ fontSize: "23px", marginBottom: "4px" }}>Custom Color</div>
             <input
               type="color"
               value={color}
@@ -1055,8 +1057,8 @@ const ColorSwatch = ({
 /* =========================
    SlotTable component
    ========================= */
-export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,globalZoom = 1 }) {
- const [open, setOpen] = useState(true);
+export default function SlotTable({ slot, onChanged, isProtected, isLoadingData, globalZoom = 1 }) {
+  const [open, setOpen] = useState(true);
   const [localZoom, setLocalZoom] = useState(0.6);
   const [localItems, setLocalItems] = useState([]);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -1096,12 +1098,13 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,
   const isUnlockedRef = useRef(isUnlocked);
   const isUpdatingRef = useRef(isUpdating);
   const refreshInFlightRef = useRef(false);
-const effectiveZoom = useMemo(() => {
-  let next = globalZoom * localZoom;
-  if (next < 0.4) next = 0.4;
-  if (next > 2.5) next = 2.5;
-  return Number(next.toFixed(2));
-}, [globalZoom, localZoom]);
+  const effectiveZoom = useMemo(() => {
+    let next = globalZoom * localZoom;
+    if (next < 0.4) next = 0.4;
+    if (next > 2.5) next = 2.5;
+    return Number(next.toFixed(2));
+  }, [globalZoom, localZoom]);
+
   useEffect(() => {
     localItemsRef.current = localItems;
   }, [localItems]);
@@ -1134,6 +1137,7 @@ const effectiveZoom = useMemo(() => {
     document.addEventListener("mouseup", stopMouseSelection);
     return () => document.removeEventListener("mouseup", stopMouseSelection);
   }, []);
+
   useEffect(() => {
     const wrapper = tableWrapperRef.current;
     if (!wrapper || !open) return;
@@ -1163,7 +1167,8 @@ const effectiveZoom = useMemo(() => {
     return () => {
       wrapper.removeEventListener("wheel", handleTrackpadHorizontalScroll, { capture: true });
     };
- }, [open, effectiveZoom, localItems.length]);
+  }, [open, effectiveZoom, localItems.length]);
+
   useEffect(() => {
     const nextItems = slot.items || [];
     if (areItemListsEqual(localItemsRef.current, nextItems)) {
@@ -1177,6 +1182,7 @@ const effectiveZoom = useMemo(() => {
       return filtered.size === prev.size ? prev : filtered;
     });
   }, [slot.items]);
+
   useEffect(() => {
     const mgr = getGlobalSearchManager();
     managerRef.current = mgr;
@@ -1590,19 +1596,18 @@ const effectiveZoom = useMemo(() => {
         return item.parentsContact ?? item.parentContact ?? "";
       case "className":
         return item.className ?? item.class ?? "";
-        case "classTime":
-         return item.classTime ?? "";
+      case "classTime":
+        return item.classTime ?? "";
       case "subjects":
         return item.subjects ?? item.subject ?? "";
       case "tutorFees":
         return item.tutorFees ?? item.tutorFee ?? "";
       case "syncFlag":
         return item.syncFlag ?? item.sync ?? "";
-        case "daysPerWeek":
-  return item.daysPerWeek ?? item.days_per_week ?? "";
+      case "daysPerWeek":
+        return item.daysPerWeek ?? item.days_per_week ?? "";
       default:
         return item[col.field] ?? "";
-        
     }
   };
 
@@ -1610,7 +1615,7 @@ const effectiveZoom = useMemo(() => {
     switch (colId) {
       case "demoTime":
         return { demoTime: value };
-        case "classTime":
+      case "classTime":
         return { classTime: value };
       case "tuitionName":
         return { tuitionName: value };
@@ -1640,8 +1645,8 @@ const effectiveZoom = useMemo(() => {
         return { demoRating: value };
       case "syncFlag":
         return { syncFlag: value, sync: value };
-        case "daysPerWeek":
-  return { daysPerWeek: value, days_per_week: value };
+      case "daysPerWeek":
+        return { daysPerWeek: value, days_per_week: value };
       default:
         return {};
     }
@@ -2129,6 +2134,7 @@ const effectiveZoom = useMemo(() => {
       cancelEdit({ rowIndex, colId });
     }
   };
+
   const reorderRows = async (fromIndex, toIndex) => {
     if (fromIndex === toIndex) return;
     const newItems = [...localItems];
@@ -2146,6 +2152,7 @@ const effectiveZoom = useMemo(() => {
       if (onChanged) onChanged();
     }
   };
+
   const moveRow = async (index, direction) => {
     if (direction === "up" && index === 0) return;
     if (direction === "down" && index === localItems.length - 1) return;
@@ -2235,20 +2242,21 @@ const effectiveZoom = useMemo(() => {
     }
   };
 
- const handleZoom = (e, factor) => {
-  e.stopPropagation();
-  setLocalZoom((prev) => {
-    let newZoom = prev + factor;
-    if (newZoom < 0.5) newZoom = 0.5;
-    if (newZoom > 2) newZoom = 2;
-    return Number(newZoom.toFixed(2));
-  });
-};
+  const handleZoom = (e, factor) => {
+    e.stopPropagation();
+    setLocalZoom((prev) => {
+      let newZoom = prev + factor;
+      if (newZoom < 0.5) newZoom = 0.5;
+      if (newZoom > 2) newZoom = 2;
+      return Number(newZoom.toFixed(2));
+    });
+  };
 
-const resetLocalZoom = (e) => {
-  e.stopPropagation();
-  setLocalZoom(1);
-};
+  const resetLocalZoom = (e) => {
+    e.stopPropagation();
+    setLocalZoom(1);
+  };
+
   async function removeItem(tuitionId) {
     if (
       !window.confirm(
@@ -2283,7 +2291,7 @@ const resetLocalZoom = (e) => {
 
     if (col.id === "tuitionName") return item.tuitionNameColor || "inherit";
     if (col.id === "rejectedTutor") return columnColors["Rejected Tutor"];
-    if (col.id === "feedback" && feedbackContainsSatisfied(value)) return "#16a34a";
+    if (col.id === "feedback" && isSatisfiedFeedback(value)) return "#16a34a";
     return "inherit";
   };
 
@@ -2313,7 +2321,7 @@ const resetLocalZoom = (e) => {
       minHeight: col.id === "status" ? "52px" : "35px",
       cursor: col.editable ? "cell" : "default",
       backgroundColor: isEditing ? "#ffffff" : baseBackground,
-      color: !isEditing && col.id === "feedback" && feedbackContainsSatisfied(value) ? "#ffffff" : "inherit",
+      color: !isEditing && col.id === "feedback" && isSatisfiedFeedback(value) ? "#ffffff" : "inherit",
       boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
       position: "relative",
       textAlign: col.pill ? "center" : "center",
@@ -2358,9 +2366,9 @@ const resetLocalZoom = (e) => {
             onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
           >
             {col.options.map((o) => (
-               <option key={`${reactCellKey}-${o}`} value={o}>
-              {o || "Select"}
-            </option>
+              <option key={`${reactCellKey}-${o}`} value={o}>
+                {o || "Select"}
+              </option>
             ))}
           </select>
         </td>
@@ -2454,7 +2462,6 @@ const resetLocalZoom = (e) => {
           key={reactCellKey}
           tabIndex={0}
           className="excel-cell"
-        
           onMouseDown={(e) => handleCellMouseDown(rowIndex, col.id, e)}
           onMouseEnter={() => handleCellMouseEnter(rowIndex, col.id)}
           onDoubleClick={() => startEditingCell(rowIndex, col.id)}
@@ -2465,7 +2472,6 @@ const resetLocalZoom = (e) => {
             <span
               style={{
                 flex: 1,
-              
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
               }}
@@ -2555,7 +2561,8 @@ const resetLocalZoom = (e) => {
                 justifyContent: "center",
                 alignItems: "center",
                 margin: "8px 12px",
-              }}>
+              }}
+            >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {selectedRows.size > 0 && (
                   <>
@@ -2637,8 +2644,9 @@ const resetLocalZoom = (e) => {
                     fontWeight: "600",
                     minWidth: "40px",
                     textAlign: "center",
-                  }}>
-                 Local {Math.round(localZoom * 100)}% | Final {Math.round(effectiveZoom * 100)}%
+                  }}
+                >
+                  Local {Math.round(localZoom * 100)}% | Final {Math.round(effectiveZoom * 100)}%
                 </span>
                 <button
                   onClick={(e) => handleZoom(e, 0.1)}
@@ -2649,7 +2657,8 @@ const resetLocalZoom = (e) => {
                     cursor: "pointer",
                     fontSize: "23px",
                     fontWeight: "bold",
-                  }}>
+                  }}
+                >
                   +
                 </button>
               </div>
@@ -2658,73 +2667,78 @@ const resetLocalZoom = (e) => {
               style={{
                 display: "inline-block",
                 minWidth: `${Math.max(BASE_TABLE_MIN_WIDTH * effectiveZoom, 0)}px`,
-              }}>
+              }}
+            >
               <div
                 style={{
                   zoom: effectiveZoom,
                   width: "max-content",
-                }} >
-              <table style={{ ...styles.table, minWidth: `${BASE_TABLE_MIN_WIDTH}px` }}>
-                <thead>
-                  <tr>
-                    <TH style={{ width: "42px", minWidth: "42px", textAlign: "center", background: "#e5e7eb" }}>✓</TH>
-                    <TH style={{ width: "40px", minWidth: "40px", textAlign: "center", background: "#e5e7eb" }}>Sort</TH>
-                    <TH style={{ width: "30px", minWidth: "30px", textAlign: "center", background: "#e5e7eb" }}>🎨</TH>
-                    {gridColumns.map((col) => (
-                      <TH
-                        key={col.id}
-                        style={{
-                          minWidth: col.width,
-                          width: col.width,
-                          color: col.id === "rejectedTutor" ? "#c10000" : undefined,
-                        }}>
-                        {col.label}
-                      </TH>
-                    ))}
-                    <TH style={{ width: "8px", minWidth: "8px", textAlign: "center", background: "#e5e7eb" }}>Action</TH>
-                  </tr>
-                </thead>
-                <tbody>
-                  {showSkeleton ? (
-                    <TableSkeleton />
-                  ) : filteredItems.length === 0 ? (
+                }}
+              >
+                <table style={{ ...styles.table, minWidth: `${BASE_TABLE_MIN_WIDTH}px` }}>
+                  <thead>
                     <tr>
-                      <td
-                        colSpan={gridColumns.length + 4}
-                        style={{
-                          ...styles.td,
-                          textAlign: "center",
-                          color: "#999",
-                          padding: "15px",
-                        }}>
-                        No records in this slot
-                      </td>
+                      <TH style={{ width: "30px", minWidth: "30px", textAlign: "center", background: "#e5e7eb" }}>#</TH>
+                      <TH style={{ width: "42px", minWidth: "42px", textAlign: "center", background: "#e5e7eb" }}>✓</TH>
+                      <TH style={{ width: "40px", minWidth: "40px", textAlign: "center", background: "#e5e7eb" }}>Sort</TH>
+                      <TH style={{ width: "30px", minWidth: "30px", textAlign: "center", background: "#e5e7eb" }}>🎨</TH>
+                      {gridColumns.map((col) => (
+                        <TH
+                          key={col.id}
+                          style={{
+                            minWidth: col.width,
+                            width: col.width,
+                            color: col.id === "rejectedTutor" ? "#c10000" : undefined,
+                          }}
+                        >
+                          {col.label}
+                        </TH>
+                      ))}
+                      <TH style={{ width: "8px", minWidth: "8px", textAlign: "center", background: "#e5e7eb" }}>Action</TH>
                     </tr>
-                  ) : (
-                    filteredItems.map((it, visibleIndex) => {
-                      const originalIndex = localItems.findIndex((item) => item.tuitionId === it.tuitionId);
-                      const rowId = `row-${instanceKey}-${sanitizeKey(String(it.tuitionId))}`;
-                      const rowMatched = !!searchTerm && itemMatchesSearch(it, searchTerm);
-                      return (
-                        <tr
-                           id={rowId}
+                  </thead>
+                  <tbody>
+                    {showSkeleton ? (
+                      <TableSkeleton />
+                    ) : filteredItems.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={gridColumns.length + 5}
+                          style={{
+                            ...styles.td,
+                            textAlign: "center",
+                            color: "#999",
+                            padding: "15px",
+                          }}
+                        >
+                          No records in this slot
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredItems.map((it, visibleIndex) => {
+                        const originalIndex = localItems.findIndex((item) => item.tuitionId === it.tuitionId);
+                        const rowId = `row-${instanceKey}-${sanitizeKey(String(it.tuitionId))}`;
+                        const rowMatched = !!searchTerm && itemMatchesSearch(it, searchTerm);
+                        return (
+                          <tr
+                            id={rowId}
                             key={it.tuitionId}
                             className={rowMatched ? "match-row" : ""}
                             style={{
-                              backgroundColor: dropIndex === visibleIndex ? '#e5f0ff' : (it.rowColor || 'inherit'),
-                              opacity: dragIndex === visibleIndex ? 0.5 : 1,
+                              backgroundColor: dropIndex === originalIndex ? '#e5f0ff' : (it.rowColor || 'inherit'),
+                              opacity: dragIndex === originalIndex ? 0.5 : 1,
                               transition: 'background 0.2s, opacity 0.2s',
                             }}
                             onDragOver={(e) => {
                               e.preventDefault();
-                              setDropIndex(visibleIndex);
+                              setDropIndex(originalIndex);
                             }}
                             onDragLeave={() => setDropIndex(null)}
                             onDrop={async (e) => {
                               e.preventDefault();
                               const draggedIdx = Number(e.dataTransfer.getData('text/plain'));
-                              if (draggedIdx !== visibleIndex) {
-                                await reorderRows(draggedIdx, visibleIndex);
+                              if (draggedIdx !== originalIndex) {
+                                await reorderRows(draggedIdx, originalIndex);
                               }
                               setDragIndex(null);
                               setDropIndex(null);
@@ -2733,79 +2747,91 @@ const resetLocalZoom = (e) => {
                               setDragIndex(null);
                               setDropIndex(null);
                             }}
-                          // tabIndex={-1}
-                        >
-                          <td style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
-                            <input
-                              type="checkbox"
-                              checked={selectedRows.has(it.tuitionId)}
-                              onChange={() => toggleRowSelection(it.tuitionId)}
-                              style={{ cursor: "pointer", width: "8px", height: "18px" }}
-                            />
-                          </td>
-
-                          <td style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
-                            <div
-                              style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                            >
-                              <button
-                                onClick={() => moveRow(originalIndex, "up")}
-                                disabled={originalIndex === 0}
-                                style={{
-                                  ...styles.moveBtn,
-                                  opacity: originalIndex === 0 ? 0.3 : 1,
-                                }}
-                              >
-                                ▲
-                              </button>
-
-                              <button
-                                onClick={() => moveRow(originalIndex, "down")}
-                                disabled={originalIndex === localItems.length - 1}
-                                style={{
-                                  ...styles.moveBtn,
-                                  opacity: originalIndex === localItems.length - 1 ? 0.3 : 1,
-                                }}
-                              >
-                                ▼
-                              </button>
-                            </div>
-                          </td>
-
-                          <td style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
-                            <ColorSwatch
-                              color={it.rowColor || "#ffffff"}
-                              onChange={(c) => updateRecord(it, "rowColor", c)}
-                              pickerId={`rowColor-${instanceKey}-${it.tuitionId}`}
-                              activeColorPicker={activeColorPicker}
-                              onOpen={setActiveColorPicker}
-                              onClose={() => setActiveColorPicker(null)}
-                            />
-                          </td>
-
-                          {gridColumns.map((col) => renderGridCell(it, visibleIndex, col))}
-
-                          <td
-                            tabIndex={0}
-                            onKeyDown={handleGridKeyDown}
-                            className="excel-cell"
-                            style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}
                           >
-                            <button style={styles.actionBtn} onClick={() => removeItem(it.tuitionId)}>
-                              Del
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                            {/* Drag Handle: Row Index */}
+                            <td
+                              draggable={true}
+                              onDragStart={(e) => {
+                                setDragIndex(originalIndex);
+                                e.dataTransfer.effectAllowed = 'move';
+                                e.dataTransfer.setData('text/plain', String(originalIndex));
+                              }}
+                              style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit", cursor: "grab" }}
+                            >
+                              {visibleIndex + 1}
+                            </td>
+
+                            <td style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
+                              <input
+                                type="checkbox"
+                                checked={selectedRows.has(it.tuitionId)}
+                                onChange={() => toggleRowSelection(it.tuitionId)}
+                                style={{ cursor: "pointer", width: "18px", height: "18px" }}
+                              />
+                            </td>
+
+                            <td style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                              >
+                                <button
+                                  onClick={() => moveRow(originalIndex, "up")}
+                                  disabled={originalIndex === 0}
+                                  style={{
+                                    ...styles.moveBtn,
+                                    opacity: originalIndex === 0 ? 0.3 : 1,
+                                  }}
+                                >
+                                  ▲
+                                </button>
+
+                                <button
+                                  onClick={() => moveRow(originalIndex, "down")}
+                                  disabled={originalIndex === localItems.length - 1}
+                                  style={{
+                                    ...styles.moveBtn,
+                                    opacity: originalIndex === localItems.length - 1 ? 0.3 : 1,
+                                  }}
+                                >
+                                  ▼
+                                </button>
+                              </div>
+                            </td>
+
+                            <td style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
+                              <ColorSwatch
+                                color={it.rowColor || "#ffffff"}
+                                onChange={(c) => updateRecord(it, "rowColor", c)}
+                                pickerId={`rowColor-${instanceKey}-${it.tuitionId}`}
+                                activeColorPicker={activeColorPicker}
+                                onOpen={setActiveColorPicker}
+                                onClose={() => setActiveColorPicker(null)}
+                              />
+                            </td>
+
+                            {gridColumns.map((col) => renderGridCell(it, visibleIndex, col))}
+
+                            <td
+                              tabIndex={0}
+                              onKeyDown={handleGridKeyDown}
+                              className="excel-cell"
+                              style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}
+                            >
+                              <button style={styles.actionBtn} onClick={() => removeItem(it.tuitionId)}>
+                                Del
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -2825,7 +2851,7 @@ const resetLocalZoom = (e) => {
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <span style={styles.lockIcon}>🔐</span>
             <h3 style={{ marginTop: 0, color: "#333" }}>Restricted Access</h3>
-            <p style={{ color: "#666", fontSize: "14px", marginBottom: 20 }}>
+            <p style={{ color: "#666", fontSize: "23px", marginBottom: 20 }}>
               Please enter the password to view Monthly Tuitions.
             </p>
 
@@ -2837,7 +2863,7 @@ const resetLocalZoom = (e) => {
                 style={{
                   ...styles.inlineInput,
                   textAlign: "center",
-                  fontSize: "16px",
+                  fontSize: "23px",
                   padding: "12px",
                   marginBottom: "10px",
                   border: "1px solid #ccc",
@@ -2850,7 +2876,7 @@ const resetLocalZoom = (e) => {
               />
 
               {passwordError && (
-                <div style={{ color: "red", fontSize: "12px", marginBottom: "10px" }}>
+                <div style={{ color: "red", fontSize: "23px", marginBottom: "10px" }}>
                   {passwordError}
                 </div>
               )}
@@ -2869,14 +2895,8 @@ const resetLocalZoom = (e) => {
   );
 }
 
-/* -----------------------
-   Subcomponents
-   ----------------------- */
 const TH = ({ children, style }) => <th style={{ ...styles.th, ...style }}>{children}</th>;
 
-/* =====================
-   Small helpers
-   ===================== */
 function sanitizeKey(k) {
   return String(k).replace(/[^\w-]/g, "_");
 }
