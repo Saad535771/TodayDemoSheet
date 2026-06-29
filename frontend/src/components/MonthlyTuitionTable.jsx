@@ -56,7 +56,7 @@ const styles = {
   
     border: "none",
     borderRadius: "0",
-    fontSize: "14px",
+    fontSize: "23px",
     background: "transparent",
     outline: "none",
     boxSizing: "border-box",
@@ -67,7 +67,7 @@ const styles = {
     height: "100%",
     border: "none",
     borderRadius: "0",
-    fontSize: "14px",
+    fontSize: "23px",
     background: "transparent",
     outline: "none",
     boxSizing: "border-box",
@@ -89,7 +89,7 @@ const styles = {
     cursor: "pointer",
     border: "none",
     background: "transparent",
-    fontSize: "14px",
+    fontSize: "23px",
     padding: "2px 6px",
     color: "#555",
   },
@@ -1954,6 +1954,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     const commonTdStyle = {
       ...styles.td,
       minWidth: col.width,
+       fontSize: "23px",
       width: col.width,
       padding: col.kind === "tuitionName" ? "0 10px" : col.pill ? "0 5px" : "0 10px",
       height: "35px",
@@ -2397,7 +2398,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
               background: "#f3f4f6",
               color: "#111827",
               fontWeight: "700",
-              fontSize: "14px",
+              fontSize: "23px",
               whiteSpace: "nowrap",
             }}
           >
@@ -2475,7 +2476,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
             </button>
             <span
               style={{
-                fontSize: "14px",
+                fontSize: "23px",
                 fontWeight: "600",
                 minWidth: "40px",
                 textAlign: "center",
