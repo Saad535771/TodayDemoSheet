@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { io } from "socket.io-client"; // Socket import add kiya
 import OtmPortalEntryForm from "./OtmPortalEntryForm.jsx";
+import OtmNotifications from "./OtmNotifications.jsx";
 import {
   DEFAULT_DAY_OPTIONS, DEFAULT_DURATION_OPTIONS, DEFAULT_STATUS_OPTIONS,
   GRID_DIMENSIONS, DayTimeAssignmentsEditor, Pagination, TEXT_COLUMNS,
@@ -198,7 +200,7 @@ export default function OtmPortalSheet({
     ? meta.classTimes.map((item) => item.label || item.startTime)
     : [];
   const displayName = useMemo(() => getDisplayName(portalUser || user), [portalUser, user]);
-
+const [socket, setSocket] = useState(null);
   const [tab, setTab] = useState("tuitions");
   const [entries, setEntries] = useState([]);
   const [draft, setDraft] = useState(() => makeEmptyDraft(durationOptions));
@@ -216,7 +218,13 @@ export default function OtmPortalSheet({
   });
   const [pageByTab, setPageByTab] = useState({ tuitions: 1, reports: 1, totalClass: 1 });
   const [pageSizeByTab, setPageSizeByTab] = useState({ tuitions: 20, reports: 20, totalClass: 20 });
-
+useEffect(() => {
+    const newSocket = io("/notifications", {
+        auth: { token: localStorage.getItem("token") }
+    });
+    setSocket(newSocket);
+    return () => newSocket.close();
+  }, []);
   useEffect(() => {
     const nextEntries = (Array.isArray(initialEntries) ? initialEntries : []).map((row) =>
       computeRow(row, durationOptions)
@@ -791,10 +799,10 @@ export default function OtmPortalSheet({
   return (
     <div style={styles.page}>
       <div style={styles.card}>
-        <div style={styles.header}>
+        <div className="d-flex justify-content-between mx-3">
+           <div style={styles.header}>
           <h2 style={styles.title}>{title}</h2>
           <p style={styles.subtitle}>{subtitle || `Logged in as ${displayName}`}</p>
-
           {isAdmin && (
             <div style={styles.adminBar}>
               <div style={styles.adminLabel}>Admin portal switcher</div>
@@ -813,6 +821,12 @@ export default function OtmPortalSheet({
             </div>
           )}
         </div>
+          <div className="shadow rounded-4 border overflow-auto" style={{ width: "300px",}}>
+               <OtmNotifications userId={user?.id} socket={socket} />
+            </div>
+       
+        </div>
+
 
         <div style={styles.tabsWrap}>
           <button style={styles.tabBtn(tab === "tuitions")} onClick={() => setTab("tuitions")}>

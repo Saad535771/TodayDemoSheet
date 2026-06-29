@@ -168,9 +168,9 @@ function requireHodOrAdmin(req, res) {
   return true;
 }
 
-export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTuitionEntry }) {
+export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTuitionEntry, NotificationService }) {
   const getDisplayName = (user) => {
-    const explicit = normalizeText(user?.name);
+    const explicit = normalizeText(user?.name); 
     if (explicit) return explicit;
     const prefix = String(user?.email || "").split("@")[0] || "User";
     return prefix.charAt(0).toUpperCase() + prefix.slice(1);
@@ -183,7 +183,6 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
       attributes: ["id", "name", "email", "role"],
       order: [["name", "ASC"], ["email", "ASC"]],
     });
-
     return users.map((user) => ({
       id: user.id,
       name: getDisplayName(user),
@@ -191,7 +190,6 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
       role: user.role,
     }));
   }
-
   async function findOtmUserByName(otmName) {
     const needle = normalizeText(otmName)?.toLowerCase();
     if (!needle) return null;
@@ -212,26 +210,33 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
       where: { userId },
       order: [["sortOrder", "DESC"], ["id", "DESC"]],
     });
-
     return Number(lastEntry?.sortOrder || 0) + 1;
   }
-
   async function syncLinkedOtmPortalEntry({ tuition }) {
     if (!OtmTuitionEntry || typeof OtmTuitionEntry.findOne !== "function") return;
-
     const sourceTuitionId = normalizeTuitionId(tuition?.tuitionId);
     if (!sourceTuitionId) return;
-
     const targetUser = await findOtmUserByName(tuition?.otmName);
     const existingEntry = await OtmTuitionEntry.findOne({ where: { sourceTuitionId } });
-
+    if (targetUser && NotificationService) {
+        // Agar naya entry hai ya user change hua hai
+        if (!existingEntry || existingEntry.userId !== Number(targetUser.id)) {
+            await NotificationService.createNotification({
+                moduleKey: "otm",
+                actionType: "assignment",
+                actorUserId: targetUser.id,
+                title: `📘 New Tuition: ${tuition?.tuitionName || 'Assigned'}`,
+                message: `Aapko ek nayi tuition assign ki gayi hai: ${tuition?.tuitionName}`,
+                payload: { tuitionId: sourceTuitionId, colorState: "white" } // White (Default)
+            });
+        }
+    }
     if (!targetUser) {
       if (existingEntry) {
         await existingEntry.destroy();
       }
       return;
     }
-
     const nextTuitionName = normalizeText(tuition?.tuitionName);
     const basePatch = {
       userId: Number(targetUser.id),
@@ -240,20 +245,17 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
       newTuition: Boolean(nextTuitionName),
       newTuitionName: nextTuitionName,
     };
-
     if (existingEntry) {
       const nextSortOrder =
         Number(existingEntry.userId) === Number(targetUser.id)
           ? Number(existingEntry.sortOrder || 0)
           : await getNextPortalSortOrder(Number(targetUser.id));
-
       await existingEntry.update({
         ...basePatch,
         sortOrder: nextSortOrder,
       });
       return;
     }
-
     const nextSortOrder = await getNextPortalSortOrder(Number(targetUser.id));
     await OtmTuitionEntry.create({
       userId: Number(targetUser.id),

@@ -35,19 +35,16 @@ td div span{
 td div{
   text-align: center !important;
 }
-
 .monthly-tuition-grid .cell-rowColor,
 .monthly-tuition-grid .cell-tuitionName {
   overflow: visible !important;
   position: relative;
   z-index: 20;
 }
-
 .monthly-tuition-grid .rdg-row {
   min-height: 35px;
   overflow: visible !important;
 }
-
 .monthly-tuition-grid .rdg-cell {
   padding: 0;
   border-inline-end: 1px solid #000000;
