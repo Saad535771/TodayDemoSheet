@@ -2618,7 +2618,7 @@ const reorderRows = async (fromIndex, toIndex) => {
                         e.dataTransfer.effectAllowed = 'move';
                         e.dataTransfer.setData('text/plain', String(index));
                       }}
-                      style={{ ...styles.td, textAlign: 'center', cursor: 'grab' }}>
+                  >
                       {index + 1}          
                     </td>
                     <td
