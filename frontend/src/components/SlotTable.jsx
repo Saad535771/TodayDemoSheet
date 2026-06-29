@@ -580,7 +580,6 @@ const parseCellKey = (key) => {
   const [rowIndex, ...rest] = key.split("__");
   return { rowIndex: Number(rowIndex), colId: rest.join("__") };
 };
-
 const getStatusStyle = (status) => {
   switch (status) {
     case "1st Demo Done":
@@ -603,7 +602,6 @@ const getStatusStyle = (status) => {
       return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
   }
 };
-
 const getDemoRatingStyle = (rating) => {
   switch (rating) {
     case "Average Demo":
@@ -616,7 +614,6 @@ const getDemoRatingStyle = (rating) => {
       return { backgroundColor: "transparent", color: "inherit", border: "1px solid transparent" };
   }
 };
-
 const getSourceStyle = (source) => {
   switch (source) {
     case "mahad":

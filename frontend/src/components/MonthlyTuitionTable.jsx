@@ -447,17 +447,30 @@ const getPaymentApprovalStyle = (status) => {
   }
 };
 const getFeedbackStyle = (feedback) => {
-  const value = String(feedback || "").trim();
+    if (!feedback) return {};
 
-  if (!value) {
-    return { backgroundColor: "white", color: "inherit", border: "1px solid #c8c6c4" };
-  }
+    const value = String(feedback).trim().toLowerCase();
 
-  if (/\bsatisfied\b/i.test(value)) {
-    return { backgroundColor: "#22c55e", color: "white", border: "1px solid #22c55e" };
-  }
+    // Highest priority
+    if (value.includes("not satisfied")) {
+        return {
+            backgroundColor: "#ffffff",
+            color: "#000000",
+            fontWeight: "600",
+            border: "1px solid #d1d5db"
+        };
+    }
 
-  return { backgroundColor: "white", color: "inherit", border: "1px solid #c8c6c4" };
+    if (value.includes("satisfied")) {
+        return {
+            backgroundColor: "#22c55e",
+            color: "#ffffff",
+            fontWeight: "600",
+            border: "1px solid #22c55e"
+        };
+    }
+
+    return {};
 };
 const ColorSwatch = ({
   color = "#ffffff",
