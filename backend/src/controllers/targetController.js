@@ -4,6 +4,7 @@ import {
   hourToSlotHeader,
   hourToPrettyTime,
   FILTER_VALUES,
+  parseHourFromValue,
 } from "../utils/time.js";
 import { syncPaymentFromTuition } from "../utils/syncPaymentFromTuition.js";
 import {
@@ -29,34 +30,39 @@ function normalizeDate(v) {
 }
 
 export function makeTargetController({ TodayDemo, Tuition, Payment }) {
- const editableMap = {
-  // reverse-sync fields
-  tutorName: "tutorName",
-  status: "status",
-  feedback: "feedback",
-  rejectedTutor: "rejectedTutor",
-   demoRating: "demoRating",
-  // target-only editable fields
-   daysPerWeek: "daysPerWeek",
-  days_per_week: "daysPerWeek",
-  tuitionName: "tuitionName",
-  source: "source",
-  country: "country",
-  parentsContact: "parentsContact",
-  className: "className",
-  class: "className",
-  subjects: "subjects",
-  tutorFee: "tutorFee",
-  tutorFees: "tutorFee",
-  syncFlag: "syncFlag",
-  sync: "syncFlag",
-  rowColor: "rowColor",
-  tuitionNameColor: "tuitionNameColor",
-  orderIndex: "orderIndex",
+  const editableMap = {
+    // fields shared between Today Demo and Monthly Tuition
+    demoTime: "demoTime",
+    time: "demoTime",
+    classTime: "classTime",   // Added: Handle camelCase target updates
+    class_time: "classTime",  // Added: Handle snake_case target updates
+    demoDate: "demoDate",
+    tuitionName: "tuitionName",
+    source: "source",
+    country: "country",
+    parentsContact: "parentsContact",
+    parentContact: "parentsContact",
+    className: "className",
+    class: "className",
+    subjects: "subjects",
+    subject: "subjects",
+    daysPerWeek: "daysPerWeek",
+    days_per_week: "daysPerWeek",
+    tutorName: "tutorName",
+    tutorFee: "tutorFee",
+    tutorFees: "tutorFee",
+    rejectedTutor: "rejectedTutor",
+    status: "status",
+    feedback: "feedback",
+    demoRating: "demoRating",
+    syncFlag: "syncFlag",
+    sync: "syncFlag",
 
-  // optional: agar frontend abhi bhi isay bhej raha ho
-  demoRating: "demoRating",
-};
+    // Today Demo only fields
+    rowColor: "rowColor",
+    tuitionNameColor: "tuitionNameColor",
+    orderIndex: "orderIndex",
+  };
 
   return {
     async list(req, res) {
@@ -67,13 +73,14 @@ export function makeTargetController({ TodayDemo, Tuition, Payment }) {
       const items = await TodayDemo.findAll({
         where: {
           timeHour: {
-            [Op.between]: [8, 23],
+            [Op.between]: [0, 23],
           },
         },
         attributes: [
           "id",
           "tuitionId",
           "demoTime",
+          "classTime", // Added: Taaky list API mein class time frontend ko mile
           "timeHour",
           "tuitionName",
           "source",
@@ -103,27 +110,22 @@ export function makeTargetController({ TodayDemo, Tuition, Payment }) {
       });
 
       const slots = [];
-      for (let hour = 8; hour <= 23; hour++) {
+      for (let hour = 0; hour <= 23; hour++) {
         const slotItems = items
           .filter((t) => t.timeHour === hour)
           .map((t) => {
-            if (!t.demoDate) return null;
-
-            const { status, color, fontColor } = computeFilterStatus(
-              t.demoDate,
-              now,
-              tz
-            );
+            const computed = t.demoDate
+              ? computeFilterStatus(t.demoDate, now, tz)
+              : { status: "", color: "#ffffff", fontColor: "#000000" };
 
             return {
               ...t,
               timePretty: hourToPrettyTime(hour),
-              filterStatus: status,
-              filterColor: color,
-              filterFontColor: fontColor,
+              filterStatus: computed.status,
+              filterColor: computed.color,
+              filterFontColor: computed.fontColor,
             };
           })
-          .filter(Boolean)
           .filter((t) => {
             if (!filter) return true;
             if (!FILTER_VALUES.includes(filter)) return true;
@@ -141,101 +143,107 @@ export function makeTargetController({ TodayDemo, Tuition, Payment }) {
       return res.json({ slots });
     },
 
-   async update(req, res) {
-  const tuitionId = normalizeTuitionId(req.params.tuitionId);
-  const transaction = await TodayDemo.sequelize.transaction();
+    async update(req, res) {
+      const tuitionId = normalizeTuitionId(req.params.tuitionId);
+      const transaction = await TodayDemo.sequelize.transaction();
 
-  try {
-    let targetItem = await TodayDemo.findOne({
-      where: { tuitionId },
-      transaction,
-    });
+      try {
+        let targetItem = await TodayDemo.findOne({
+          where: { tuitionId },
+          transaction,
+        });
 
-    // Safety: agar target row missing ho to monthly se bana lo
-    if (!targetItem) {
-      const tuitionItem = await Tuition.findOne({
-        where: { tuitionId, isDeleted: 0 },
-        transaction,
-      });
+        // Safety: agar target row missing ho to monthly se bana lo
+        if (!targetItem) {
+          const tuitionItem = await Tuition.findOne({
+            where: { tuitionId, isDeleted: 0 },
+            transaction,
+          });
 
-      if (!tuitionItem) {
+          if (!tuitionItem) {
+            if (transaction && !transaction.finished) {
+              await transaction.rollback();
+            }
+            return res.status(404).json({ message: "Not found" });
+          }
+
+          targetItem = await upsertTodayDemoFromTuition({
+            TodayDemo,
+            item: tuitionItem.toJSON(),
+            transaction,
+          });
+        }
+
+        const targetUpdates = {};
+        const tuitionUpdates = {};
+
+        for (const [incomingKey, incomingValue] of Object.entries(req.body || {})) {
+          const field = editableMap[incomingKey];
+          if (!field) continue;
+
+          let value = incomingValue;
+          if (field === "orderIndex") {
+            value =
+              value === "" || value === null || value === undefined
+                ? 0
+                : Number(value);
+            if (!Number.isFinite(value)) value = 0;
+          }
+
+          if (field === "demoDate") value = normalizeDate(value);
+
+          const finalValue =
+            value === "" || value === undefined ? null : value;
+
+          targetUpdates[field] = finalValue;
+
+          if (REVERSE_SYNC_FIELDS.includes(field)) {
+            tuitionUpdates[field] = finalValue;
+          }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(targetUpdates, "demoTime")) {
+          const parsedHour = parseHourFromValue(targetUpdates.demoTime);
+          targetUpdates.timeHour = parsedHour;
+          tuitionUpdates.timeHour = parsedHour;
+        }
+
+        if (Object.keys(targetUpdates).length > 0) {
+          await targetItem.update(targetUpdates, { transaction });
+        }
+
+        if (Object.keys(tuitionUpdates).length > 0) {
+          await Tuition.update(tuitionUpdates, {
+            where: { tuitionId },
+            transaction,
+          });
+        }
+
+        await transaction.commit();
+
+        // Payment sync hamesha monthly master se hi karo
+        const tuitionFresh = await Tuition.findOne({ where: { tuitionId } });
+        if (tuitionFresh) {
+          await syncPaymentFromTuition({
+            Payment,
+            item: tuitionFresh.toJSON(),
+          });
+        }
+
+        const freshTarget = await TodayDemo.findOne({ where: { tuitionId } });
+        return res.json({ item: freshTarget });
+      } catch (error) {
         if (transaction && !transaction.finished) {
           await transaction.rollback();
         }
-        return res.status(404).json({ message: "Not found" });
+
+        console.error("TARGET UPDATE ERROR:", error);
+        return res.status(500).json({
+          message: "Update failed",
+          error: error.message,
+        });
       }
-
-      targetItem = await upsertTodayDemoFromTuition({
-        TodayDemo,
-        item: tuitionItem.toJSON(),
-        transaction,
-      });
-    }
-
-    const targetUpdates = {};
-    const tuitionUpdates = {};
-
-    for (const [incomingKey, incomingValue] of Object.entries(req.body || {})) {
-      const field = editableMap[incomingKey];
-      if (!field) continue;
-
-      let value = incomingValue;
-      if (field === "orderIndex") {
-        value =
-          value === "" || value === null || value === undefined
-            ? 0
-            : Number(value);
-        if (!Number.isFinite(value)) value = 0;
-      }
-
-      if (field === "demoDate") value = normalizeDate(value);
-
-      const finalValue =
-        value === "" || value === undefined ? null : value;
-
-      targetUpdates[field] = finalValue;
-
-      if (REVERSE_SYNC_FIELDS.includes(field)) {
-        tuitionUpdates[field] = finalValue;
-      }
-    }
-
-    if (Object.keys(targetUpdates).length > 0) {
-      await targetItem.update(targetUpdates, { transaction });
-    }
-
-    if (Object.keys(tuitionUpdates).length > 0) {
-      await Tuition.update(tuitionUpdates, {
-        where: { tuitionId },
-        transaction,
-      });
-    }
-
-    await transaction.commit();
-
-    // Payment sync hamesha monthly master se hi karo
-    const tuitionFresh = await Tuition.findOne({ where: { tuitionId } });
-    if (tuitionFresh) {
-      await syncPaymentFromTuition({
-        Payment,
-        item: tuitionFresh.toJSON(),
-      });
-    }
-
-    const freshTarget = await TodayDemo.findOne({ where: { tuitionId } });
-    return res.json({ item: freshTarget });
-  } catch (error) {
-    if (transaction && !transaction.finished) {
-      await transaction.rollback();
-    }
-
-    console.error("TARGET UPDATE ERROR:", error);
-    return res.status(500).json({
-      message: "Update failed",
-      error: error.message,
-    });
-  }
-},
+    },
 
     async reorder(req, res) {
       const { items } = req.body;
@@ -268,29 +276,30 @@ export function makeTargetController({ TodayDemo, Tuition, Payment }) {
         });
       }
     },
+
     async remove(req, res) {
-  const tuitionId = normalizeTuitionId(req.params.tuitionId);
+      const tuitionId = normalizeTuitionId(req.params.tuitionId);
 
-  try {
-    const deleted = await TodayDemo.destroy({
-      where: { tuitionId },
-    });
+      try {
+        const deleted = await TodayDemo.destroy({
+          where: { tuitionId },
+        });
 
-    if (!deleted) {
-      return res.status(404).json({ message: "Today demo record not found" });
+        if (!deleted) {
+          return res.status(404).json({ message: "Today demo record not found" });
+        }
+
+        return res.json({
+          success: true,
+          message: "Record removed from Today Demo only",
+        });
+      } catch (error) {
+        console.error("TARGET DELETE ERROR:", error);
+        return res.status(500).json({
+          message: "Could not delete Today Demo record",
+          error: error.message,
+        });
+      }
     }
-
-    return res.json({
-      success: true,
-      message: "Record removed from Today Demo only",
-    });
-  } catch (error) {
-    console.error("TARGET DELETE ERROR:", error);
-    return res.status(500).json({
-      message: "Could not delete Today Demo record",
-      error: error.message,
-    });
-  }
-}
   };
 }

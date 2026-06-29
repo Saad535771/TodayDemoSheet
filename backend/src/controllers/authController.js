@@ -20,40 +20,44 @@ export function makeAuthController({ User, UserPresence }) {
     return requestedAccess ? 1 : 0;
   };
 
-  const getPaymentSheetPermissions = ({
-    role,
-    access_payment_sheet = 0,
-    access_tutor_share = 0,
-    access_lacas_share = 0,
-    access_total_fees = 0
-  }) => {
-    if (role === "admin") {
-      return {
-        accessPaymentSheet: 1,
-        accessTutorShare: 1,
-        accessLacasShare: 1,
-        accessTotalFees: 1
-      };
-    }
-
-    const paymentSheetAccess = toBoolInt(access_payment_sheet);
-
-    if (!paymentSheetAccess) {
-      return {
-        accessPaymentSheet: 0,
-        accessTutorShare: 0,
-        accessLacasShare: 0,
-        accessTotalFees: 0
-      };
-    }
-
+ const getPaymentSheetPermissions = ({
+  role,
+  access_payment_sheet = 0,
+  access_tutor_share = 0,
+  access_lacas_share = 0,
+  access_total_fees = 0,
+  access_payment_actions = 0,
+}) => {
+  if (role === "admin") {
     return {
       accessPaymentSheet: 1,
-      accessTutorShare: toBoolInt(access_tutor_share),
-      accessLacasShare: toBoolInt(access_lacas_share),
-      accessTotalFees: toBoolInt(access_total_fees)
+      accessTutorShare: 1,
+      accessLacasShare: 1,
+      accessTotalFees: 1,
+      accessPaymentActions: 1,
     };
+  }
+
+  const paymentSheetAccess = toBoolInt(access_payment_sheet);
+
+  if (!paymentSheetAccess) {
+    return {
+      accessPaymentSheet: 0,
+      accessTutorShare: 0,
+      accessLacasShare: 0,
+      accessTotalFees: 0,
+      accessPaymentActions: 0,
+    };
+  }
+
+  return {
+    accessPaymentSheet: 1,
+    accessTutorShare: toBoolInt(access_tutor_share),
+    accessLacasShare: toBoolInt(access_lacas_share),
+    accessTotalFees: toBoolInt(access_total_fees),
+    accessPaymentActions: toBoolInt(access_payment_actions),
   };
+};
 
   const formatUser = (user) => ({
     id: user.id,
@@ -67,6 +71,7 @@ export function makeAuthController({ User, UserPresence }) {
     access_tutor_share: user.accessTutorShare,
     access_lacas_share: user.accessLacasShare,
     access_total_fees: user.accessTotalFees,
+ access_payment_actions: user.accessPaymentActions,
     access_hod_approvals: user.accessHodApprovals,
     access_staff: user.accessStaff,
     access_otm_management: user.accessOtmManagement,
@@ -198,7 +203,8 @@ export function makeAuthController({ User, UserPresence }) {
           access_payment_sheet: 0,
           access_tutor_share: 0,
           access_lacas_share: 0,
-          access_total_fees: 0
+          access_total_fees: 0,
+          access_payment_actions: 0,
         });
 
         const newUser = await User.create({
@@ -213,7 +219,8 @@ export function makeAuthController({ User, UserPresence }) {
           accessTutorShare: paymentPermissions.accessTutorShare,
           accessLacasShare: paymentPermissions.accessLacasShare,
           accessTotalFees: paymentPermissions.accessTotalFees,
-           accessChat: finalRole === "admin" ? 1 : 0,
+         accessPaymentActions: paymentPermissions.accessPaymentActions,
+          accessChat: finalRole === "admin" ? 1 : 0,
   accessChatSend: finalRole === "admin" ? 1 : 0,
         });
 
@@ -245,10 +252,7 @@ export function makeAuthController({ User, UserPresence }) {
     },
 
     async listUsers(req, res) {
-      if (req.user.role !== "admin") {
-        return res.status(403).json({ message: "Access denied" });
-      }
-
+      // Allow any logged-in user to see the list (needed for chat)
       try {
         const users = await User.findAll({
           order: [["createdAt", "DESC"]]
@@ -299,6 +303,7 @@ export function makeAuthController({ User, UserPresence }) {
         access_tutor_share,
         access_lacas_share,
         access_total_fees,
+       access_payment_actions,
         access_hod_approvals,
         access_staff,
         access_otm_management,
@@ -320,7 +325,8 @@ export function makeAuthController({ User, UserPresence }) {
           access_payment_sheet,
           access_tutor_share,
           access_lacas_share,
-          access_total_fees
+          access_total_fees,
+          access_payment_actions,
         });
 
         await User.update(
@@ -332,6 +338,7 @@ export function makeAuthController({ User, UserPresence }) {
             accessTutorShare: paymentPermissions.accessTutorShare,
             accessLacasShare: paymentPermissions.accessLacasShare,
             accessTotalFees: paymentPermissions.accessTotalFees,
+            accessPaymentActions: paymentPermissions.accessPaymentActions,
             accessHodApprovals: toBoolInt(access_hod_approvals),
             accessStaff: toBoolInt(access_staff),
             accessOtmManagement: toBoolInt(access_otm_management),

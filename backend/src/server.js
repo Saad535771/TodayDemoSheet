@@ -19,9 +19,12 @@ import { makePaymentCloneRoutes } from "./routes/paymentCloneRoutes.js";
 import { makeOtmManagementRoutes } from "./routes/otmManagementRoutes.js";
 import { createPaymentChangeRequestRoutes } from "./routes/paymentChangeRequestRoutes.js";
 import { makeChatRoutes } from "./routes/chatRoutes.js";
-
+import { makeNotificationController } from "./controllers/notificationController.js";
+import { makeNotificationRoutes } from "./routes/notificationRoutes.js";
+import { createNotificationService } from "./utils/notificationService.js";
+import { registerNotificationSocket } from "./socket/notificationSocket.js";
 import { requireAuth } from "./middleware/auth.js";
-import { makeApp } from "./app.js";
+import { makeApp, socketCorsOptions } from "./app.js";
 import { startDailyJob } from "./jobs/dailyJob.js";
 import { startPaymentChangeRequestCleanup } from "./jobs/startPaymentChangeRequestCleanup.js";
 import { registerChatSocket } from "./socket/chatSocket.js";
@@ -34,7 +37,7 @@ async function main() {
     console.log("✅ DB connected");
 
     const models = initModels(sequelize);
-
+    const notificationService = createNotificationService({ sequelize });
     const {
       PaymentClone,
       PaymentCloneTrash,
@@ -95,6 +98,8 @@ async function main() {
       PaymentChangeRequest,
       User,
     });
+    const notificationController = makeNotificationController({ notificationService });
+const notificationRoutes = makeNotificationRoutes(notificationController);
     const app = makeApp({
       authRoutes,
       tuitionRoutes,
@@ -104,25 +109,28 @@ async function main() {
       otmManagementRoutes,
       paymentChangeRequestRoutes,
       chatRoutes,
+      notificationRoutes,
+      notificationService,
     });
     const httpServer = createServer(app);
     const io = new Server(httpServer, {
-      cors: {
-        origin: true,
-        credentials: true,
-      },
+      cors: socketCorsOptions,
     });
     registerChatSocket(io, {
       User,
       ChatGroupMember,
       ChatMessage,
       ChatMessageSeen,
+      notificationService,
     });
     const port = process.env.PORT ? Number(process.env.PORT) : 5000;
     httpServer.listen(port, () => {
       console.log(`🚀 Server running on http://localhost:${port}`);
     });
-    startDailyJob();
+    startDailyJob({
+      onRun: () => paymentCloneController.syncCurrentPakistanPaymentCycle({ source: "daily-job" }),
+      runOnStart: true,
+    });
     startPaymentChangeRequestCleanup({
       PaymentChangeRequest,
       intervalMs: 60 * 60 * 1000,

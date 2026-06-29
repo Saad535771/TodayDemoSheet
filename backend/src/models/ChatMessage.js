@@ -8,7 +8,7 @@ export function defineChatMessage(sequelize) {
       groupId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false, field: "group_id" },
       senderId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, field: "sender_id" },
       messageType: {
-        type: DataTypes.ENUM("text"),
+        type: DataTypes.ENUM("text", "voice", "audio", "video", "image", "file"),
         allowNull: false,
         defaultValue: "text",
         field: "message_type",

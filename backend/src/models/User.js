@@ -63,11 +63,18 @@ export function defineUser(sequelize) {
       defaultValue: 0,
       field: "access_otm_management"
     },
+    accessPaymentActions: {
+  type: DataTypes.TINYINT,
+  defaultValue: 0,
+  field: "access_payment_actions",
+},
+    
     accessChat: { 
       type: DataTypes.TINYINT, 
       defaultValue: 0, 
       field: "access_chat"
      },
+    
         accessChatSend: { 
           type: DataTypes.TINYINT,
            defaultValue: 0, 

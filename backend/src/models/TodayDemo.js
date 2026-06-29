@@ -28,7 +28,11 @@ export default (sequelize) => {
         allowNull: true,
         field: "demo_time",
       },
-
+		classTime: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        field: "class_time",
+      },
       timeHour: {
         type: DataTypes.TINYINT.UNSIGNED,
         allowNull: true,

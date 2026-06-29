@@ -2888,8 +2888,7 @@ async function applyColorToSelectedRows(field, colorValue) {
                               style={{
                                 ...styles.moveBtn,
                                 opacity: originalIndex === 0 ? 0.35 : 1,
-                              }}
-                            >
+                              }}>
                               ▲
                             </button>
                             <button
@@ -2898,27 +2897,22 @@ async function applyColorToSelectedRows(field, colorValue) {
                               style={{
                                 ...styles.moveBtn,
                                 opacity: originalIndex === items.length - 1 ? 0.35 : 1,
-                              }}
-                            >
+                              }}>
                               ▼
                             </button>
                           </div>
                         </td>
-
                         <td style={utilityCellStyle}>
                           <div style={styles.readCell}>
                             {renderColorPaletteControl(row, "rowColor", `${rowIdStr}__rowColorQuick`)}
                           </div>
                         </td>
-
                         {gridColumns.map((col) => renderGridCell(row, visibleIndex, col))}
-
                         <td style={utilityCellStyle}>
                           <div style={styles.readCell}>
                             <button
                               style={styles.deleteBtn}
-                              onClick={() => deleteRow(row)}
-                            >
+                              onClick={() => deleteRow(row)}>
                               Del
                             </button>
                           </div>

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { body, param, query } from "express-validator";
 import { requireAuth } from "../middleware/auth.js";
+import { upload } from "../middleware/upload.js";
 
 export function makeChatRoutes(chatController) {
   const router = Router();
@@ -63,6 +64,20 @@ query("before_id").optional().isInt({ min: 1 }),
     ],
     chatController.markSeen
   );
+
+  router.post(
+    "/groups/:groupId/upload",
+    upload.single("file"),
+    chatController.uploadFile
+  );
+  
+  router.post(
+    "/dm/:userId",
+    [param("userId").isInt({ min: 1 }).withMessage("Valid userId is required")],
+    chatController.findOrCreateDM
+  );
+
+  router.get("/unread-total", chatController.getTotalUnread);
 
   return router;
 }

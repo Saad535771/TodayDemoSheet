@@ -107,6 +107,26 @@ export function definePaymentChangeRequest(sequelize) {
         allowNull: true,
         field: "rejected_by",
       },
+      notificationType: {
+  type: DataTypes.STRING(80),
+  allowNull: false,
+  defaultValue: "payment_sheet_with_date",
+  field: "notification_type",
+},
+
+notificationStatus: {
+  type: DataTypes.STRING(20),
+  allowNull: false,
+  defaultValue: "unread",
+  field: "notification_status",
+},
+
+notificationSeenAt: {
+  type: DataTypes.DATE,
+  allowNull: true,
+  field: "notification_seen_at",
+},
+
 
       rejectedAt: {
         type: DataTypes.DATE,

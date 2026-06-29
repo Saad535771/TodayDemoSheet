@@ -549,6 +549,7 @@ function areItemListsEqual(left = [], right = []) {
 }
 const gridColumns = [
   { id: "demoTime", label: "Demo Time", width: 100, editable: true, field: "demoTime", type: "time" },
+  {id: "classTime",label: "Class Time",width: 100,editable: true,field: "classTime",type: "time",},
   { id: "tuitionName", label: "Tuition Name", width: 60, editable: true, field: "tuitionName", kind: "tuitionName" },
   { id: "source", label: "Source", width: 70, editable: true, field: "source", kind: "select", options: SOURCES_LIST, pill: "source" },
   { id: "country", label: "Country", width: 70, editable: true, field: "country" },
@@ -1065,27 +1066,22 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,
   const [isUpdating, setIsUpdating] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRows, setSelectedRows] = useState(new Set());
-
   const [selectedCell, setSelectedCell] = useState(null);
   const [anchorCell, setAnchorCell] = useState(null);
   const [selectedCells, setSelectedCells] = useState(new Set());
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState("");
   const [activeColorPicker, setActiveColorPicker] = useState(null);
-
   const role = "admin";
   const themeColor = role === "admin" ? "#000000" : "#7b4397";
-
   const [isUnlocked, setIsUnlocked] = useState(!isProtected);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
-
   const managerRef = useRef(null);
   const instanceKey = useRef(
     sanitizeKey(slot.slotHeader || `slot-${Math.random().toString(36).slice(2, 8)}`)
   ).current;
-
   const tableWrapperRef = useRef(null);
   const localItemsRef = useRef(localItems);
   const filteredItemsRef = useRef([]);
@@ -1137,28 +1133,22 @@ const effectiveZoom = useMemo(() => {
       isMouseSelectingRef.current = false;
       dragAnchorCellRef.current = null;
     };
-
     document.addEventListener("mouseup", stopMouseSelection);
     return () => document.removeEventListener("mouseup", stopMouseSelection);
   }, []);
-
   useEffect(() => {
     const wrapper = tableWrapperRef.current;
     if (!wrapper || !open) return;
-
     const handleTrackpadHorizontalScroll = (e) => {
       const targetTag = String(e.target?.tagName || "").toLowerCase();
       if (["input", "textarea", "select", "option"].includes(targetTag)) return;
-
       const canScrollHorizontally = wrapper.scrollWidth > wrapper.clientWidth + 1;
       if (!canScrollHorizontally) return;
-
       const absX = Math.abs(e.deltaX);
       const absY = Math.abs(e.deltaY);
       const previousLeft = wrapper.scrollLeft;
       const atLeft = wrapper.scrollLeft <= 0;
       const atRight = wrapper.scrollLeft + wrapper.clientWidth >= wrapper.scrollWidth - 1;
-
       if (absX > 0) {
         wrapper.scrollLeft += e.deltaX;
       } else if (e.shiftKey && absY > 0) {
@@ -1166,43 +1156,32 @@ const effectiveZoom = useMemo(() => {
       } else if (absY > 0 && !(atLeft && e.deltaY < 0) && !(atRight && e.deltaY > 0)) {
         wrapper.scrollLeft += e.deltaY;
       }
-
       if (wrapper.scrollLeft !== previousLeft) {
         e.preventDefault();
         e.stopPropagation();
       }
     };
-
     wrapper.addEventListener("wheel", handleTrackpadHorizontalScroll, { passive: false, capture: true });
-
     return () => {
       wrapper.removeEventListener("wheel", handleTrackpadHorizontalScroll, { capture: true });
     };
  }, [open, effectiveZoom, localItems.length]);
-
   useEffect(() => {
     const nextItems = slot.items || [];
-
     if (areItemListsEqual(localItemsRef.current, nextItems)) {
       return;
     }
-
     setLocalItems(nextItems);
-
     setSelectedRows((prev) => {
       if (!prev.size) return prev;
-
       const nextIds = new Set(nextItems.map((item) => item.tuitionId));
       const filtered = new Set([...prev].filter((id) => nextIds.has(id)));
-
       return filtered.size === prev.size ? prev : filtered;
     });
   }, [slot.items]);
-
   useEffect(() => {
     const mgr = getGlobalSearchManager();
     managerRef.current = mgr;
-
     const unsubscribe = mgr.subscribe((state) => {
       setSearchTerm(state.term || "");
     });
@@ -1595,31 +1574,26 @@ const effectiveZoom = useMemo(() => {
     const endRow = Math.max(start.rowIndex, end.rowIndex);
     const startColIndex = getColumnIndex(start.colId);
     const endColIndex = getColumnIndex(end.colId);
-
     if (startColIndex < 0 || endColIndex < 0) return new Set();
-
     const minCol = Math.min(startColIndex, endColIndex);
     const maxCol = Math.max(startColIndex, endColIndex);
-
     const range = new Set();
-
     for (let r = startRow; r <= endRow; r++) {
       for (let c = minCol; c <= maxCol; c++) {
         range.add(getCellKey(r, gridColumnIds[c]));
       }
     }
-
     return range;
   };
-
   const getCellValue = (item, col) => {
     if (!item || !col) return "";
-
     switch (col.id) {
       case "parentsContact":
         return item.parentsContact ?? item.parentContact ?? "";
       case "className":
         return item.className ?? item.class ?? "";
+        case "classTime":
+         return item.classTime ?? "";
       case "subjects":
         return item.subjects ?? item.subject ?? "";
       case "tutorFees":
@@ -1638,6 +1612,8 @@ const effectiveZoom = useMemo(() => {
     switch (colId) {
       case "demoTime":
         return { demoTime: value };
+        case "classTime":
+        return { classTime: value };
       case "tuitionName":
         return { tuitionName: value };
       case "source":
@@ -2611,7 +2587,7 @@ const resetLocalZoom = (e) => {
                         padding: "6px 10px",
                         background: "#f0f0f0",
                         borderRadius: "6px",
-                        fontSize: "13px",
+                        fontSize: "23px",
                       }}
                     >
                       {selectedRows.size} rows selected
@@ -2641,7 +2617,7 @@ const resetLocalZoom = (e) => {
                     border: "none",
                     color: "inherit",
                     cursor: "pointer",
-                    fontSize: "18px",
+                    fontSize: "23px",
                     fontWeight: "bold",
                   }}
                 >
@@ -2650,15 +2626,13 @@ const resetLocalZoom = (e) => {
 
                 <span
                   style={{
-                    fontSize: "13px",
+                    fontSize: "23px",
                     fontWeight: "600",
                     minWidth: "40px",
                     textAlign: "center",
-                  }}
-                >
+                  }}>
                  Local {Math.round(localZoom * 100)}% | Final {Math.round(effectiveZoom * 100)}%
                 </span>
-
                 <button
                   onClick={(e) => handleZoom(e, 0.1)}
                   style={{
@@ -2666,34 +2640,29 @@ const resetLocalZoom = (e) => {
                     border: "none",
                     color: "inherit",
                     cursor: "pointer",
-                    fontSize: "16px",
+                    fontSize: "23px",
                     fontWeight: "bold",
-                  }}
-                >
+                  }}>
                   +
                 </button>
               </div>
             </div>
-
             <div
               style={{
                 display: "inline-block",
                 minWidth: `${Math.max(BASE_TABLE_MIN_WIDTH * effectiveZoom, 0)}px`,
-              }}
-            >
+              }}>
               <div
                 style={{
                   zoom: effectiveZoom,
                   width: "max-content",
-                }}
-              >
+                }} >
               <table style={{ ...styles.table, minWidth: `${BASE_TABLE_MIN_WIDTH}px` }}>
                 <thead>
                   <tr>
                     <TH style={{ width: "42px", minWidth: "42px", textAlign: "center", background: "#e5e7eb" }}>✓</TH>
                     <TH style={{ width: "40px", minWidth: "40px", textAlign: "center", background: "#e5e7eb" }}>Sort</TH>
                     <TH style={{ width: "30px", minWidth: "30px", textAlign: "center", background: "#e5e7eb" }}>🎨</TH>
-
                     {gridColumns.map((col) => (
                       <TH
                         key={col.id}
@@ -2701,16 +2670,13 @@ const resetLocalZoom = (e) => {
                           minWidth: col.width,
                           width: col.width,
                           color: col.id === "rejectedTutor" ? "#c10000" : undefined,
-                        }}
-                      >
+                        }}>
                         {col.label}
                       </TH>
                     ))}
-
                     <TH style={{ width: "8px", minWidth: "8px", textAlign: "center", background: "#e5e7eb" }}>Action</TH>
                   </tr>
                 </thead>
-
                 <tbody>
                   {showSkeleton ? (
                     <TableSkeleton />
@@ -2723,8 +2689,7 @@ const resetLocalZoom = (e) => {
                           textAlign: "center",
                           color: "#999",
                           padding: "15px",
-                        }}
-                      >
+                        }}>
                         No records in this slot
                       </td>
                     </tr>
@@ -2733,7 +2698,6 @@ const resetLocalZoom = (e) => {
                       const originalIndex = localItems.findIndex((item) => item.tuitionId === it.tuitionId);
                       const rowId = `row-${instanceKey}-${sanitizeKey(String(it.tuitionId))}`;
                       const rowMatched = !!searchTerm && itemMatchesSearch(it, searchTerm);
-
                       return (
                         <tr
                           id={rowId}
@@ -2823,7 +2787,7 @@ const resetLocalZoom = (e) => {
 
         {open && !isUnlocked && isProtected ? (
           <div style={styles.lockedPlaceholder} onClick={() => setShowPasswordModal(true)}>
-            <span style={{ fontSize: "24px" }}>🔒</span>
+            <span style={{ fontSize: "23px" }}>🔒</span>
             <p>This content is password protected.</p>
             <button style={styles.btn(false)}>Enter Password</button>
           </div>

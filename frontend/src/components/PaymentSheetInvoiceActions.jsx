@@ -559,7 +559,6 @@ export default function PaymentSheetInvoiceActions({
           Print Invoice
         </button>
       )}
-
       {canWhatsappInvoice && (
         <button
           type="button"

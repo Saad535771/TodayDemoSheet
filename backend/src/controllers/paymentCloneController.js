@@ -12,7 +12,6 @@ function valuesAreSame(a, b) {
   return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }
 
-
 function normalizeStatusValue(value) {
   if (Array.isArray(value)) {
     const clean = [...new Set(value.map((v) => String(v || "").trim()).filter(Boolean))];
@@ -43,7 +42,9 @@ function getPakistanDateParts(date = new Date()) {
 
   return {
     year: parts.find((part) => part.type === "year")?.value || String(new Date().getFullYear()),
-    month: parts.find((part) => part.type === "month")?.value || String(new Date().getMonth() + 1).padStart(2, "0"),
+    month:
+      parts.find((part) => part.type === "month")?.value ||
+      String(new Date().getMonth() + 1).padStart(2, "0"),
     day: parts.find((part) => part.type === "day")?.value || "01",
   };
 }
@@ -51,6 +52,38 @@ function getPakistanDateParts(date = new Date()) {
 function getPakistanMonthStartDateString(date = new Date()) {
   const { year, month } = getPakistanDateParts(date);
   return `${year}-${month}-01`;
+}
+
+function getPakistanPreviousMonthStartDateString(date = new Date()) {
+  const { year, month } = getPakistanDateParts(date);
+  let y = Number(year);
+  let m = Number(month) - 1;
+
+  if (m < 1) {
+    m = 12;
+    y -= 1;
+  }
+
+  return `${y}-${String(m).padStart(2, "0")}-01`;
+}
+
+function getPakistanMonthStartUtcDate(date = new Date()) {
+  const { year, month } = getPakistanDateParts(date);
+
+  // Pakistan is UTC+05:00. 1st day 00:00 PKT == previous UTC day 19:00.
+  return new Date(Date.UTC(Number(year), Number(month) - 1, 0, 19, 0, 0, 0));
+}
+
+function wasRowUpdatedBeforeCurrentPakistanCycle(row = {}, date = new Date()) {
+  const cycleStartUtc = getPakistanMonthStartUtcDate(date);
+  const rawUpdatedAt = row?.updatedAt ?? row?.updated_at ?? row?.createdAt ?? row?.created_at;
+
+  if (!rawUpdatedAt) return true;
+
+  const updatedAt = rawUpdatedAt instanceof Date ? rawUpdatedAt : new Date(rawUpdatedAt);
+  if (Number.isNaN(updatedAt.getTime())) return true;
+
+  return updatedAt < cycleStartUtc;
 }
 
 function isInvalidDateInput(value) {
@@ -146,13 +179,9 @@ function sanitizePaymentCloneDates(data = {}) {
     data.date = normalizeDateOnly(data.date, null);
   }
 
-  if (hasDate && !hasPaymentDate) {
-    data.paymentDate = data.date;
-  }
-
-  if (hasPaymentDate && !hasDate) {
-    data.date = data.paymentDate;
-  }
+  // Important:
+  // paymentDate aur date ko copy nahi karna.
+  // paymentDate manual hai, date month cycle hai.
 
   return data;
 }
@@ -164,8 +193,61 @@ function statusHasTuitionCancelled(value) {
     .includes("tuition cancelled");
 }
 
-function applyPaymentCycleFields(payload = {}, beforeData = null) {
+function isManualMonthLockedRow(row = {}) {
+  const tuitionId = String(row?.tuitionId ?? row?.tuition_id ?? "")
+    .trim()
+    .toLowerCase();
+  const syncFlag = String(row?.syncFlag ?? row?.sync_flag ?? "")
+    .trim()
+    .toLowerCase();
+
+  return tuitionId.startsWith("manual-") || syncFlag === "manual-month-locked";
+}
+
+function normalizeMonthKey(value) {
+  const month = Number(value);
+  if (!Number.isInteger(month) || month < 1 || month > 12) return "";
+  return String(month).padStart(2, "0");
+}
+
+function normalizeYearKey(value) {
+  const year = Number(value);
+  if (!Number.isInteger(year) || year < 1900 || year > 2200) return "";
+  return String(year);
+}
+
+function buildTargetCycleDate(targetMonth, targetYear) {
+  const month = normalizeMonthKey(targetMonth);
+  const year = normalizeYearKey(targetYear);
+
+  if (!month || !year) return null;
+  return `${year}-${month}-01`;
+}
+
+function applyPaymentCycleFields(payload = {}, beforeData = null, options = {}) {
   const currentCycleDate = getPakistanMonthStartDateString();
+  const previousCycleDate = getPakistanPreviousMonthStartDateString();
+  const targetCycleDate = buildTargetCycleDate(options?.targetMonth, options?.targetYear);
+
+  const hasPaymentDatePatch = Object.prototype.hasOwnProperty.call(payload, "paymentDate");
+  const hasDatePatch = Object.prototype.hasOwnProperty.call(payload, "date");
+
+  // paymentDate manual Payment Date column hai.
+  // Isay kabhi bhi month cycle/date ke sath auto-copy nahi karna.
+  if (hasPaymentDatePatch) {
+    payload.paymentDate = normalizeDateOnly(payload.paymentDate, null);
+  }
+
+  // date hidden/backend month-cycle field hai.
+  if (hasDatePatch) {
+    payload.date = normalizeDateOnly(payload.date, targetCycleDate || null);
+  }
+
+  // Create row agar specific month tab se aa rahi ho aur date missing ho,
+  // to us selected tab/month ki cycle date set hogi. Payment Date blank rahegi.
+  if (!beforeData && targetCycleDate && !hasDatePatch) {
+    payload.date = targetCycleDate;
+  }
 
   const hasStatusPatch = Object.prototype.hasOwnProperty.call(payload, "status");
   const beforeStatus = beforeData?.status;
@@ -174,33 +256,54 @@ function applyPaymentCycleFields(payload = {}, beforeData = null) {
   const beforeCancelled = statusHasTuitionCancelled(beforeStatus);
   const nextCancelled = statusHasTuitionCancelled(nextStatus);
 
-  // Case 1: Status abhi abhi Tuition Cancelled hua
-  // Is waqt jis month ki system date hai, usi month me lock hoga.
-  // April me cancel -> April
-  // May me cancel -> May
-  if (nextCancelled && !beforeCancelled) {
-    payload.paymentDate = currentCycleDate;
-    payload.date = currentCycleDate;
-    return payload;
-  }
-
-  // Case 2: Record pehle se Tuition Cancelled hai
-  // Iski old locked date ko change nahi karna.
-  if (nextCancelled && beforeCancelled) {
-    const lockedCycleDate = toMonthStartDateString(
-      beforeData?.paymentDate || beforeData?.date || beforeData?.createdAt || beforeData?.created_at,
+  if (beforeData && isManualMonthLockedRow(beforeData) && !hasDatePatch && !targetCycleDate) {
+    // Manual rows created inside a selected month tab must stay in that same tab.
+    // Normal monthly rollover should not pull them into the current month on edit/refresh.
+    payload.date = toMonthStartDateString(
+      beforeData?.date || beforeData?.createdAt || beforeData?.created_at,
       currentCycleDate
     );
-
-    payload.paymentDate = lockedCycleDate;
-    payload.date = lockedCycleDate;
     return payload;
   }
 
-  // Case 3: Active / Fee Receive / Pending / Invoice Share etc.
-  // Ye records current month me move honge.
-  payload.paymentDate = currentCycleDate;
-  payload.date = currentCycleDate;
+  if (nextCancelled && !beforeCancelled) {
+    // New cancellation current Pakistan cycle/month mein lock hogi.
+    if (!hasDatePatch && !targetCycleDate) {
+      payload.date = currentCycleDate;
+    }
+    return payload;
+  }
+
+  if (nextCancelled && beforeCancelled) {
+    // Old cancelled rows previous/current locked cycle mein rahengi.
+    const fallbackLockedCycleDate = wasRowUpdatedBeforeCurrentPakistanCycle(beforeData)
+      ? previousCycleDate
+      : currentCycleDate;
+
+    const lockedCycleDate = toMonthStartDateString(
+      beforeData?.date ||
+        beforeData?.createdAt ||
+        beforeData?.created_at,
+      fallbackLockedCycleDate
+    );
+
+    if (!hasDatePatch && !targetCycleDate) {
+      payload.date = lockedCycleDate;
+    }
+    return payload;
+  }
+
+  // Sirf manual Payment Date update ho to month cycle disturb nahi karna.
+  if (hasPaymentDatePatch && !hasStatusPatch && !hasDatePatch) {
+    return payload;
+  }
+
+  // Active/non-cancelled existing rows current Pakistan month cycle mein move hongi.
+  // Create row ke waqt selected month tab ki date already above set ho chuki hoti hai.
+  if (beforeData && !hasDatePatch && !targetCycleDate) {
+    payload.date = currentCycleDate;
+  }
+
   return payload;
 }
 
@@ -220,7 +323,12 @@ const FIELD_ALIASES = {
   tutorName: "tutorName",
   status: "status",
   feedback: "feedback",
+  contactNumber: "contactNumber",
+  contactNo: "contactNumber",
+  contact: "contactNumber",
+  contact_number: "contactNumber",
   notes: "notes",
+  otmName: "otmName",
   tuitionId: "tuitionId",
   rowColor: "rowColor",
   tuitionNameColor: "tuitionNameColor",
@@ -241,6 +349,8 @@ function readCellValue(row, key) {
       return row.subjects ?? row.className ?? null;
     case "tutorFee":
       return row.tutorFee ?? row.tutorShare ?? null;
+    case "contactNumber":
+      return row.contactNumber ?? row.contact_number ?? row.contactNo ?? row.contact ?? null;
     default:
       return row[key] ?? null;
   }
@@ -303,6 +413,10 @@ export function makePaymentCloneController({
     "totalFees",
     "status",
     "feedback",
+    "contactNumber",
+    "contactNo",
+    "contact",
+    "contact_number",
     "notes",
     "otmName",
     "syncFlag",
@@ -347,22 +461,30 @@ export function makePaymentCloneController({
       data.className = data.subjects;
     }
 
-    if (
-      Object.prototype.hasOwnProperty.call(data, "date") &&
-      !Object.prototype.hasOwnProperty.call(data, "paymentDate")
-    ) {
-      data.paymentDate = data.date;
-    }
-
-    if (
-      Object.prototype.hasOwnProperty.call(data, "paymentDate") &&
-      !Object.prototype.hasOwnProperty.call(data, "date")
-    ) {
-      data.date = data.paymentDate;
-    }
 
     if (Object.prototype.hasOwnProperty.call(data, "status")) {
       data.status = normalizeStatusValue(data.status);
+    }
+
+    if (
+      !Object.prototype.hasOwnProperty.call(data, "contactNumber") &&
+      Object.prototype.hasOwnProperty.call(data, "contact_number")
+    ) {
+      data.contactNumber = data.contact_number;
+    }
+
+    if (
+      !Object.prototype.hasOwnProperty.call(data, "contactNumber") &&
+      Object.prototype.hasOwnProperty.call(data, "contactNo")
+    ) {
+      data.contactNumber = data.contactNo;
+    }
+
+    if (
+      !Object.prototype.hasOwnProperty.call(data, "contactNumber") &&
+      Object.prototype.hasOwnProperty.call(data, "contact")
+    ) {
+      data.contactNumber = data.contact;
     }
 
     const nullIfEmpty = [
@@ -375,6 +497,7 @@ export function makePaymentCloneController({
       "className",
       "tutorName",
       "feedback",
+      "contactNumber",
       "notes",
       "otmName",
       "syncFlag",
@@ -415,6 +538,10 @@ export function makePaymentCloneController({
     sanitizePaymentCloneDates(data);
 
     delete data.tutorShare;
+    delete data.contactNo;
+    delete data.contact;
+    delete data.contact_number;
+
     return data;
   }
 
@@ -424,9 +551,13 @@ export function makePaymentCloneController({
 
     const subjects = raw.subjects ?? raw.className ?? null;
     const tutorFee = raw.tutorFee ?? raw.tutorShare ?? null;
-    const date = normalizeDateOnly(raw.date ?? raw.paymentDate ?? null, null);
-    const paymentDate = normalizeDateOnly(raw.paymentDate ?? raw.date ?? null, null);
+    // date = backend/month-cycle field; paymentDate = manual Payment Date column.
+    // Dono ko fallback/copy nahi karna, warna Payment Date default 1st-of-month show karegi.
+    const date = normalizeDateOnly(raw.date ?? null, null);
+    const paymentDate = normalizeDateOnly(raw.paymentDate ?? null, null);
     const status = normalizeStatusValue(raw.status);
+    const contactNumber =
+      raw.contactNumber ?? raw.contact_number ?? raw.contactNo ?? raw.contact ?? null;
 
     return {
       id: raw.id ?? null,
@@ -446,6 +577,9 @@ export function makePaymentCloneController({
       totalFees: raw.totalFees ?? null,
       status,
       feedback: raw.feedback ?? null,
+      contactNumber,
+      contactNo: contactNumber,
+      contact: contactNumber,
       notes: raw.notes ?? null,
       otmName: raw.otmName ?? null,
       syncFlag: raw.syncFlag ?? null,
@@ -526,6 +660,9 @@ export function makePaymentCloneController({
         actorName: actor.name || actor.email || `User-${actor.id}`,
         actorEmail: actor.email || null,
         requestStatus: "approved",
+        notificationType: "payment_sheet_with_date",
+        notificationStatus: "unread",
+        notificationSeenAt: null,
         changedColumns,
         beforeData,
         afterData,
@@ -537,7 +674,13 @@ export function makePaymentCloneController({
     }
   }
 
-  function buildAuditMetadata({ actionType, rowId = null, beforeData = null, afterData = null, message }) {
+  function buildAuditMetadata({
+    actionType,
+    rowId = null,
+    beforeData = null,
+    afterData = null,
+    message,
+  }) {
     const snapshot = buildRowSnapshot(actionType, beforeData, afterData);
     const changedColumns = getChangedColumns(beforeData, afterData, []);
 
@@ -556,7 +699,8 @@ export function makePaymentCloneController({
       historyRowId: rowId,
       originalPaymentCloneId: rowId,
       tuitionId: snapshot?.tuitionId ?? beforeData?.tuitionId ?? afterData?.tuitionId ?? null,
-      tuitionName: snapshot?.tuitionName ?? beforeData?.tuitionName ?? afterData?.tuitionName ?? null,
+      tuitionName:
+        snapshot?.tuitionName ?? beforeData?.tuitionName ?? afterData?.tuitionName ?? null,
       dateWithMonth:
         snapshot?.dateWithMonth ??
         snapshot?.paymentDate ??
@@ -570,44 +714,89 @@ export function makePaymentCloneController({
     };
   }
 
- async function syncCurrentPakistanPaymentCycle() {
-  const rows = await PaymentClone.findAll();
-  const currentCycleDate = getPakistanMonthStartDateString();
+  async function syncCurrentPakistanPaymentCycle({ source = "auto" } = {}) {
+    const rows = await PaymentClone.findAll();
+    const currentCycleDate = getPakistanMonthStartDateString();
+    const previousCycleDate = getPakistanPreviousMonthStartDateString();
 
-  for (const row of rows) {
-    const raw = toPlain(row);
-    const cancelled = statusHasTuitionCancelled(raw?.status);
+    const summary = {
+      source,
+      currentCycleDate,
+      previousCycleDate,
+      activeMovedToCurrentMonth: 0,
+      cancelledLockedToPreviousMonth: 0,
+      cancelledKept: 0,
+      unchanged: 0,
+      total: rows.length,
+    };
 
-    // IMPORTANT:
-    // Tuition Cancelled rows ko sync kabhi touch nahi karega.
-    // Jo month cancel hote waqt set hua tha, wohi locked rahega.
-    if (cancelled) {
-      continue;
+    for (const row of rows) {
+      const raw = toPlain(row);
+      const cancelled = statusHasTuitionCancelled(raw?.status);
+      const currentDate = normalizeDateOnly(raw?.date ?? null, null);
+
+      if (isManualMonthLockedRow(raw)) {
+        // Manual row jis month tab mein create hui hai, usi month mein rahegi.
+        // Yeh condition only manually-added rows ko skip karti hai; auto-synced rows ka
+        // existing current-month rollover logic same rahega.
+        summary.unchanged += 1;
+        continue;
+      }
+
+      if (cancelled) {
+        const rowIsOldCancellation = wasRowUpdatedBeforeCurrentPakistanCycle(raw);
+
+        const lockedCycleDate =
+          !currentDate || (currentDate === currentCycleDate && rowIsOldCancellation)
+            ? previousCycleDate
+            : toMonthStartDateString(currentDate, previousCycleDate);
+
+        if (currentDate !== lockedCycleDate) {
+          // Sirf date/month-cycle field update hogi. paymentDate manual rahegi.
+          await row.update({ date: lockedCycleDate }, { silent: true });
+          summary.cancelledLockedToPreviousMonth += 1;
+        } else {
+          summary.cancelledKept += 1;
+        }
+
+        continue;
+      }
+
+      if (currentDate !== currentCycleDate) {
+        // Active rows new/current month mein move hongi, lekin paymentDate blank/manual rahegi.
+        await row.update({ date: currentCycleDate }, { silent: true });
+        summary.activeMovedToCurrentMonth += 1;
+      } else {
+        summary.unchanged += 1;
+      }
     }
 
-    const currentPaymentDate = normalizeDateOnly(raw?.paymentDate ?? raw?.payment_date ?? null, null);
-    const currentDate = normalizeDateOnly(raw?.date ?? null, null);
-
-    // Sirf active / non-cancelled rows current month me move hongi.
-    if (currentPaymentDate !== currentCycleDate || currentDate !== currentCycleDate) {
-      await row.update(
-        { paymentDate: currentCycleDate, date: currentCycleDate },
-        { silent: true }
-      );
+    if (summary.activeMovedToCurrentMonth || summary.cancelledLockedToPreviousMonth) {
+      console.log("[PaymentCycleSync]", summary);
     }
+
+    return summary;
   }
-}
+
 
   return {
+    async syncCurrentPakistanPaymentCycle(options = {}) {
+      return syncCurrentPakistanPaymentCycle(options);
+    },
+
     async list(req, res) {
       try {
-        await syncCurrentPakistanPaymentCycle();
+        // Idempotent safety net: agar cron miss ho jaye ya server late start ho,
+        // list/load par bhi Pakistan timezone ke current month cycle me rows sync ho jati hain.
+        await syncCurrentPakistanPaymentCycle({ source: "list" });
+
         const rows = await PaymentClone.findAll({
           order: [
             ["orderIndex", "ASC"],
             ["updated_at", "DESC"],
           ],
         });
+
         return res.json({ items: rows.map(serializeRow) });
       } catch (err) {
         console.error("PAYMENT CLONE LIST ERROR:", err);
@@ -619,7 +808,14 @@ export function makePaymentCloneController({
 
     async create(req, res) {
       try {
-        const payload = applyPaymentCycleFields(normalizePayload(pickAllowed(req.body)), null);
+        const payload = applyPaymentCycleFields(
+          normalizePayload(pickAllowed(req.body)),
+          null,
+          {
+            targetMonth: req.body?.targetMonth,
+            targetYear: req.body?.targetYear,
+          }
+        );
 
         let orderIndex = payload.orderIndex;
         if (orderIndex === undefined || orderIndex === null || orderIndex === "") {
@@ -630,6 +826,7 @@ export function makePaymentCloneController({
         }
 
         payload.orderIndex = orderIndex;
+
         if (!payload.tuitionId) {
           payload.tuitionId = `manual-${Date.now()}`;
         }
@@ -672,7 +869,14 @@ export function makePaymentCloneController({
         }
 
         const beforeData = serializeRow(row);
-        const payload = applyPaymentCycleFields(normalizePayload(pickAllowed(req.body)), beforeData);
+        const payload = applyPaymentCycleFields(
+          normalizePayload(pickAllowed(req.body)),
+          beforeData,
+          {
+            targetMonth: req.body?.targetMonth,
+            targetYear: req.body?.targetYear,
+          }
+        );
 
         await row.update(payload);
 
@@ -855,8 +1059,8 @@ export function makePaymentCloneController({
 
         const payload = normalizePayload({
           tuitionId: trashRow.tuitionId || `restored-${Date.now()}-${trashRow.id}`,
-          paymentDate: trashRow.paymentDate ?? trashRow.date ?? null,
-          date: trashRow.date ?? trashRow.paymentDate ?? null,
+          paymentDate: trashRow.paymentDate ?? null,
+          date: trashRow.date ?? null,
           dateWithMonth: trashRow.dateWithMonth ?? null,
           tuitionName: trashRow.tuitionName ?? null,
           totalStudents: trashRow.totalStudents ?? null,
@@ -869,6 +1073,12 @@ export function makePaymentCloneController({
           totalFees: trashRow.totalFees ?? null,
           status: trashRow.status ?? null,
           feedback: trashRow.feedback ?? null,
+          contactNumber:
+            trashRow.contactNumber ??
+            trashRow.contact_number ??
+            trashRow.contactNo ??
+            trashRow.contact ??
+            null,
           notes: trashRow.notes ?? null,
           otmName: trashRow.otmName ?? null,
           syncFlag: trashRow.syncFlag ?? null,
@@ -919,6 +1129,56 @@ export function makePaymentCloneController({
         console.error("PAYMENT CLONE RESTORE ERROR:", err);
         return res.status(500).json({
           message: err?.message || "Error restoring trash row",
+        });
+      }
+    },
+
+    async notificationCount(req, res) {
+      try {
+        if (!PaymentChangeRequest) {
+          return res.json({ count: 0 });
+        }
+
+        const count = await PaymentChangeRequest.count({
+          where: {
+            moduleName: "payment_sheet_with_date",
+            notificationStatus: "unread",
+          },
+        });
+
+        return res.json({ count });
+      } catch (err) {
+        console.error("PAYMENT NOTIFICATION COUNT ERROR:", err);
+        return res.status(500).json({
+          message: err?.message || "Error fetching payment notification count",
+        });
+      }
+    },
+
+    async markNotificationsRead(req, res) {
+      try {
+        if (!PaymentChangeRequest) {
+          return res.json({ success: true });
+        }
+
+        await PaymentChangeRequest.update(
+          {
+            notificationStatus: "read",
+            notificationSeenAt: new Date(),
+          },
+          {
+            where: {
+              moduleName: "payment_sheet_with_date",
+              notificationStatus: "unread",
+            },
+          }
+        );
+
+        return res.json({ success: true });
+      } catch (err) {
+        console.error("PAYMENT NOTIFICATION READ ERROR:", err);
+        return res.status(500).json({
+          message: err?.message || "Error marking payment notifications as read",
         });
       }
     },

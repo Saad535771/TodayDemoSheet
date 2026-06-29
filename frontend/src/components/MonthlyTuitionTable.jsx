@@ -28,7 +28,7 @@ const styles = {
     border: "1px solid #000000",
   },
   table: {
-    fontSize: "12px",
+    fontSize: "23px",
     borderCollapse: "separate",
     borderSpacing: 0,
   },
@@ -78,7 +78,7 @@ const styles = {
     padding: "6px 10px",
     borderRadius: "4px",
     border: "none",
-    fontSize: "12px",
+    fontSize: "23px",
     fontWeight: "600",
     cursor: "pointer",
     background: "#e30000",
@@ -142,6 +142,7 @@ const searchColumns = [
   { key: "tutorFee", label: "Tutor Fee" },
   { key: "demoTime", label: "Demo Time" },
   { key: "demoDate", label: "Demo Date" },
+  { key: "classTime", label: "Class Time" },
 ];
 const demoRatings = ["", "Average Demo", "Strong Demo", "Weak Demo"];
 const sourcesList = ["", "mahad", "areeba", "sibgha"];
@@ -174,6 +175,7 @@ const gridColumns = [
   { id: "daysPerWeek", label: "Days per week", width: 70, editable: true, field: "daysPerWeek" },
   { id: "source", label: "Source", width: 120, editable: true, field: "source", kind: "select", options: sourcesList, pill: "source" },
   { id: "demoDate", label: "Demo Date", width: 100, editable: true, field: "demoDate", type: "date" },
+  {id: "classTime",label: "Class Time",width: 100,editable: true,field: "classTime"},
   { id: "parentsContact", label: "Parent Contact", width: 120, editable: true, field: "parentsContact" },
   { id: "demoRating", label: "Demo Rating", width: 100, editable: true, field: "demoRating", kind: "select", options: demoRatings, pill: "demoRating" },
   { id: "tuitionId", label: "Tuition Id", width: 70, editable: false, field: "tuitionId", kind: "readonly" },
@@ -592,7 +594,6 @@ const ColorSwatch = ({
     </div>
   );
 };
-
 export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const [localItems, setLocalItems] = useState([]);
   const [selectedRows, setSelectedRows] = useState(new Set());
@@ -1021,11 +1022,9 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       e.preventDefault();
       undoLastChange();
     };
-
     document.addEventListener("keydown", handleUndoHotkey);
     return () => document.removeEventListener("keydown", handleUndoHotkey);
   }, [load]);
-
   const performSearch = async (query) => {
     try {
       if (!query) {
@@ -1191,6 +1190,8 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
         return { date: value };
       case "demoTime":
         return { demoTime: value };
+        case "classTime":
+        return { classTime: value };
       case "tuitionName":
         return { tuitionName: value };
       case "status":
@@ -1413,10 +1414,8 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
 
   const clearSelectedCells = async () => {
     if (!selectedCells.size) return;
-
     const updatesByRow = new Map();
     const historyChanges = [];
-
     selectedCells.forEach((key) => {
       const { rowIndex, colId } = parseCellKey(key);
       const col = gridColumnMap[colId];
@@ -1896,9 +1895,24 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   };
 
 
-  const hasSatisfiedFeedback = (feedback) => {
-    return /\bsatisfied\b/i.test(String(feedback || "").trim());
-  };
+ const hasSatisfiedFeedback = (feedback) => {
+  const value = String(feedback || "").trim();
+
+  if (!value) return false;
+
+  const normalized = value
+    .replace(/[_-]/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (normalized === "not satisfied") {
+    return false;
+  }
+
+  return normalized === "satisfied";
+};
   const getCellBaseBackground = (item, col) => {
     if (col.id === "tuitionName") return item.tuitionNameColor || "inherit";
     if (col.id === "rejectedTutor") return columnColors["Rejected Tutor"];
@@ -2048,11 +2062,10 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                 padding: "0 6px",
                 position: "relative",
                 zIndex: 1,
-                fontSize: "12px",
+                fontSize: "23px",
                 background: "transparent",
               }}
             />
-
             <div
               style={{
                 position: "absolute",
@@ -2095,7 +2108,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                         padding: "8px 10px",
                         cursor: "pointer",
                         textalign: "center",
-                        fontSize: "12px",
+                        fontSize: "23px",
                       }}
                     >
                       <span>{option}</span>
@@ -2107,7 +2120,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                 <div
                   style={{
                     padding: "8px 10px",
-                    fontSize: "12px",
+                    fontSize: "23px",
                     color: "#6b7280",
                   }}
                 >

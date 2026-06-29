@@ -40,6 +40,9 @@ export function registerChatSocket(io, deps) {
   });
 
   io.on("connection", (socket) => {
+    socket.join(`user-${socket.user.id}`);
+    console.log(`[SOCKET] User ${socket.user.email} joined private room user-${socket.user.id}`);
+
     socket.on("chat:join_group", async ({ groupId }) => {
       try {
         const groupIdNum = Number(groupId);
@@ -59,6 +62,17 @@ export function registerChatSocket(io, deps) {
           return;
         }
 
+        // Auto join admin if not member
+        if (isAdmin && !member) {
+          await ChatGroupMember.create({
+            groupId: groupIdNum,
+            userId: socket.user.id,
+            canSend: 1,
+            isActive: 1,
+            joinedAt: new Date(),
+          }).catch(() => {});
+        }
+
         socket.join(`chat-group-${groupIdNum}`);
         socket.emit("chat:joined_group", { groupId: groupIdNum });
       } catch (error) {
@@ -66,16 +80,17 @@ export function registerChatSocket(io, deps) {
       }
     });
 
-    socket.on("chat:send_message", async ({ groupId, messageText }) => {
+    socket.on("chat:send_message", async ({ groupId, messageText, messageType }) => {
       try {
         const groupIdNum = Number(groupId);
         const text = String(messageText || "").trim();
+        const type = messageType || "text";
 
         if (!groupIdNum || !text) return;
 
         const isAdmin = socket.user.role === "admin";
 
-        const member = await ChatGroupMember.findOne({
+        let member = await ChatGroupMember.findOne({
           where: {
             groupId: groupIdNum,
             userId: socket.user.id,
@@ -86,6 +101,17 @@ export function registerChatSocket(io, deps) {
         if (!isAdmin && !member) {
           socket.emit("chat:error", { message: "Group access denied" });
           return;
+        }
+
+        // If admin but no membership, create one
+        if (isAdmin && !member) {
+          member = await ChatGroupMember.create({
+            groupId: groupIdNum,
+            userId: socket.user.id,
+            canSend: 1,
+            isActive: 1,
+            joinedAt: new Date(),
+          }).catch(e => console.error("AUTO JOIN ADMIN ERROR:", e));
         }
 
         const canSend =
@@ -102,7 +128,7 @@ export function registerChatSocket(io, deps) {
         const row = await ChatMessage.create({
           groupId: groupIdNum,
           senderId: socket.user.id,
-          messageType: "text",
+          messageType: type,
           messageText: text,
           isDeleted: 0,
         });
@@ -145,35 +171,98 @@ export function registerChatSocket(io, deps) {
         const messageIdNum = Number(messageId);
         if (!groupIdNum || !messageIdNum) return;
 
-        const isAdmin = socket.user.role === "admin";
-        const member = await ChatGroupMember.findOne({
-          where: {
-            groupId: groupIdNum,
-            userId: socket.user.id,
-            isActive: 1,
-          },
-        });
-
-        if (!isAdmin && !member) return;
-
         await ChatMessageSeen.findOrCreate({
           where: { messageId: messageIdNum, userId: socket.user.id },
-          defaults: {
-            messageId: messageIdNum,
-            userId: socket.user.id,
-            seenAt: new Date(),
-          },
+          defaults: { messageId: messageIdNum, userId: socket.user.id, seenAt: new Date() },
         });
+
+        await ChatGroupMember.update(
+          { lastReadMessageId: messageIdNum },
+          { where: { groupId: groupIdNum, userId: socket.user.id } }
+        );
 
         io.to(`chat-group-${groupIdNum}`).emit("chat:seen_update", {
           group_id: groupIdNum,
           message_id: messageIdNum,
           user_id: socket.user.id,
-          seen_at: new Date().toISOString(),
+          seen_at: new Date(),
         });
-      } catch (error) {
-        console.error("SOCKET MARK SEEN ERROR:", error);
+      } catch (e) {
+        console.error("MARK SEEN ERROR:", e);
       }
     });
+
+    // WebRTC Signaling for Calls
+    socket.on("chat:call_user", async ({ groupId, type }) => {
+      try {
+        const gid = Number(groupId);
+        console.log(`[CALL] ${socket.user.email} is starting ${type} call in group ${gid}`);
+        const members = await ChatGroupMember.findAll({
+          where: { groupId: gid, isActive: 1 }
+        });
+
+        console.log(`[CALL] Found ${members.length} members in group ${groupId}`);
+
+        members.forEach(m => {
+          if (Number(m.userId) !== Number(socket.user.id)) {
+            console.log(`[CALL] Sending incoming_call to user-${m.userId}`);
+            // Temporarily also emit to everyone to debug
+            io.emit("chat:incoming_call", {
+              from: {
+                id: socket.user.id,
+                name: socket.user.name || socket.user.email,
+              },
+              groupId,
+              type
+            });
+          }
+        });
+      } catch (err) {
+        console.error("CALL USER ERROR:", err);
+      }
+    });
+
+    socket.on("chat:accept_call", async ({ groupId }) => {
+      const gid = Number(groupId);
+      console.log(`[CALL] Call accepted by ${socket.user.email} in group ${gid}`);
+      const members = await ChatGroupMember.findAll({ where: { groupId: gid, isActive: 1 } });
+      members.forEach(m => {
+        if (Number(m.userId) !== Number(socket.user.id)) {
+          io.to(`user-${m.userId}`).emit("chat:call_accepted", { by: socket.user.id });
+        }
+      });
+    });
+
+    socket.on("chat:reject_call", async ({ groupId }) => {
+      const gid = Number(groupId);
+      console.log(`[CALL] Call rejected by ${socket.user.email} in group ${gid}`);
+      const members = await ChatGroupMember.findAll({ where: { groupId: gid, isActive: 1 } });
+      members.forEach(m => {
+        if (Number(m.userId) !== Number(socket.user.id)) {
+          io.to(`user-${m.userId}`).emit("chat:call_rejected", { by: socket.user.id });
+        }
+      });
+    });
+
+    socket.on("chat:webrtc_signal", async ({ groupId, signal }) => {
+      const gid = Number(groupId);
+      const members = await ChatGroupMember.findAll({ where: { groupId: gid, isActive: 1 } });
+      members.forEach(m => {
+        if (Number(m.userId) !== Number(socket.user.id)) {
+          io.to(`user-${m.userId}`).emit("chat:webrtc_signal", { from: socket.user.id, signal });
+        }
+      });
+    });
+
+    socket.on("chat:end_call", async ({ groupId }) => {
+      const gid = Number(groupId);
+      console.log(`[CALL] Call ended by ${socket.user.email} in group ${gid}`);
+      const members = await ChatGroupMember.findAll({ where: { groupId: gid, isActive: 1 } });
+      members.forEach(m => {
+        if (Number(m.userId) !== Number(socket.user.id)) {
+          io.to(`user-${m.userId}`).emit("chat:call_ended");
+        }
+      });
+     });
   });
 }

@@ -51,6 +51,11 @@ export function defineTuition(sequelize) {
         allowNull: true,
         field: "demo_time",
       },
+      classTime: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        field: "class_time",
+      },
 
       tuitionName: {
         type: DataTypes.STRING(191),

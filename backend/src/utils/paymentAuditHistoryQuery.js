@@ -1,4 +1,4 @@
-import { Op, Sequelize } from "sequelize";
+import { Op, literal } from "sequelize";
 
 const DEFAULT_MODULE_NAME = "payment_sheet_with_date";
 const PAKISTAN_TIME_ZONE = "Asia/Karachi";
@@ -14,36 +14,33 @@ function toPositiveInteger(value, fallback) {
   return Math.floor(num);
 }
 
-function normalizeMode(query = {}) {
+function resolveHistoryMode(query = {}) {
   const rawWindow = cleanString(
     query.historyWindow ?? query.window ?? query.mode ?? query.filter,
     ""
   ).toLowerCase();
 
-  const hoursValue = Number(query.hours ?? query.hour ?? query.lastHours);
-
-  const isLast24Hours =
+  const wantsLast24 =
     rawWindow === "last-24-hours" ||
     rawWindow === "last_24_hours" ||
     rawWindow === "24h" ||
     rawWindow === "last24" ||
     rawWindow === "last24hours" ||
-    query.last24Hours === true ||
+    String(query.strictLast24) === "1" ||
     String(query.last24Hours).toLowerCase() === "true" ||
-    String(query.last24Hours) === "1" ||
-    hoursValue === 24 ||
-    String(query.strictLast24) === "1";
+    String(query.hours) === "24";
 
-  if (isLast24Hours) return "last24";
+  if (wantsLast24) return "last24";
 
-  const isToday =
+  const wantsToday =
     rawWindow === "today" ||
     rawWindow === "today-history" ||
     query.today === true ||
     String(query.today).toLowerCase() === "true" ||
     String(query.today) === "1";
 
-  if (isToday) return "today";
+  if (wantsToday) return "today";
+
   return "complete";
 }
 
@@ -76,10 +73,9 @@ export function getPakistanTodayRange(date = new Date()) {
   return { start, end };
 }
 
-function getLast24DisplayRange() {
-  const to = new Date();
-  const from = new Date(to.getTime() - 24 * 60 * 60 * 1000);
-  return { from, to };
+function addAndCondition(where, condition) {
+  if (!where[Op.and]) where[Op.and] = [];
+  where[Op.and].push(condition);
 }
 
 export function buildPaymentAuditHistoryQuery(reqQuery = {}, options = {}) {
@@ -96,26 +92,26 @@ export function buildPaymentAuditHistoryQuery(reqQuery = {}, options = {}) {
 
   const requestedLimit = toPositiveInteger(reqQuery.limit, defaultLimit);
   const limit = Math.min(requestedLimit, maxLimit);
+  const page = Math.max(1, toPositiveInteger(reqQuery.page, 1));
+  const offset = (page - 1) * limit;
 
   const where = { moduleName };
-  const mode = normalizeMode(reqQuery);
-
-  let range = { from: null, to: null };
+  const mode = resolveHistoryMode(reqQuery);
+  let todayRange = null;
 
   if (mode === "last24") {
-    range = getLast24DisplayRange();
-
     // IMPORTANT:
-    // Use MySQL server time, not JS/UTC Date objects.
-    // Do NOT add Op.lte upper bound because DATETIME columns may be stored in local server time.
-    // The upper bound was excluding freshly-created rows on live deployment.
-    where.created_at = {
-      [Op.gte]: Sequelize.literal("DATE_SUB(NOW(), INTERVAL 24 HOUR)"),
-    };
-  } else if (mode === "today") {
-    const todayRange = getPakistanTodayRange();
-    range = { from: todayRange.start, to: todayRange.end };
+    // Use MySQL server time directly. Do not send JS Date upper/lower bound,
+    // because live server/database timezone can make fresh rows look outside the range.
+    // No upper bound is used, so newly inserted rows are not excluded by UTC/local mismatch.
+    addAndCondition(
+      where,
+      literal("`PaymentChangeRequest`.`created_at` >= DATE_SUB(NOW(), INTERVAL 24 HOUR)")
+    );
+  }
 
+  if (mode === "today") {
+    todayRange = getPakistanTodayRange();
     where.created_at = {
       [Op.gte]: todayRange.start,
       [Op.lte]: todayRange.end,
@@ -125,6 +121,8 @@ export function buildPaymentAuditHistoryQuery(reqQuery = {}, options = {}) {
   return {
     where,
     limit,
+    offset,
+    page,
     paymentCloneIdRaw,
     filters: {
       moduleName,
@@ -132,8 +130,15 @@ export function buildPaymentAuditHistoryQuery(reqQuery = {}, options = {}) {
       today: mode === "today",
       last24Hours: mode === "last24",
       timezone: PAKISTAN_TIME_ZONE,
-      from: range.from?.toISOString?.() || null,
-      to: range.to?.toISOString?.() || null,
+      mysqlNowBased: mode === "last24",
+      from:
+        mode === "last24"
+          ? "DATE_SUB(NOW(), INTERVAL 24 HOUR)"
+          : todayRange?.start?.toISOString?.() || null,
+      to:
+        mode === "last24"
+          ? "NOW()"
+          : todayRange?.end?.toISOString?.() || null,
     },
   };
 }

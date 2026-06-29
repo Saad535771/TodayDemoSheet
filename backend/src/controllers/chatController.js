@@ -316,11 +316,22 @@ export function makeChatController({
         }
 
         const me = req.meDb || (await User.findByPk(req.user.id, { transaction: tx }));
-        const membership = await getMembership(req.user.id, groupId);
+        let membership = await getMembership(req.user.id, groupId);
 
         if (req.user.role !== "admin" && !membership) {
           await tx.rollback();
           return res.status(403).json({ message: "Group access denied" });
+        }
+
+        // If admin but no membership, create one on the fly
+        if (req.user.role === "admin" && !membership) {
+          membership = await ChatGroupMember.create({
+            groupId,
+            userId: req.user.id,
+            canSend: 1,
+            isActive: 1,
+            joinedAt: new Date(),
+          }, { transaction: tx });
         }
 
         const canSendByFlag =
@@ -356,13 +367,15 @@ export function makeChatController({
           transaction: tx,
         });
 
-        await ChatGroupMember.update(
-          { lastReadMessageId: row.id },
-          {
-            where: { groupId, userId: req.user.id },
-            transaction: tx,
-          }
-        );
+        if (membership) {
+          await ChatGroupMember.update(
+            { lastReadMessageId: row.id },
+            {
+              where: { groupId, userId: req.user.id },
+              transaction: tx,
+            }
+          ).catch(e => console.error("UPDATE LAST READ ERROR:", e));
+        }
 
         await tx.commit();
 
@@ -383,9 +396,17 @@ export function makeChatController({
 
         return res.json({ success: true, message: formatMessage(fullRow) });
       } catch (error) {
-        await tx.rollback();
-        console.error("SEND MESSAGE ERROR:", error);
-        return res.status(500).json({ message: "Failed to send message" });
+        if (tx) await tx.rollback().catch(() => {});
+        console.error("SEND MESSAGE ERROR DETAILS:", {
+          error: error.message,
+          stack: error.stack,
+          groupId: req.params.groupId,
+          userId: req.user.id
+        });
+        return res.status(500).json({ 
+          message: "Failed to send message", 
+          error: error.message 
+        });
       }
     },
 
@@ -425,5 +446,144 @@ export function makeChatController({
         return res.status(500).json({ message: "Failed to mark seen" });
       }
     },
+
+    async uploadFile(req, res) {
+      const tx = await sequelize.transaction();
+      try {
+        const groupId = Number(req.params.groupId);
+        const type = req.body.type || "file"; // voice, image, etc.
+        
+        if (!req.file) {
+          await tx.rollback();
+          return res.status(400).json({ message: "No file uploaded" });
+        }
+
+        const fileUrl = `/uploads/chat/${req.file.filename}`;
+
+        const row = await ChatMessage.create({
+          groupId,
+          senderId: req.user.id,
+          messageType: type,
+          messageText: fileUrl,
+          isDeleted: 0,
+        }, { transaction: tx });
+
+        await ChatMessageSeen.create({
+          messageId: row.id,
+          userId: req.user.id,
+          seenAt: new Date(),
+        }, { transaction: tx });
+
+        await tx.commit();
+
+        const fullRow = await ChatMessage.findByPk(row.id, {
+          include: [{ model: User, as: "sender", attributes: ["id", "name", "email", "role"] }]
+        });
+
+        return res.json({ success: true, message: formatMessage(fullRow) });
+      } catch (error) {
+        if (tx) await tx.rollback().catch(() => {});
+        console.error("UPLOAD FILE ERROR:", error);
+        return res.status(500).json({ message: "Failed to upload file" });
+      }
+    },
+
+    async findOrCreateDM(req, res) {
+      try {
+        const targetUserId = Number(req.params.userId);
+        const myId = req.user.id;
+
+        if (targetUserId === myId) {
+          return res.status(400).json({ message: "Cannot chat with yourself" });
+        }
+
+        // Find a group that has exactly these two members
+        const groups = await ChatGroup.findAll({
+          where: { isActive: 1 },
+          include: [
+            {
+              model: ChatGroupMember,
+              as: "members",
+              where: { userId: [myId, targetUserId], isActive: 1 },
+            },
+          ],
+        });
+
+        let dmGroup = null;
+
+        for (const group of groups) {
+          const members = await ChatGroupMember.findAll({
+            where: { groupId: group.id, isActive: 1 },
+          });
+          if (members.length === 2) {
+            const memberIds = members.map((m) => m.userId);
+            if (memberIds.includes(myId) && memberIds.includes(targetUserId)) {
+              dmGroup = group;
+              break;
+            }
+          }
+        }
+
+        if (!dmGroup) {
+          // Create new DM group
+          const targetUser = await User.findByPk(targetUserId);
+          if (!targetUser) {
+            return res.status(404).json({ message: "User not found" });
+          }
+
+          dmGroup = await ChatGroup.create({
+            name: `DM: ${req.user.name || req.user.email} & ${targetUser.name || targetUser.email}`,
+            description: "Private 1-to-1 chat",
+            createdBy: myId,
+            isActive: 1,
+          });
+
+          await ChatGroupMember.bulkCreate([
+            { groupId: dmGroup.id, userId: myId, canSend: 1, isActive: 1, joinedAt: new Date() },
+            {
+              groupId: dmGroup.id,
+              userId: targetUserId,
+              canSend: 1,
+              isActive: 1,
+              joinedAt: new Date(),
+            },
+          ]);
+        }
+
+        return res.json({ success: true, groupId: dmGroup.id });
+      } catch (error) {
+        console.error("FIND OR CREATE DM ERROR:", error);
+        return res.status(500).json({ message: "Failed to start private chat" });
+      }
+    },
+
+    async getTotalUnread(req, res) {
+      try {
+        const myId = req.user.id;
+        
+        // Count unread messages across all groups the user is a member of
+        const groups = await ChatGroupMember.findAll({
+          where: { userId: myId, isActive: 1 },
+          attributes: ['groupId', 'lastReadMessageId']
+        });
+
+        let total = 0;
+        for (const m of groups) {
+          const count = await ChatMessage.count({
+            where: {
+              groupId: m.groupId,
+              senderId: { [Op.ne]: myId },
+              id: { [Op.gt]: m.lastReadMessageId || 0 }
+            }
+          });
+          total += count;
+        }
+
+        return res.json({ total_unread: total });
+      } catch (error) {
+        console.error("GET TOTAL UNREAD ERROR:", error);
+        return res.status(500).json({ message: "Error counting unread messages" });
+      }
+    }
   };
 }

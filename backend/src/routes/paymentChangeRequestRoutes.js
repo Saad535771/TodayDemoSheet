@@ -10,11 +10,11 @@ function applyTodayHistoryQuery(req) {
   return req;
 }
 
-function applyLast24HoursQuery(req) {
+function applyLast24HoursHistoryQuery(req) {
   req.query = {
     ...(req.query || {}),
+    today: undefined,
     hours: "24",
-    last24Hours: "1",
     strictLast24: "1",
     historyWindow: "last-24-hours",
   };
@@ -25,12 +25,12 @@ export function createPaymentChangeRequestRoutes(deps) {
   const router = Router();
   const controller = makePaymentChangeRequestController(deps);
 
-  // Permanent complete history routes.
+  // Complete permanent history routes.
   router.get("/summary", controller.summary);
   router.get("/logs", controller.listLogs);
   router.get("/history", controller.listLogs);
 
-  // Today-only routes.
+  // Today-only routes, if needed separately.
   router.get("/summary/today", (req, res) =>
     controller.summary(applyTodayHistoryQuery(req), res)
   );
@@ -42,14 +42,15 @@ export function createPaymentChangeRequestRoutes(deps) {
   );
 
   // Rolling previous 24 hours routes.
+  // These must NOT fall back to today or complete history.
   router.get("/summary/last-24-hours", (req, res) =>
-    controller.summary(applyLast24HoursQuery(req), res)
+    controller.summary(applyLast24HoursHistoryQuery(req), res)
   );
   router.get("/logs/last-24-hours", (req, res) =>
-    controller.listLogs(applyLast24HoursQuery(req), res)
+    controller.listLogs(applyLast24HoursHistoryQuery(req), res)
   );
   router.get("/history/last-24-hours", (req, res) =>
-    controller.listLogs(applyLast24HoursQuery(req), res)
+    controller.listLogs(applyLast24HoursHistoryQuery(req), res)
   );
 
   return router;

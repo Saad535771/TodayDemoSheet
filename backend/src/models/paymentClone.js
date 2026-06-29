@@ -101,6 +101,11 @@ export function definePaymentClone(sequelize) {
         allowNull: true,
         field: "feedback",
       },
+      contactNumber: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        field: "contact_number",
+      },
 
       notes: {
         type: DataTypes.TEXT,

@@ -118,7 +118,6 @@ function hasStatus(value, target) {
   return normalizeMultiValue(value).includes(target);
 }
 
-
 function normalizeText(value) {
   if (value === null || value === undefined) return null;
   const cleaned = String(value).trim();
@@ -282,6 +281,36 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
     });
   }
 
+  async function safeSync(label, fn) {
+    try {
+      await fn();
+      return null;
+    } catch (syncError) {
+      const detail =
+        syncError?.parent?.sqlMessage ||
+        syncError?.original?.sqlMessage ||
+        syncError?.message ||
+        "Unknown sync error";
+
+      console.error(`${label} SYNC ERROR:`, {
+        name: syncError?.name,
+        message: syncError?.message,
+        detail,
+        fields: syncError?.fields,
+        errors: syncError?.errors?.map((e) => ({
+          message: e.message,
+          path: e.path,
+          value: e.value,
+        })),
+      });
+
+      return {
+        label,
+        error: detail,
+      };
+    }
+  }
+
   return {
     async list(req, res) {
       const q = (req.query.q || "").toString().trim();
@@ -337,6 +366,7 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
           "estimatedFee",
           "tutorFee",
           "demoTime",
+          "classTime", // Added: Taaky classTime par search chal sakay
           "demoDate",
           "paymentApprovalStatus"
         ];
@@ -498,6 +528,15 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
       if (timeHour === null || Number.isNaN(timeHour)) timeHour = 12;
 
       try {
+        const existingTuition = await Tuition.findOne({ where: { tuitionId } });
+        if (existingTuition) {
+          return res.status(200).json({
+            item: existingTuition,
+            alreadyExists: true,
+            message: "Tuition already exists. Existing row returned."
+          });
+        }
+
         const maxOrderIndex = await Tuition.max("orderIndex", { where: { isDeleted: 0 } });
         const nextOrderIndex = (Number.isFinite(maxOrderIndex) ? maxOrderIndex : -1) + 1;
 
@@ -534,7 +573,7 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
           estimatedFee: body.estimatedFee || null,
           tutorName: body.tutorName || null,
           tutorFee: body.tutorFee || body.tutorFees || null,
-          classTime: body.classTime || null,
+          classTime: body.classTime || body.class_time || null, // Enhanced: Handle both camelCase and snake_case safely
           secondTutors: body.secondTutors || null,
           rejectedTutor: body.rejectedTutor || null,
           status: initialStatus,
@@ -548,10 +587,28 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
           ...initialApproval
         });
 
-        await syncLinkedOtmPortalEntry({ tuition: item.toJSON() });
-        await upsertTodayDemoFromTuition({ TodayDemo, item: item.toJSON() });
-        await syncPaymentByApprovalState({ Payment, item: item.toJSON() });
-        res.status(201).json({ item });
+        const itemJson = item.toJSON();
+        const syncWarnings = [];
+
+        const otmWarning = await safeSync("OTM PORTAL", () =>
+          syncLinkedOtmPortalEntry({ tuition: itemJson })
+        );
+        if (otmWarning) syncWarnings.push(otmWarning);
+
+        const todayDemoWarning = await safeSync("TODAY DEMO", () =>
+          upsertTodayDemoFromTuition({ TodayDemo, item: itemJson })
+        );
+        if (todayDemoWarning) syncWarnings.push(todayDemoWarning);
+
+        const paymentWarning = await safeSync("PAYMENT", () =>
+          syncPaymentByApprovalState({ Payment, item: itemJson })
+        );
+        if (paymentWarning) syncWarnings.push(paymentWarning);
+
+        return res.status(201).json({
+          item,
+          syncWarnings,
+        });
       } catch (error) {
         console.error("CREATE ERROR:", error);
         res.status(500).json({ message: "Database Error", error: error.message });
@@ -575,14 +632,21 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
         const map = {
           date: "date",
           demoTime: "demoTime",
+          time: "demoTime",
+          classTime: "classTime",      // Added: Handle camelCase update
+          class_time: "classTime",     // Added: Handle snake_case update
           tuitionName: "tuitionName",
           source: "source",
           otmName: "otmName",
           country: "country",
           parentsContact: "parentsContact",
+          parentContact: "parentsContact",
           className: "className",
+          class: "className",
           subjects: "subjects",
+          subject: "subjects",
           daysPerWeek: "daysPerWeek",
+          days_per_week: "daysPerWeek",
           estimatedFee: "estimatedFee",
           tutorName: "tutorName",
           tutorFees: "tutorFee",
@@ -600,6 +664,8 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
           tuitionNameColor: "tuitionNameColor"
         };
 
+        let demoTimeWasTouched = false;
+
         for (const [incoming, field] of Object.entries(map)) {
           if (body[incoming] === undefined) continue;
           let value = body[incoming];
@@ -608,6 +674,12 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
           const isEmpty = value === "" || value === null;
           if (preserveEmpty && isEmpty && PRESERVE_IF_EMPTY.has(field)) continue;
           item[field] = isEmpty ? null : value;
+
+          if (field === "demoTime") demoTimeWasTouched = true;
+        }
+
+        if (demoTimeWasTouched) {
+          item.timeHour = parseHourFromValue(item.demoTime);
         }
 
         const nowHasTuitionDone = hasStatus(item.status, "Tuition Done");
@@ -619,10 +691,26 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
         }
 
         await item.save();
-        await syncLinkedOtmPortalEntry({ tuition: item.toJSON() });
-        await upsertTodayDemoFromTuition({ TodayDemo, item: item.toJSON() });
-        await syncPaymentByApprovalState({ Payment, item: item.toJSON() });
-        res.json({ item });
+
+        const itemJson = item.toJSON();
+        const syncWarnings = [];
+
+        const otmWarning = await safeSync("OTM PORTAL", () =>
+          syncLinkedOtmPortalEntry({ tuition: itemJson })
+        );
+        if (otmWarning) syncWarnings.push(otmWarning);
+
+        const todayDemoWarning = await safeSync("TODAY DEMO", () =>
+          upsertTodayDemoFromTuition({ TodayDemo, item: itemJson })
+        );
+        if (todayDemoWarning) syncWarnings.push(todayDemoWarning);
+
+        const paymentWarning = await safeSync("PAYMENT", () =>
+          syncPaymentByApprovalState({ Payment, item: itemJson })
+        );
+        if (paymentWarning) syncWarnings.push(paymentWarning);
+
+        return res.json({ item, syncWarnings });
       } catch (error) {
         console.error("TUITION UPDATE ERROR:", error);
         res.status(500).json({ message: "Update failed", error: error.message });
@@ -635,10 +723,16 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
       if (result[0] === 0) return res.status(404).json({ message: "Not found" });
 
       if (OtmTuitionEntry) {
-        await OtmTuitionEntry.destroy({ where: { sourceTuitionId: tuitionId } });
+        await safeSync("OTM PORTAL REMOVE", () =>
+          OtmTuitionEntry.destroy({ where: { sourceTuitionId: tuitionId } })
+        );
       }
-      await removeTodayDemoByTuitionId({ TodayDemo, tuitionId });
-      await removePaymentByTuitionId({ Payment, tuitionId });
+      await safeSync("TODAY DEMO REMOVE", () =>
+        removeTodayDemoByTuitionId({ TodayDemo, tuitionId })
+      );
+      await safeSync("PAYMENT REMOVE", () =>
+        removePaymentByTuitionId({ Payment, tuitionId })
+      );
       res.json({ ok: true, message: "Moved to Recycle Bin" });
     },
 
@@ -665,9 +759,16 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
           await item.save();
         }
 
-        await syncLinkedOtmPortalEntry({ tuition: item.toJSON() });
-        await upsertTodayDemoFromTuition({ TodayDemo, item: item.toJSON() });
-        await syncPaymentByApprovalState({ Payment, item: item.toJSON() });
+        const itemJson = item.toJSON();
+        await safeSync("OTM PORTAL", () =>
+          syncLinkedOtmPortalEntry({ tuition: itemJson })
+        );
+        await safeSync("TODAY DEMO", () =>
+          upsertTodayDemoFromTuition({ TodayDemo, item: itemJson })
+        );
+        await safeSync("PAYMENT", () =>
+          syncPaymentByApprovalState({ Payment, item: itemJson })
+        );
       }
 
       res.json({ success: true, message: "Restored successfully" });
@@ -681,7 +782,9 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
       const { id } = req.params;
       const item = await Tuition.findByPk(id);
       if (item?.tuitionId && OtmTuitionEntry) {
-        await OtmTuitionEntry.destroy({ where: { sourceTuitionId: item.tuitionId } });
+        await safeSync("OTM PORTAL FORCE DELETE", () =>
+          OtmTuitionEntry.destroy({ where: { sourceTuitionId: item.tuitionId } })
+        );
       }
       await Tuition.destroy({ where: { id } });
       res.json({ success: true, message: "Permanently deleted" });

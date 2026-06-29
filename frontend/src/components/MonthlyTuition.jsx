@@ -195,6 +195,7 @@ function emptyForm() {
     date: new Date().toISOString().split("T")[0],
     time: "",
     demoTime: "",
+     classTime: "",
     tuitionName: "",
     source: "",
     parentsContact: "",
@@ -297,6 +298,7 @@ export default function MonthlyTuition({ onLoad }) {
     "tuitionId",
     "date",
     "demoTime",
+     "classTime",
     "tuitionName",
     "source",
     "parentsContact",
@@ -587,7 +589,23 @@ export default function MonthlyTuition({ onLoad }) {
           onKeyDown={(e) => handleTextLikeKeyDown("demoTime", e)}
           inputStyle={getInputStyle("demoTime")}
         />
-
+  
+  <CreateField
+          label="Class Time"
+          type="text"
+          val={form.classTime}
+          onChange={(v) => setCreateField("classTime", v)}
+          onBlur={() => setCreateField("classTime", formatTo12Hour(form.classTime))}
+          width="80px"
+          placeholder="hh:mm AM/PM with text"
+          inputRef={(el) => (fieldRefs.current.classTime = el)}
+          onFocus={() => {
+            setFocusedField("classTime");
+            setOpenDropdown(null);
+          }}
+          onKeyDown={(e) => handleTextLikeKeyDown("classTime", e)}
+          inputStyle={getInputStyle("classTime")}
+        />
         <CreateField
           label="Tuition Name"
           val={form.tuitionName}
@@ -601,7 +619,6 @@ export default function MonthlyTuition({ onLoad }) {
           onKeyDown={(e) => handleTextLikeKeyDown("tuitionName", e)}
           inputStyle={getInputStyle("tuitionName")}
         />
-
         <DropdownField
           label="Source"
           fieldName="source"

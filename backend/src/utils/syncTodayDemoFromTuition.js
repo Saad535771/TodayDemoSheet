@@ -2,12 +2,24 @@ import { parseHourFromValue } from "./time.js";
 
 // Reverse sync: TodayDemo -> MonthlySheet
 export const REVERSE_SYNC_FIELDS = [
+  "demoTime",
+  "timeHour",
+  "tuitionName",
+  "source",
+  "country",
+  "parentsContact",
+  "className",
+  "subjects",
+  "daysPerWeek",
   "tutorName",
+  "tutorFee",
+  "rejectedTutor",
   "status",
   "feedback",
+  "demoDate",
   "demoRating",
-  "tutorFee",
-  "daysPerWeek",
+  "syncFlag",
+  "classTime", // Added: Taaky target update se wapas main table mein sync ho sake
 ];
 
 // Monthly -> TodayDemo mein in fields ko overwrite nahi karna
@@ -77,6 +89,9 @@ export function buildTodayDemoPayloadFromTuition(
     demoDate: normalizeDate(item.demoDate),
     demoRating: item.demoRating || null,
     syncFlag: item.syncFlag || null,
+    
+    // Added: Dono variants handle kar diye taaky data load hotay waqt miss na ho
+    classTime: item.classTime ?? item.class_time ?? null, 
   };
 
   for (const field of skipFields) {

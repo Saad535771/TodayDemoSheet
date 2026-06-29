@@ -3052,13 +3052,10 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                 className="pswd-zoom-btn"
                 disabled={zoomLevel <= MIN_ZOOM}
                 title="Zoom out"
-                aria-label="Zoom out"
-              >
+                aria-label="Zoom out">
                 -
               </button>
-
               <div className="pswd-zoom-value">{zoomPercent}</div>
-
               <button
                 type="button"
                 onClick={() => changeZoom("in")}

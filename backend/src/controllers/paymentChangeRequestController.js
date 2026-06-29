@@ -201,7 +201,7 @@ export function makePaymentChangeRequestController({
           limit: strictLast24 ? 5000 : filters.today ? 5000 : 1000,
         });
 
-        const items = filterLogsToLast24Hours(rows.map(normalizeLog), req);
+       const items = rows.map(normalizeLog);
         const filtered = filterByHistoryRowId(items, paymentCloneIdRaw);
 
         return res.json({ count: filtered.length, filters });
@@ -219,7 +219,7 @@ export function makePaymentChangeRequestController({
       }
 
       try {
-        const { where, limit, paymentCloneIdRaw, filters } = buildPaymentAuditHistoryQuery(
+        const { where, limit, offset, page, paymentCloneIdRaw, filters } = buildPaymentAuditHistoryQuery(
           req.query,
           {
             defaultLimit: 500,
@@ -230,7 +230,7 @@ export function makePaymentChangeRequestController({
         const strictWhere = addLast24HoursFilterToWhere(where, req);
         const strictLast24 = isLast24HoursRequest(req);
 
-        const rows = await PaymentChangeRequest.findAll({
+        const { count, rows } = await PaymentChangeRequest.findAndCountAll({
           where: strictWhere,
           include: User
             ? [
@@ -244,9 +244,10 @@ export function makePaymentChangeRequestController({
             : [],
           order: [["created_at", "DESC"]],
           limit: strictLast24 ? Math.max(limit, 5000) : limit,
+          offset: strictLast24 ? 0 : offset,
         });
 
-        const normalizedItems = filterLogsToLast24Hours(rows.map(normalizeLog), req);
+        const normalizedItems = rows.map(normalizeLog);
         const items = filterByHistoryRowId(normalizedItems, paymentCloneIdRaw);
 
         const actors = [];
@@ -262,6 +263,10 @@ export function makePaymentChangeRequestController({
         return res.json({
           items,
           actors,
+          totalItems: count,
+          totalPages: Math.ceil(count / limit),
+          currentPage: page,
+          pageSize: limit,
           filters,
         });
       } catch (err) {
