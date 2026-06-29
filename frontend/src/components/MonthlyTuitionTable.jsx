@@ -610,7 +610,6 @@ const ColorSwatch = ({
 export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const [localItems, setLocalItems] = useState([]);
   const [selectedRows, setSelectedRows] = useState(new Set());
-
   const [searchTerm, setSearchTerm] = useState("");
   const [pendingMonth, setPendingMonth] = useState(getCurrentMonthValue());
   const [pendingYear, setPendingYear] = useState(String(getCurrentYearValue()));
@@ -622,16 +621,15 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
   const [assignedFilter, setAssignedFilter] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [otmUserOptions, setOtmUserOptions] = useState([""]);
-
   const [selectedCell, setSelectedCell] = useState(null);
   const [anchorCell, setAnchorCell] = useState(null);
   const [selectedCells, setSelectedCells] = useState(new Set());
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState("");
   const [statusEditorSearch, setStatusEditorSearch] = useState("");
-
   const [activeColorPicker, setActiveColorPicker] = useState(null);
-
+  const [dragIndex, setDragIndex] = useState(null);
+  const [dropIndex, setDropIndex] = useState(null);
   const tableWrapperRef = useRef(null);
   const localItemsRef = useRef(localItems);
   const editingCellRef = useRef(editingCell);
@@ -1791,7 +1789,23 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       alert("Delete failed");
     }
   }
-
+const reorderRows = async (fromIndex, toIndex) => {
+    if (fromIndex === toIndex) return;
+    const newItems = [...localItems];
+    const [removed] = newItems.splice(fromIndex, 1);
+    newItems.splice(toIndex, 0, removed);
+    setLocalItems(newItems);
+    try {
+      const reorderPayload = newItems.map((item, idx) => ({
+        tuitionId: item.tuitionId,
+        orderIndex: idx,
+      }));
+      await api.post("/tuitions/reorder", { items: reorderPayload });
+    } catch (error) {
+      console.error("Reorder failed", error);
+      load();
+    }
+  };
   const moveRow = async (index, direction) => {
     if (direction === "up" && index === 0) return;
     if (direction === "down" && index === localItems.length - 1) return;
@@ -2565,10 +2579,31 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                 localItems.map((it, index) => (
                   <tr
                     key={it.tuitionId}
-                    style={{
-                      backgroundColor: it.rowColor || "inherit",
-                      transition: "background 0.2s",
-                    }}>
+
+                   style={{
+                      backgroundColor: dropIndex === index ? '#e5f0ff' : (it.rowColor || 'inherit'),
+                      opacity: dragIndex === index ? 0.5 : 1,
+                      transition: 'background 0.2s, opacity 0.2s',
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault(); // allow drop
+                      setDropIndex(index);
+                    }}
+                    onDragLeave={() => setDropIndex(null)}
+                    onDrop={async (e) => {
+                      e.preventDefault();
+                      const draggedIdx = Number(e.dataTransfer.getData('text/plain'));
+                      if (draggedIdx !== index) {
+                        await reorderRows(draggedIdx, index);
+                      }
+                      setDragIndex(null);
+                      setDropIndex(null);
+                    }}
+                    onDragEnd={() => {
+                      setDragIndex(null);
+                      setDropIndex(null);
+                    }}
+                    >
                     <td
                       style={{
                         ...styles.td,
@@ -2576,8 +2611,15 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
                         backgroundColor: "inherit",
                         fontWeight: selectedRows.has(it.tuitionId) ? "700" : "600",
                         color: selectedRows.has(it.tuitionId) ? "#107c41" : "#444",
-                      }}>
-                      {index + 1}
+                      }} 
+                        draggable={true}
+                      onDragStart={(e) => {
+                        setDragIndex(index);
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', String(index));
+                      }}
+                      style={{ ...styles.td, textAlign: 'center', cursor: 'grab' }}>
+                      {index + 1}          
                     </td>
                     <td
                       style={{

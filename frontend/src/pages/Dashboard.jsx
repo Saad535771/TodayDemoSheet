@@ -13,11 +13,11 @@ import NewStaffCreate from "../components/NewStaffCreate.jsx";
 import Logo from "../assets/Logo-1-Blue.png";
 import OtmManagement from "../components/OtmManagement.jsx";
 import TeamChat from "../components/TeamChat.jsx";
+
 const LAST_TAB_KEY = "dashboard_active_tab";
 const TAB_SCROLL_KEY = "dashboard_tab_scroll_positions";
 const SESSION_KEY = "dashboard_session_id";
 const HEARTBEAT_MS = 20000;
-const BADGE_POLL_MS = 15000;
 const BADGE_META_KEY = "dashboard_badge_meta_v2";
 
 const DEFAULT_BADGE_META = {
@@ -345,13 +345,12 @@ export default function Dashboard() {
     });
   }
 
-
   function applyNotificationSummary(summary = {}, activeKey = tab) {
     const modules = summary?.modules || {};
     const next = { ...DEFAULT_BADGE_META, ...badgeMetaRef.current };
 
     Object.keys(DEFAULT_BADGE_META).forEach((key) => {
-      if (key === "chat") return; // chat ka apna unread system already hai
+      if (key === "chat") return;
 
       const moduleMeta = modules[key] || {};
       const unread = Number(
@@ -397,57 +396,31 @@ export default function Dashboard() {
         key: "main",
         label: "📅 Monthly Tuitions",
         permissionKey: "access_monthly",
-        component: (
-          <MainTuitions
-            isActive={tab === "main"}
-            onCountChange={(count) => syncTabCount("main", count)}
-          />
-        ),
+        component: <MainTuitions isActive={tab === "main"} onCountChange={(count) => syncTabCount("main", count)} />,
       },
       {
         key: "target",
         label: "🔥 Today Demo",
         permissionKey: "access_demo",
-        component: (
-          <TargetBoard
-            isActive={tab === "target"}
-            onCountChange={(count) => syncTabCount("target", count)}
-          />
-        ),
+        component: <TargetBoard isActive={tab === "target"} onCountChange={(count) => syncTabCount("target", count)} />,
       },
       {
         key: "payment",
         label: "💳 Payment Sheet",
         permissionKey: "access_payment_sheet",
-        component: (
-          <PaymentSheet
-            me={me}
-            isActive={tab === "payment"}
-            onCountChange={(count) => syncTabCount("payment", count)}
-          />
-        ),
+        component: <PaymentSheet me={me} isActive={tab === "payment"} onCountChange={(count) => syncTabCount("payment", count)} />,
       },
       {
         key: "hod_approvals",
         label: "✅ HOD Approvals",
         permissionKey: "access_hod_approvals",
-        component: (
-          <HodApprovals
-            me={me}
-            onCountChange={(count) => syncTabCount("hod_approvals", count)}
-          />
-        ),
+        component: <HodApprovals me={me} onCountChange={(count) => syncTabCount("hod_approvals", count)} />,
       },
       {
         key: "trash",
         label: "🗑️ Recycle Bin",
         permissionKey: "access_trash",
-        component: (
-          <TrashBin
-            isActive={tab === "trash"}
-            onCountChange={(count) => syncTabCount("trash", count)}
-          />
-        ),
+        component: <TrashBin isActive={tab === "trash"} onCountChange={(count) => syncTabCount("trash", count)} />,
       },
       {
         key: "chat",
@@ -471,12 +444,7 @@ export default function Dashboard() {
         key: "otm_management",
         label: "📘 Management Portal",
         permissionKey: "access_otm_management",
-        component: (
-          <OtmManagement
-            isActive={tab === "otm_management"}
-            onCountChange={(count) => syncTabCount("otm_management", count)}
-          />
-        ),
+        component: <OtmManagement isActive={tab === "otm_management"} onCountChange={(count) => syncTabCount("otm_management", count)} />,
       },
     ];
   }, [me, tab]);
@@ -652,6 +620,7 @@ export default function Dashboard() {
       });
   }, []);
 
+  // Restore scroll when tab becomes active (though now unnecessary, we keep it)
   useEffect(() => {
     if (!tab) return;
 
@@ -683,8 +652,6 @@ export default function Dashboard() {
       if (contentRefs.current.__raf2) cancelAnimationFrame(contentRefs.current.__raf2);
     };
   }, [tab]);
-
-
 
   useEffect(() => {
     if (!me) return undefined;
@@ -762,9 +729,6 @@ export default function Dashboard() {
       void sendHeartbeat(tab);
     }, HEARTBEAT_MS);
 
-    // Realtime notifications now come from Socket.IO + /notifications/unread-summary.
-    // Old 15-second badge polling is disabled to avoid duplicate counts.
-
     const handleBeforeUnload = () => {
       saveTabPosition(tab);
       void markOffline();
@@ -784,9 +748,7 @@ export default function Dashboard() {
   }, [me, tab]);
 
   const currentTitle = activeTabConfig?.label || "Dashboard";
-{me && (role === "admin" || Number(me?.access_chat || 0) === 1) ? (
-  <FloatingChatWidget me={me} />
-) : null}
+
   return (
     <div style={styles.dashboardContainer}>
       <div style={styles.topbar}>
@@ -862,22 +824,34 @@ export default function Dashboard() {
             {currentTitle}
           </div>
 
-          <div
-            ref={(node) => {
-              if (activeTabConfig?.key) {
-                contentRefs.current[activeTabConfig.key] = node;
-              }
-            }}
-            style={{ minHeight: "calc(100vh - 180px)" }}
-          >
-            {activeTabConfig ? (
-              activeTabConfig.component
-            ) : (
-              <DashboardFallback title="No access" />
-            )}
-          </div>
+          {/* Render all tabs, hide inactive ones */}
+          {allowedTabs.map((tabConfig) => {
+            const isActive = tab === tabConfig.key;
+            return (
+              <div
+                key={tabConfig.key}
+                ref={(node) => {
+                  if (node) {
+                    contentRefs.current[tabConfig.key] = node;
+                  }
+                }}
+                style={{
+                  display: isActive ? "block" : "none",
+                  minHeight: "calc(100vh - 180px)",
+                }}
+              >
+                {React.cloneElement(tabConfig.component, {
+                  isActive: isActive,
+                })}
+              </div>
+            );
+          })}
         </div>
       </div>
+
+      {me && (role === "admin" || Number(me?.access_chat || 0) === 1) ? (
+        <FloatingChatWidget me={me} />
+      ) : null}
     </div>
   );
 }
