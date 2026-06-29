@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { api } from "../api/api.js";
-
 const styles = {
   card: {
     background: "#ffffff",
@@ -1069,6 +1068,8 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState("");
   const [activeColorPicker, setActiveColorPicker] = useState(null);
+  const [dragIndex, setDragIndex] = useState(null);
+  const [dropIndex, setDropIndex] = useState(null);
   const role = "admin";
   const themeColor = role === "admin" ? "#000000" : "#7b4397";
   const [isUnlocked, setIsUnlocked] = useState(!isProtected);
@@ -2128,11 +2129,26 @@ const effectiveZoom = useMemo(() => {
       cancelEdit({ rowIndex, colId });
     }
   };
-
+  const reorderRows = async (fromIndex, toIndex) => {
+    if (fromIndex === toIndex) return;
+    const newItems = [...localItems];
+    const [removed] = newItems.splice(fromIndex, 1);
+    newItems.splice(toIndex, 0, removed);
+    setLocalItems(newItems);
+    try {
+      const reorderPayload = newItems.map((item, idx) => ({
+        tuitionId: item.tuitionId,
+        orderIndex: idx,
+      }));
+      await api.post("/target/reorder", { items: reorderPayload });
+    } catch (error) {
+      console.error("Reorder failed", error);
+      if (onChanged) onChanged();
+    }
+  };
   const moveRow = async (index, direction) => {
     if (direction === "up" && index === 0) return;
     if (direction === "down" && index === localItems.length - 1) return;
-
     const newItems = [...localItems];
     const targetIndex = direction === "up" ? index - 1 : index + 1;
     [newItems[index], newItems[targetIndex]] = [newItems[targetIndex], newItems[index]];
@@ -2522,9 +2538,7 @@ const resetLocalZoom = (e) => {
           100% { background-position: 200% 0; }
         }
       `}</style>
-
       <GlobalSearchHost />
-
       <div style={styles.card}>
         <div style={styles.header(open, themeColor)} onClick={handleHeaderClick}>
           <div>
@@ -2532,10 +2546,7 @@ const resetLocalZoom = (e) => {
               {isProtected && !isUnlocked ? "🔒 " : ""} {slot.slotHeader}
             </h3>
           </div>
-
-         
         </div>
-
         {open && isUnlocked ? (
           <div style={styles.tableWrapper} ref={tableWrapperRef}>
             <div
@@ -2544,8 +2555,7 @@ const resetLocalZoom = (e) => {
                 justifyContent: "center",
                 alignItems: "center",
                 margin: "8px 12px",
-              }}
-            >
+              }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {selectedRows.size > 0 && (
                   <>
@@ -2697,14 +2707,33 @@ const resetLocalZoom = (e) => {
                       const rowMatched = !!searchTerm && itemMatchesSearch(it, searchTerm);
                       return (
                         <tr
-                          id={rowId}
-                          key={it.tuitionId}
-                          className={rowMatched ? "match-row" : ""}
-                          style={{
-                            backgroundColor: it.rowColor || "inherit",
-                            transition: "background 0.2s, box-shadow 0.2s",
-                          }}
-                          tabIndex={-1}
+                           id={rowId}
+                            key={it.tuitionId}
+                            className={rowMatched ? "match-row" : ""}
+                            style={{
+                              backgroundColor: dropIndex === visibleIndex ? '#e5f0ff' : (it.rowColor || 'inherit'),
+                              opacity: dragIndex === visibleIndex ? 0.5 : 1,
+                              transition: 'background 0.2s, opacity 0.2s',
+                            }}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              setDropIndex(visibleIndex);
+                            }}
+                            onDragLeave={() => setDropIndex(null)}
+                            onDrop={async (e) => {
+                              e.preventDefault();
+                              const draggedIdx = Number(e.dataTransfer.getData('text/plain'));
+                              if (draggedIdx !== visibleIndex) {
+                                await reorderRows(draggedIdx, visibleIndex);
+                              }
+                              setDragIndex(null);
+                              setDropIndex(null);
+                            }}
+                            onDragEnd={() => {
+                              setDragIndex(null);
+                              setDropIndex(null);
+                            }}
+                          // tabIndex={-1}
                         >
                           <td style={{ ...styles.td, textAlign: "center", backgroundColor: "inherit" }}>
                             <input
