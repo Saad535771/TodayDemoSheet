@@ -541,7 +541,7 @@ function areItemListsEqual(left = [], right = []) {
   return JSON.stringify(left || []) === JSON.stringify(right || []);
 }
 const gridColumns = [
-  { id: "demoTime", label: "Demo Time", width: 100, editable: true, field: "demoTime", type: "time" },
+  { id: "demoTime", fontSize:'23px', label: "Demo Time", width: 100, editable: true, field: "demoTime", type: "time" },
   { id: "classTime", label: "Class Time", width: 100, editable: true, field: "classTime", type: "text" },
   { id: "tuitionName", label: "Tuition Name", width: 60, editable: true, field: "tuitionName", kind: "tuitionName" },
   { id: "source", label: "Source", width: 70, editable: true, field: "source", kind: "select", options: SOURCES_LIST, pill: "source" },
