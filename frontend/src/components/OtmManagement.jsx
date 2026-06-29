@@ -407,7 +407,7 @@ export default function OtmManagement() {
       title={isAdmin ? `OTM Portal - ${selectedUser?.name || "User"}` : "OTM Management"}
       subtitle={
         isAdmin
-          ? `Admin mode: ${selectedUser?.name || "User"} ka portal bina reload ke edit ho sakta hai.`
+          ? `Admin mode: ${selectedUser?.name || "User"} can edit without readload`
           : `Logged in as ${user?.name || user?.email || "OTM User"}`
       }
       initialEntries={entries}
