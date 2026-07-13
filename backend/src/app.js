@@ -80,8 +80,10 @@ export function makeApp({
   targetRoutes,
   paymentRoutes,
   paymentCloneRoutes,
+   paymentCloneTeamBRoutes,
   otmManagementRoutes,
   paymentChangeRequestRoutes,
+  paymentChangeRequestTeamBRoutes,
   chatRoutes,
   notificationRoutes,
 notificationService,
@@ -115,9 +117,11 @@ notificationService,
   app.use("/api/target", targetRoutes);
   app.use("/api/payments", paymentRoutes);
   app.use("/api/payments-clone", paymentCloneRoutes);
+  app.use("/api/payments-clone-team-b", paymentCloneTeamBRoutes);
   app.use("/api/otm-management", otmManagementRoutes);
   app.use("/api/chat", chatRoutes);
   app.use("/api/payment-change-requests", requireAuth, paymentChangeRequestRoutes);
+  app.use("/api/payment-change-requests-team-b", requireAuth, paymentChangeRequestTeamBRoutes);
  app.use("/api/notifications", notificationRoutes);
   app.use((err, req, res, next) => {
     applyCorsHeaders(req, res);

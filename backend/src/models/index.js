@@ -3,6 +3,8 @@ import { defineTuition } from "./Tuition.js";
 import { definePayment } from "./Payment.js";
 import { definePaymentClone } from "./paymentClone.js";
 import { definePaymentCloneTrash } from "./PaymentCloneTrash.js";
+import { definePaymentCloneTeamB } from "./PaymentCloneTeamB.js";
+import { definePaymentCloneTrashTeamB } from "./PaymentCloneTrashTeamB.js";
 import defineTodayDemo from "./TodayDemo.js";
 import { defineUserPresence } from "./UserPresence.js";
 import { defineOtmTuitionEntry } from "./OtmTuitionEntry.js";
@@ -20,6 +22,8 @@ export function initModels(sequelize) {
   const Payment = definePayment(sequelize);
   const PaymentClone = definePaymentClone(sequelize);
   const PaymentCloneTrash = definePaymentCloneTrash(sequelize);
+  const PaymentCloneTeamB = definePaymentCloneTeamB(sequelize);
+  const PaymentCloneTrashTeamB = definePaymentCloneTrashTeamB(sequelize);
   const TodayDemo = defineTodayDemo(sequelize);
   const UserPresence = defineUserPresence(sequelize);
   const OtmTuitionEntry = defineOtmTuitionEntry(sequelize);
@@ -49,7 +53,7 @@ export function initModels(sequelize) {
   PaymentChangeRequest.belongsTo(User, { foreignKey: "approvedBy", as: "approvedByUser" });
   PaymentChangeRequest.belongsTo(User, { foreignKey: "rejectedBy", as: "rejectedByUser" });
   PaymentChangeRequest.belongsTo(PaymentClone, { foreignKey: "paymentCloneId", as: "paymentClone" });
-
+  PaymentChangeRequest.belongsTo(PaymentCloneTeamB, { foreignKey: "paymentCloneTeamBId", as: "paymentCloneTeamB" });
   ChatGroup.hasMany(ChatGroupMember, { foreignKey: "groupId", as: "members" });
   ChatGroupMember.belongsTo(ChatGroup, { foreignKey: "groupId", as: "group" });
 
@@ -74,6 +78,8 @@ export function initModels(sequelize) {
     Payment,
     PaymentClone,
     PaymentCloneTrash,
+    PaymentCloneTeamB,
+    PaymentCloneTrashTeamB,
     TodayDemo,
     Target: TodayDemo,
     UserPresence,

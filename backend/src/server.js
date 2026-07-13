@@ -9,6 +9,7 @@ import { makeTuitionController } from "./controllers/tuitionController.js";
 import { makeTargetController } from "./controllers/targetController.js";
 import { makePaymentController } from "./controllers/paymentController.js";
 import { makePaymentCloneController } from "./controllers/paymentCloneController.js";
+import { makePaymentCloneTeamBController } from "./controllers/paymentCloneTeamBController.js";
 import { makeOtmManagementController } from "./controllers/otmManagementController.js";
 import { makeChatController } from "./controllers/chatController.js";
 import { makeAuthRoutes } from "./routes/authRoutes.js";
@@ -16,8 +17,10 @@ import { makeTuitionRoutes } from "./routes/tuitionRoutes.js";
 import { makeTargetRoutes } from "./routes/targetRoutes.js";
 import { makePaymentRoutes } from "./routes/paymentRoutes.js";
 import { makePaymentCloneRoutes } from "./routes/paymentCloneRoutes.js";
+import { makePaymentCloneTeamBRoutes } from "./routes/paymentCloneTeamBRoutes.js";
 import { makeOtmManagementRoutes } from "./routes/otmManagementRoutes.js";
 import { createPaymentChangeRequestRoutes } from "./routes/paymentChangeRequestRoutes.js";
+import { createPaymentChangeRequestTeamBRoutes } from "./routes/paymentChangeRequestTeamBRoutes.js";
 import { makeChatRoutes } from "./routes/chatRoutes.js";
 import { makeNotificationController } from "./controllers/notificationController.js";
 import { makeNotificationRoutes } from "./routes/notificationRoutes.js";
@@ -41,6 +44,8 @@ async function main() {
     const {
       PaymentClone,
       PaymentCloneTrash,
+      PaymentCloneTeamB,
+      PaymentCloneTrashTeamB,
       PaymentChangeRequest,
       User,
       OtmTuitionEntry,
@@ -70,6 +75,12 @@ async function main() {
       PaymentChangeRequest,
       User,
     });
+    const paymentCloneTeamBController = makePaymentCloneTeamBController({
+      PaymentCloneTeamB,
+      PaymentCloneTrashTeamB,
+      PaymentChangeRequest,
+      User,
+    });
     const otmManagementController = makeOtmManagementController({
       User,
       OtmTuitionEntry,
@@ -90,11 +101,18 @@ async function main() {
     const targetRoutes = makeTargetRoutes(targetController, requireAuth);
     const paymentRoutes = makePaymentRoutes(paymentController);
     const paymentCloneRoutes = makePaymentCloneRoutes(paymentCloneController, requireAuth);
+    const paymentCloneTeamBRoutes = makePaymentCloneTeamBRoutes(paymentCloneTeamBController, requireAuth);
     const otmManagementRoutes = makeOtmManagementRoutes(otmManagementController);
     const chatRoutes = makeChatRoutes(chatController);
     const paymentChangeRequestRoutes = createPaymentChangeRequestRoutes({
       PaymentClone,
       PaymentCloneTrash,
+      PaymentChangeRequest,
+      User,
+    });
+    const paymentChangeRequestTeamBRoutes = createPaymentChangeRequestTeamBRoutes({
+      PaymentCloneTeamB,
+      PaymentCloneTrashTeamB,
       PaymentChangeRequest,
       User,
     });
@@ -106,8 +124,10 @@ const notificationRoutes = makeNotificationRoutes(notificationController);
       targetRoutes,
       paymentRoutes,
       paymentCloneRoutes,
+      paymentCloneTeamBRoutes,
       otmManagementRoutes,
       paymentChangeRequestRoutes,
+      paymentChangeRequestTeamBRoutes,
       chatRoutes,
       notificationRoutes,
       notificationService,
@@ -127,8 +147,11 @@ const notificationRoutes = makeNotificationRoutes(notificationController);
     httpServer.listen(port, () => {
       console.log(`🚀 Server running on http://localhost:${port}`);
     });
-    startDailyJob({
-      onRun: () => paymentCloneController.syncCurrentPakistanPaymentCycle({ source: "daily-job" }),
+   startDailyJob({
+      onRun: () => {
+        paymentCloneController.syncCurrentPakistanPaymentCycle({ source: "daily-job" });
+        paymentCloneTeamBController.syncCurrentPakistanPaymentCycle({ source: "daily-job" });
+      },
       runOnStart: true,
     });
     startPaymentChangeRequestCleanup({

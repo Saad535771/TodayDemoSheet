@@ -300,8 +300,13 @@ function applyPaymentCycleFields(payload = {}, beforeData = null, options = {}) 
 
   // Active/non-cancelled existing rows current Pakistan month cycle mein move hongi.
   // Create row ke waqt selected month tab ki date already above set ho chuki hoti hai.
-  if (beforeData && !hasDatePatch && !targetCycleDate) {
-    payload.date = currentCycleDate;
+ if (beforeData && !hasDatePatch && !targetCycleDate) {
+    const beforeDate = normalizeDateOnly(beforeData?.date ?? null, null);
+    
+    // ONLY push to the current cycle if the row previously belonged to the immediate previous cycle
+    if (beforeDate === previousCycleDate) {
+      payload.date = currentCycleDate;
+    }
   }
 
   return payload;
@@ -730,47 +735,49 @@ export function makePaymentCloneController({
       total: rows.length,
     };
 
-    for (const row of rows) {
-      const raw = toPlain(row);
-      const cancelled = statusHasTuitionCancelled(raw?.status);
-      const currentDate = normalizeDateOnly(raw?.date ?? null, null);
+for (const row of rows) {
+  const raw = toPlain(row);
+  const cancelled = statusHasTuitionCancelled(raw?.status);
+  const currentDate = normalizeDateOnly(raw?.date ?? null, null);
 
-      if (isManualMonthLockedRow(raw)) {
-        // Manual row jis month tab mein create hui hai, usi month mein rahegi.
-        // Yeh condition only manually-added rows ko skip karti hai; auto-synced rows ka
-        // existing current-month rollover logic same rahega.
-        summary.unchanged += 1;
-        continue;
-      }
+  if (isManualMonthLockedRow(raw)) {
+    summary.unchanged += 1;
+    continue;
+  }
 
-      if (cancelled) {
-        const rowIsOldCancellation = wasRowUpdatedBeforeCurrentPakistanCycle(raw);
+  // 1. Handle Blank Dates: Immediately lock them to March 2026
+  if (!currentDate) {
+    await row.update({ date: "2026-03-01" }, { silent: true });
+    summary.unchanged += 1; 
+    continue; // Stop further processing to keep it securely in March
+  }
 
-        const lockedCycleDate =
-          !currentDate || (currentDate === currentCycleDate && rowIsOldCancellation)
-            ? previousCycleDate
-            : toMonthStartDateString(currentDate, previousCycleDate);
+  // 2. Handle Cancelled Tuitions: Keep them in their locked month
+  if (cancelled) {
+    const rowIsOldCancellation = wasRowUpdatedBeforeCurrentPakistanCycle(raw);
+    const lockedCycleDate =
+      (currentDate === currentCycleDate && rowIsOldCancellation)
+        ? previousCycleDate
+        : toMonthStartDateString(currentDate, previousCycleDate);
 
-        if (currentDate !== lockedCycleDate) {
-          // Sirf date/month-cycle field update hogi. paymentDate manual rahegi.
-          await row.update({ date: lockedCycleDate }, { silent: true });
-          summary.cancelledLockedToPreviousMonth += 1;
-        } else {
-          summary.cancelledKept += 1;
-        }
-
-        continue;
-      }
-
-      if (currentDate !== currentCycleDate) {
-        // Active rows new/current month mein move hongi, lekin paymentDate blank/manual rahegi.
-        await row.update({ date: currentCycleDate }, { silent: true });
-        summary.activeMovedToCurrentMonth += 1;
-      } else {
-        summary.unchanged += 1;
-      }
+    if (currentDate !== lockedCycleDate) {
+      await row.update({ date: lockedCycleDate }, { silent: true });
+      summary.cancelledLockedToPreviousMonth += 1;
+    } else {
+      summary.cancelledKept += 1;
     }
+    continue;
+  }
 
+  // 3. Handle Active Tuitions: ONLY roll over from the immediate previous month
+  if (currentDate === previousCycleDate) {
+    await row.update({ date: currentCycleDate }, { silent: true });
+    summary.activeMovedToCurrentMonth += 1;
+  } else {
+    // Older active months (May, April, March) will remain untouched
+    summary.unchanged += 1;
+  }
+}
     if (summary.activeMovedToCurrentMonth || summary.cancelledLockedToPreviousMonth) {
       console.log("[PaymentCycleSync]", summary);
     }

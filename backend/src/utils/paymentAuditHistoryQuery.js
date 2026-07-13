@@ -88,8 +88,7 @@ export function buildPaymentAuditHistoryQuery(reqQuery = {}, options = {}) {
   );
 
   const paymentCloneIdRaw =
-    reqQuery.paymentCloneId ?? reqQuery.payment_clone_id ?? reqQuery.rowId ?? reqQuery.row_id;
-
+    reqQuery.paymentCloneId ?? reqQuery.payment_clone_id ?? reqQuery.paymentCloneTeamBId ?? reqQuery.payment_clone_team_b_id ?? reqQuery.rowId ?? reqQuery.row_id;
   const requestedLimit = toPositiveInteger(reqQuery.limit, defaultLimit);
   const limit = Math.min(requestedLimit, maxLimit);
   const page = Math.max(1, toPositiveInteger(reqQuery.page, 1));

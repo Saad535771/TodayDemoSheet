@@ -1,6 +1,5 @@
 export function buildPaymentCloneTrashPayload(item) {
   if (!item) return null;
-
   return {
     originalPaymentCloneId: item.id ?? null,
     tuitionId: item.tuitionId ?? null,
@@ -30,7 +29,6 @@ export function buildPaymentCloneTrashPayload(item) {
     daysPerWeek: item.daysPerWeek ?? 0,
   };
 }
-
 export async function movePaymentCloneWithDateToTrash({
   PaymentClone,
   PaymentCloneTrash,
@@ -38,13 +36,9 @@ export async function movePaymentCloneWithDateToTrash({
   transaction,
 }) {
   const row = await PaymentClone.findByPk(id, { transaction });
-
   if (!row) return null;
-
   const payload = buildPaymentCloneTrashPayload(row.toJSON());
-
   await PaymentCloneTrash.create(payload, { transaction });
   await row.destroy({ transaction });
-
   return row;
 }

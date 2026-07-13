@@ -22,6 +22,13 @@ const PERMISSION_FIELDS = [
   { key: "access_lacas_share", label: "LACAS Share" },
   { key: "access_total_fees", label: "Total Fees" },
   { key: "access_payment_actions", label: "Payment Actions" },
+  // team b
+  { key: "access_payment_sheet_clone_team_b", label: "Team B Payment Sheet" },
+  { key: "access_tutor_share_clone_team_b", label: "Team B Tutor Share" },
+  { key: "access_lacas_share_clone_team_b", label: "Team B LACAS Share" },
+  { key: "access_total_fees_clone_team_b", label: "Team B Total Fees" },
+  { key: "access_payment_actions_clone_team_b", label: "Team B Payment Actions" },
+  { key: "access_trash_clone_team_b", label: "Team B Recycle Bin" },
 ];
 
 const defaultPermissions = PERMISSION_FIELDS.reduce((acc, item) => {
@@ -186,8 +193,7 @@ export default function NewStaffCreate({ onCreated }) {
   const [form, setForm] = useState({
     name: "",
     email: "",
-    password: "",
-    role: "staff",
+    password: "",role: "staff",
   });
   const [permissions, setPermissions] = useState(defaultPermissions);
   const [loading, setLoading] = useState(false);
@@ -239,7 +245,7 @@ export default function NewStaffCreate({ onCreated }) {
     }
 
     if (payload.password.length < 6) {
-      setMessage({ type: "error", text: "Password minimum 6 characters ka hona chahiye." });
+      setMessage({ type: "error", text: "Password must be minimum 6 charcters" });
       return;
     }
 
@@ -257,8 +263,8 @@ export default function NewStaffCreate({ onCreated }) {
       setMessage({
         type: "success",
         text: userId
-          ? "New staff successfully create ho gaya aur permissions assign ho gayi hain."
-          : "New staff create ho gaya. User ID response me nahi mili, permissions Staff Manager se set kar dein.",
+          ? "New staff created successfully"
+          : "New staff create but User ID not be response,permissions Staff Manager will be set",
       });
 
       resetForm();

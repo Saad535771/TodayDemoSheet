@@ -27,6 +27,11 @@ export function makeAuthController({ User, UserPresence }) {
   access_lacas_share = 0,
   access_total_fees = 0,
   access_payment_actions = 0,
+  access_payment_sheet_clone_team_b = 0,
+  access_tutor_share_clone_team_b = 0,
+  access_lacas_share_clone_team_b = 0,
+  access_total_fees_clone_team_b = 0,
+  access_payment_actions_clone_team_b = 0,
 }) => {
   if (role === "admin") {
     return {
@@ -35,18 +40,29 @@ export function makeAuthController({ User, UserPresence }) {
       accessLacasShare: 1,
       accessTotalFees: 1,
       accessPaymentActions: 1,
+      accessPaymentSheetCloneTeamB: 1,
+      accessTutorShareCloneTeamB: 1,
+      accessLacasShareCloneTeamB: 1,
+      accessTotalFeesCloneTeamB: 1,
+      accessPaymentActionsCloneTeamB: 1,
     };
   }
 
   const paymentSheetAccess = toBoolInt(access_payment_sheet);
-
+const paymentSheetCloneTeamBAccess = toBoolInt(access_payment_sheet_clone_team_b);
   if (!paymentSheetAccess) {
     return {
-      accessPaymentSheet: 0,
-      accessTutorShare: 0,
-      accessLacasShare: 0,
-      accessTotalFees: 0,
-      accessPaymentActions: 0,
+      accessPaymentSheet: paymentSheetAccess,
+    accessTutorShare: paymentSheetAccess ? toBoolInt(access_tutor_share) : 0,
+    accessLacasShare: paymentSheetAccess ? toBoolInt(access_lacas_share) : 0,
+    accessTotalFees: paymentSheetAccess ? toBoolInt(access_total_fees) : 0,
+    accessPaymentActions: paymentSheetAccess ? toBoolInt(access_payment_actions) : 0,
+    
+    accessPaymentSheetCloneTeamB: paymentSheetCloneTeamBAccess,
+    accessTutorShareCloneTeamB: paymentSheetCloneTeamBAccess ? toBoolInt(access_tutor_share_clone_team_b) : 0,
+    accessLacasShareCloneTeamB: paymentSheetCloneTeamBAccess ? toBoolInt(access_lacas_share_clone_team_b) : 0,
+    accessTotalFeesCloneTeamB: paymentSheetCloneTeamBAccess ? toBoolInt(access_total_fees_clone_team_b) : 0,
+    accessPaymentActionsCloneTeamB: paymentSheetCloneTeamBAccess ? toBoolInt(access_payment_actions_clone_team_b) : 0,
     };
   }
 
@@ -72,6 +88,14 @@ export function makeAuthController({ User, UserPresence }) {
     access_lacas_share: user.accessLacasShare,
     access_total_fees: user.accessTotalFees,
  access_payment_actions: user.accessPaymentActions,
+ 
+ access_payment_sheet_clone_team_b: user.accessPaymentSheetCloneTeamB,
+    access_tutor_share_clone_team_b: user.accessTutorShareCloneTeamB,
+    access_lacas_share_clone_team_b: user.accessLacasShareCloneTeamB,
+    access_total_fees_clone_team_b: user.accessTotalFeesCloneTeamB,
+    access_payment_actions_clone_team_b: user.accessPaymentActionsCloneTeamB,
+    access_trash_clone_team_b: user.accessTrashCloneTeamB,
+
     access_hod_approvals: user.accessHodApprovals,
     access_staff: user.accessStaff,
     access_otm_management: user.accessOtmManagement,

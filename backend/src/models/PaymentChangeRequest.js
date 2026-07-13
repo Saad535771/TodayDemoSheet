@@ -22,7 +22,11 @@ export function definePaymentChangeRequest(sequelize) {
         allowNull: true,
         field: "payment_clone_id",
       },
-
+paymentCloneTeamBId: {
+        type: DataTypes.INTEGER.UNSIGNED,
+        allowNull: true,
+        field: "payment_clone_team_b_id",
+      },
       actionType: {
         type: DataTypes.ENUM("create", "update", "delete", "reorder"),
         allowNull: false,

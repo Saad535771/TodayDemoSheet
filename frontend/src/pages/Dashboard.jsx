@@ -4,6 +4,8 @@ import TargetBoard from "../components/TargetBoard.jsx";
 import StaffManager from "../components/StaffManager.jsx";
 import TrashBin from "../components/TrashBin.jsx";
 import PaymentSheet from "../components/PaymentSheet.jsx";
+import PaymentSheetTeamB from "../components/PaymentSheetTeamB.jsx"; 
+import PaymentCloneTeamBTrashTable from "../components/PaymentCloneTeamBTrashTable.jsx"; // Team B Trash
 import HodApprovals from "../components/HodApprovals.jsx";
 import ActiveUsersPanel from "../components/ActiveUsersPanel.jsx";
 import FloatingChatWidget from "../components/FloatingChatWidget.jsx";
@@ -25,7 +27,9 @@ const DEFAULT_BADGE_META = {
   main: { total: 0, newCount: 0 },
   target: { total: 0, newCount: 0 },
   payment: { total: 0, newCount: 0 },
+  payment_team_b: { total: 0, newCount: 0 },
   trash: { total: 0, newCount: 0 },
+  trash_team_b: { total: 0, newCount: 0 },
   staff: { total: 0, newCount: 0 },
   otm_management: { total: 0, newCount: 0 },
   chat: { total: 0, newCount: 0 },
@@ -105,7 +109,11 @@ async function fetchBadgeCountByKey(key) {
       return readCountFromResponse(data);
     }
     case "payment": {
-      const { data } = await api.get("/payments");
+      const { data } = await api.get("/payments-clone/notifications/count"); // or whatever logic you had
+      return readCountFromResponse(data);
+    }
+    case "payment_team_b": {
+      const { data } = await api.get("/payments-clone-team-b/notifications/count");
       return readCountFromResponse(data);
     }
     case "chat": {
@@ -118,17 +126,13 @@ async function fetchBadgeCountByKey(key) {
         api.get("/payments-clone/trash/all"),
       ]);
 
-      const monthlyCount =
-        monthlyTrashResult.status === "fulfilled"
-          ? readCountFromResponse(monthlyTrashResult.value?.data)
-          : 0;
-
-      const paymentCount =
-        paymentTrashResult.status === "fulfilled"
-          ? readCountFromResponse(paymentTrashResult.value?.data)
-          : 0;
-
+      const monthlyCount = monthlyTrashResult.status === "fulfilled" ? readCountFromResponse(monthlyTrashResult.value?.data)  : 0;
+      const paymentCount = paymentTrashResult.status === "fulfilled"  ? readCountFromResponse(paymentTrashResult.value?.data) :0;
       return monthlyCount + paymentCount;
+    }
+    case "trash_team_b": {
+      const { data } = await api.get("/payments-clone-team-b/trash/all");
+      return readCountFromResponse(data);
     }
     case "staff": {
       const { data } = await api.get("/auth/active-users");
@@ -403,9 +407,15 @@ export default function Dashboard() {
       },
       {
         key: "payment",
-        label: "💳 Payment Sheet",
+        label: "💳 Payment Sheet Team A",
         permissionKey: "access_payment_sheet",
         component: <PaymentSheet me={me} isActive={tab === "payment"} onCountChange={(count) => syncTabCount("payment", count)} />,
+      },
+      {
+        key: "payment_team_b",
+        label: "💳 Payment Sheet B",
+        permissionKey: "access_payment_sheet_clone_team_b",
+        component: <PaymentSheetTeamB me={me} isActive={tab === "payment_team_b"} onCountChange={(count) => syncTabCount("payment_team_b", count)} />,
       },
       {
         key: "hod_approvals",
@@ -415,9 +425,15 @@ export default function Dashboard() {
       },
       {
         key: "trash",
-        label: "🗑️ Recycle Bin",
+        label: "🗑️ Recycle Bin A",
         permissionKey: "access_trash",
         component: <TrashBin isActive={tab === "trash"} onCountChange={(count) => syncTabCount("trash", count)} />,
+      },
+      {
+        key: "trash_team_b",
+        label: "🗑️ Recycle Bin B",
+        permissionKey: "access_trash_clone_team_b",
+        component: <PaymentCloneTeamBTrashTable isActive={tab === "trash_team_b"} onCountChange={(count) => syncTabCount("trash_team_b", count)} />,
       },
       {
         key: "chat",

@@ -135,7 +135,14 @@ export function makeAuthRoutes(authController) {
       permissionValueValidator("access_staff"),
       permissionValueValidator("access_otm_management"),
       permissionValueValidator("access_chat"),
-      permissionValueValidator("access_chat_send")
+      permissionValueValidator("access_chat_send"),
+      
+      permissionValueValidator("access_payment_sheet_clone_team_b"),
+      permissionValueValidator("access_tutor_share_clone_team_b"),
+      permissionValueValidator("access_lacas_share_clone_team_b"),
+      permissionValueValidator("access_total_fees_clone_team_b"),
+      permissionValueValidator("access_payment_actions_clone_team_b"),
+      permissionValueValidator("access_trash_clone_team_b")
     ],
     authController.updatePermissions
   );
