@@ -109,7 +109,7 @@ async function fetchBadgeCountByKey(key) {
       return readCountFromResponse(data);
     }
     case "payment": {
-      const { data } = await api.get("/payments-clone/notifications/count"); // or whatever logic you had
+      const { data } = await api.get("/payments-clone/notifications/count"); 
       return readCountFromResponse(data);
     }
     case "payment_team_b": {
@@ -125,7 +125,6 @@ async function fetchBadgeCountByKey(key) {
         api.get("/tuitions/trash"),
         api.get("/payments-clone/trash/all"),
       ]);
-
       const monthlyCount = monthlyTrashResult.status === "fulfilled" ? readCountFromResponse(monthlyTrashResult.value?.data)  : 0;
       const paymentCount = paymentTrashResult.status === "fulfilled"  ? readCountFromResponse(paymentTrashResult.value?.data) :0;
       return monthlyCount + paymentCount;
@@ -146,24 +145,7 @@ async function fetchBadgeCountByKey(key) {
       return 0;
   }
 }
-function DashboardFallback({ title }) {
-  return (
-    <div
-      style={{
-        margin: "24px",
-        background: "#fff",
-        border: "1px solid #e5e7eb",
-        borderRadius: "14px",
-        padding: "20px",
-        boxShadow: "0 6px 20px rgba(0,0,0,0.04)",
-      }}>
-      <h3 style={{ marginTop: 0 }}>{title}</h3>
-      <p style={{ marginBottom: 0, color: "#666" }}>
-       Please Refresh Page...
-      </p>
-    </div>
-  );
-}
+
 const styles = {
   dashboardContainer: {
     minHeight: "100vh",
@@ -179,11 +161,6 @@ const styles = {
     borderBottom: "1px solid rgba(0,0,0,0.05)",
     boxShadow: "0 4px 20px rgba(0,0,0,0.03)",
     padding: "12px 20px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "16px",
-    flexWrap: "wrap",
   },
   logoSection: {
     display: "flex",
@@ -194,6 +171,7 @@ const styles = {
     color: "#1e3c72",
     textDecoration: "none",
     letterSpacing: "-0.5px",
+    flexShrink: 0,
   },
   logoIcon: {
     width: "52px",
@@ -208,11 +186,6 @@ const styles = {
     color: "white",
     flexShrink: 0,
   },
-  tabsWrap: {
-    flex: 1,
-    minWidth: 0,
-    overflowX: "auto",
-  },
   tabsContainer: {
     display: "flex",
     background: "#f0f2f5",
@@ -220,7 +193,6 @@ const styles = {
     borderRadius: "12px",
     gap: "5px",
     width: "max-content",
-    minWidth: "100%",
     flexWrap: "nowrap",
   },
   tab: (isActive) => ({
@@ -255,13 +227,6 @@ const styles = {
     fontSize: "11px",
     fontWeight: "700",
     padding: "0 6px",
-  },
-  actionSection: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    flexWrap: "wrap",
-    justifyContent: "flex-end",
   },
   userInfo: {
     textAlign: "right",
@@ -633,7 +598,6 @@ export default function Dashboard() {
       });
   }, []);
 
-  // Restore scroll when tab becomes active (though now unnecessary, we keep it)
   useEffect(() => {
     if (!tab) return;
 
@@ -764,7 +728,48 @@ export default function Dashboard() {
 
   return (
     <div style={styles.dashboardContainer}>
-      <div style={styles.topbar}>
+      <style>{`
+        .responsive-topbar {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+        }
+        .responsive-tabs-wrap {
+          flex: 1;
+          min-width: 0;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          padding-bottom: 4px;
+        }
+        .responsive-action {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-shrink: 0;
+        }
+        
+        /* Mobile and Tablet screens */
+        @media (max-width: 992px) {
+          .responsive-tabs-wrap {
+            flex: 1 1 100%;
+            order: 3;
+            margin-top: 5px;
+          }
+        }
+
+        /* Scrollbar Styling for Tabs */
+        .responsive-tabs-wrap::-webkit-scrollbar {
+          height: 6px;
+        }
+        .responsive-tabs-wrap::-webkit-scrollbar-thumb {
+          background-color: #cbd5e1;
+          border-radius: 10px;
+        }
+      `}</style>
+
+      <div style={styles.topbar} className="responsive-topbar">
         <div style={styles.logoSection}>
           <div style={styles.logoIcon}>
             <img
@@ -781,7 +786,7 @@ export default function Dashboard() {
           <div>LACAS Dashboard</div>
         </div>
 
-        <div style={styles.tabsWrap}>
+        <div className="responsive-tabs-wrap">
           <div style={styles.tabsContainer}>
             {allowedTabs.map((item) => {
               const meta =
@@ -820,7 +825,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div style={styles.actionSection}>
+        <div className="responsive-action">
           <div style={styles.userInfo}>
             <div style={styles.userName}>{me?.email || "User"}</div>
             <div style={styles.userRole}>{role || "staff"}</div>
@@ -837,7 +842,6 @@ export default function Dashboard() {
             {currentTitle}
           </div>
 
-          {/* Render all tabs, hide inactive ones */}
           {allowedTabs.map((tabConfig) => {
             const isActive = tab === tabConfig.key;
             return (

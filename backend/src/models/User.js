@@ -12,74 +12,31 @@ export function defineUser(sequelize) {
       defaultValue: "admin"
     },
 
-    accessMonthly: {
-      type: DataTypes.TINYINT,
-      defaultValue: 1,
-      field: "access_monthly"
-    },
-    accessDemo: {
-      type: DataTypes.TINYINT,
-      defaultValue: 1,
-      field: "access_demo"
-    },
-    accessTrash: {
-      type: DataTypes.TINYINT,
-      defaultValue: 0,
-      field: "access_trash"
-    },
+    accessMonthly: { type: DataTypes.TINYINT, defaultValue: 1, field: "access_monthly" },
+    accessDemo: { type: DataTypes.TINYINT, defaultValue: 1, field: "access_demo" },
+    accessTrash: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_trash" },
 
-    accessPaymentSheet: {
-      type: DataTypes.TINYINT,
-      defaultValue: 0,
-      field: "access_payment_sheet"
-    },
-    accessTutorShare: {
-      type: DataTypes.TINYINT,
-      defaultValue: 0,
-      field: "access_tutor_share"
-    },
-    accessLacasShare: {
-      type: DataTypes.TINYINT,
-      defaultValue: 0,
-      field: "access_lacas_share"
-    },
-    accessTotalFees: {
-      type: DataTypes.TINYINT,
-      defaultValue: 0,
-      field: "access_total_fees"
-    },
-    accessHodApprovals: {
-      type: DataTypes.TINYINT,
-      defaultValue: 0,
-      field: "access_hod_approvals"
-    },
-    accessStaff: {
-      type: DataTypes.TINYINT,
-      defaultValue: 0,
-      field: "access_staff"
-    },
-    accessOtmManagement: {
-      type: DataTypes.TINYINT,
-      defaultValue: 0,
-      field: "access_otm_management"
-    },
-    accessPaymentActions: {
-  type: DataTypes.TINYINT,
-  defaultValue: 0,
-  field: "access_payment_actions",
-},
+    // Team A Permissions
+    accessPaymentSheet: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_payment_sheet" },
+    accessTutorShare: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_tutor_share" },
+    accessLacasShare: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_lacas_share" },
+    accessTotalFees: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_total_fees" },
+    accessPaymentActions: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_payment_actions" },
     
-    accessChat: { 
-      type: DataTypes.TINYINT, 
-      defaultValue: 0, 
-      field: "access_chat"
-     },
+    // Team B Permissions
+    accessPaymentSheetCloneTeamB: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_payment_sheet_clone_team_b" },
+    accessTutorShareCloneTeamB: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_tutor_share_clone_team_b" },
+    accessLacasShareCloneTeamB: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_lacas_share_clone_team_b" },
+    accessTotalFeesCloneTeamB: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_total_fees_clone_team_b" },
+    accessPaymentActionsCloneTeamB: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_payment_actions_clone_team_b" },
+    accessTrashCloneTeamB: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_trash_clone_team_b" },
+
+    accessHodApprovals: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_hod_approvals" },
+    accessStaff: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_staff" },
+    accessOtmManagement: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_otm_management" },
     
-        accessChatSend: { 
-          type: DataTypes.TINYINT,
-           defaultValue: 0, 
-           field: "access_chat_send" 
-          },
+    accessChat: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_chat" },
+    accessChatSend: { type: DataTypes.TINYINT, defaultValue: 0, field: "access_chat_send" },
   }, {
     tableName: "users",
     underscored: true

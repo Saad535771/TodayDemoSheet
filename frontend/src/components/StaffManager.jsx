@@ -29,7 +29,7 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "1580px",
+    minWidth: "2200px", // Increased width to fit Team A and Team B columns
   },
   th: {
     textAlign: "center",
@@ -53,18 +53,18 @@ const styles = {
       role === "admin"
         ? "#e6fffa"
         : role === "hod"
-          ? "#ebf8ff"
-          : role === "otm"
-            ? "#f3e8ff"
-            : "#f8fafc",
+        ? "#ebf8ff"
+        : role === "otm"
+        ? "#f3e8ff"
+        : "#f8fafc",
     color:
       role === "admin"
         ? "#2c7a7b"
         : role === "hod"
-          ? "#2b6cb0"
-          : role === "otm"
-            ? "#7c3aed"
-            : "#475569",
+        ? "#2b6cb0"
+        : role === "otm"
+        ? "#7c3aed"
+        : "#475569",
     padding: "4px 10px",
     borderRadius: "20px",
     fontSize: "11px",
@@ -168,11 +168,20 @@ export default function StaffManager() {
         updatedUser.access_chat_send = 0;
       }
 
+      // Reset Team A sub-permissions if main sheet A access is revoked
       if (field === "access_payment_sheet" && nextValue === 0) {
         updatedUser.access_tutor_share = 0;
         updatedUser.access_lacas_share = 0;
         updatedUser.access_total_fees = 0;
         updatedUser.access_payment_actions = 0;
+      }
+
+      // Reset Team B sub-permissions if main sheet B access is revoked
+      if (field === "access_payment_sheet_clone_team_b" && nextValue === 0) {
+        updatedUser.access_tutor_share_clone_team_b = 0;
+        updatedUser.access_lacas_share_clone_team_b = 0;
+        updatedUser.access_total_fees_clone_team_b = 0;
+        updatedUser.access_payment_actions_clone_team_b = 0;
       }
 
       return updatedUser;
@@ -187,11 +196,21 @@ export default function StaffManager() {
         access_monthly: toInt(user.access_monthly),
         access_demo: toInt(user.access_demo),
         access_trash: toInt(user.access_trash),
+        
+        // Team A Permissions
         access_payment_sheet: toInt(user.access_payment_sheet),
         access_tutor_share: toInt(user.access_tutor_share),
         access_lacas_share: toInt(user.access_lacas_share),
         access_total_fees: toInt(user.access_total_fees),
         access_payment_actions: toInt(user.access_payment_actions),
+
+        // Team B Permissions
+        access_payment_sheet_clone_team_b: toInt(user.access_payment_sheet_clone_team_b),
+        access_tutor_share_clone_team_b: toInt(user.access_tutor_share_clone_team_b),
+        access_lacas_share_clone_team_b: toInt(user.access_lacas_share_clone_team_b),
+        access_total_fees_clone_team_b: toInt(user.access_total_fees_clone_team_b),
+        access_payment_actions_clone_team_b: toInt(user.access_payment_actions_clone_team_b),
+        
         access_hod_approvals: toInt(user.access_hod_approvals),
         access_staff: toInt(user.access_staff),
         access_otm_management: toInt(user.access_otm_management),
@@ -238,33 +257,41 @@ export default function StaffManager() {
 
       <div style={styles.tableWrap}>
         <table style={styles.table}>
-     <thead>
-  <tr>
-    <th style={styles.th}>Email</th>
-    <th style={styles.th}>Role</th>
-    <th style={{ ...styles.th, textAlign: "center" }}>Show HOD Approvals</th>
-    <th style={{ ...styles.th, textAlign: "center" }}>Show Staff</th>
-    <th style={{ ...styles.th, textAlign: "center" }}>Show OTM Portal</th>
-    <th style={{ ...styles.th, textAlign: "center" }}>Show Monthly</th>
-    <th style={{ ...styles.th, textAlign: "center" }}>Show Demo</th>
-    <th style={{ ...styles.th, textAlign: "center" }}>Show Trash</th>
-    <th style={{ ...styles.th, textAlign: "center" }}>Show Payment Sheet</th>
-    <th style={{ ...styles.th, textAlign: "center" }}>Tutor Share</th>
-    <th style={{ ...styles.th, textAlign: "center" }}>Lacas Share</th>
-    <th style={{ ...styles.th, textAlign: "center" }}>Total Fees</th>
+          <thead>
+            <tr>
+              <th style={styles.th}>Email</th>
+              <th style={styles.th}>Role</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Show HOD Approvals</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Show Staff</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Show OTM Portal</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Show Monthly</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Show Demo</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Show Trash</th>
+              
+              {/* Team A Columns */}
+              <th style={{ ...styles.th, textAlign: "center" }}>Payment A</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Tutor Share A</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Lacas Share A</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Total Fees A</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Payment Actions A</th>
 
-    {/* Action column hide/show toggle */}
-    <th style={{ ...styles.th, textAlign: "center" }}>Payment Actions</th>
+              {/* Team B Columns */}
+              <th style={{ ...styles.th, textAlign: "center" }}>Payment B</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Tutor Share B</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Lacas Share B</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Total Fees B</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Payment Actions B</th>
 
-    <th style={{ ...styles.th, textAlign: "center" }}>Show Chat</th>
-    <th style={{ ...styles.th, textAlign: "center" }}>Send Chat Msg</th>
-    <th style={{ ...styles.th, textAlign: "right" }}>Actions</th>
-  </tr>
-</thead>
+              <th style={{ ...styles.th, textAlign: "center" }}>Show Chat</th>
+              <th style={{ ...styles.th, textAlign: "center" }}>Send Chat Msg</th>
+              <th style={{ ...styles.th, textAlign: "right" }}>Actions</th>
+            </tr>
+          </thead>
 
           <tbody>
             {users.map((user) => {
-              const paymentEnabled = !!user.access_payment_sheet;
+              const paymentAEnabled = !!user.access_payment_sheet;
+              const paymentBEnabled = !!user.access_payment_sheet_clone_team_b;
 
               return (
                 <tr key={user.id}>
@@ -276,191 +303,133 @@ export default function StaffManager() {
                   <td style={styles.td}>
                     <span style={styles.roleBadge(user.role)}>{user.role}</span>
                   </td>
+                  
                   <td style={{ ...styles.td, ...styles.centerCell }}>
-                    <button
-                      style={styles.toggleBtn(user.access_hod_approvals)}
-                      onClick={() =>
-                        togglePermission(user.id, "access_hod_approvals", user.access_hod_approvals)
-                      }
-                    >
+                    <button style={styles.toggleBtn(user.access_hod_approvals)} onClick={() => togglePermission(user.id, "access_hod_approvals", user.access_hod_approvals)}>
                       <div style={styles.toggleCircle(user.access_hod_approvals)} />
                     </button>
                   </td>
-
                   <td style={{ ...styles.td, ...styles.centerCell }}>
-                    <button
-                      style={styles.toggleBtn(user.access_staff)}
-                      onClick={() =>
-                        togglePermission(user.id, "access_staff", user.access_staff)
-                      }
-                    >
+                    <button style={styles.toggleBtn(user.access_staff)} onClick={() => togglePermission(user.id, "access_staff", user.access_staff)}>
                       <div style={styles.toggleCircle(user.access_staff)} />
                     </button>
                   </td>
-
                   <td style={{ ...styles.td, ...styles.centerCell }}>
-                    <button
-                      style={styles.toggleBtn(user.access_otm_management)}
-                      onClick={() =>
-                        togglePermission(user.id, "access_otm_management", user.access_otm_management)
-                      }
-                    >
+                    <button style={styles.toggleBtn(user.access_otm_management)} onClick={() => togglePermission(user.id, "access_otm_management", user.access_otm_management)}>
                       <div style={styles.toggleCircle(user.access_otm_management)} />
                     </button>
                   </td>
                   <td style={{ ...styles.td, ...styles.centerCell }}>
-                    <button
-                      style={styles.toggleBtn(user.access_monthly)}
-                      onClick={() =>
-                        togglePermission(user.id, "access_monthly", user.access_monthly)
-                      }
-                    >
+                    <button style={styles.toggleBtn(user.access_monthly)} onClick={() => togglePermission(user.id, "access_monthly", user.access_monthly)}>
                       <div style={styles.toggleCircle(user.access_monthly)} />
                     </button>
                   </td>
-
                   <td style={{ ...styles.td, ...styles.centerCell }}>
-                    <button
-                      style={styles.toggleBtn(user.access_demo)}
-                      onClick={() =>
-                        togglePermission(user.id, "access_demo", user.access_demo)
-                      }
-                    >
+                    <button style={styles.toggleBtn(user.access_demo)} onClick={() => togglePermission(user.id, "access_demo", user.access_demo)}>
                       <div style={styles.toggleCircle(user.access_demo)} />
                     </button>
                   </td>
                   <td style={{ ...styles.td, ...styles.centerCell }}>
-                    <button
-                      style={styles.toggleBtn(user.access_trash)}
-                      onClick={() =>
-                        togglePermission(user.id, "access_trash", user.access_trash)
-                      }>
+                    <button style={styles.toggleBtn(user.access_trash)} onClick={() => togglePermission(user.id, "access_trash", user.access_trash)}>
                       <div style={styles.toggleCircle(user.access_trash)} />
                     </button>
                   </td>
+
+                  {/* Team A Permissions Rendering */}
                   <td style={{ ...styles.td, ...styles.centerCell }}>
-                    <button
-                      style={styles.toggleBtn(user.access_payment_sheet)}
-                      onClick={() =>
-                        togglePermission(
-                          user.id,
-                          "access_payment_sheet",
-                          user.access_payment_sheet
-                        )
-                      }>
+                    <button style={styles.toggleBtn(user.access_payment_sheet)} onClick={() => togglePermission(user.id, "access_payment_sheet", user.access_payment_sheet)}>
                       <div style={styles.toggleCircle(user.access_payment_sheet)} />
                     </button>
                   </td>
                   <td style={{ ...styles.td, ...styles.centerCell }}>
-                    {paymentEnabled ? (
-                      <button
-                        style={styles.toggleBtn(user.access_tutor_share)}
-                        onClick={() =>
-                          togglePermission(
-                            user.id,
-                            "access_tutor_share",
-                            user.access_tutor_share
-                          )
-                        }>
+                    {paymentAEnabled ? (
+                      <button style={styles.toggleBtn(user.access_tutor_share)} onClick={() => togglePermission(user.id, "access_tutor_share", user.access_tutor_share)}>
                         <div style={styles.toggleCircle(user.access_tutor_share)} />
                       </button>
-                    ) : (
-                      <span style={styles.mutedText}>Enable payment sheet</span>
-                    )}
+                    ) : <span style={styles.mutedText}>Enable payment A</span>}
                   </td>
-
                   <td style={{ ...styles.td, ...styles.centerCell }}>
-                    {paymentEnabled ? (
-                      <button
-                        style={styles.toggleBtn(user.access_lacas_share)}
-                        onClick={() =>
-                          togglePermission(
-                            user.id,
-                            "access_lacas_share",
-                            user.access_lacas_share
-                          )
-                        }
-                      >
+                    {paymentAEnabled ? (
+                      <button style={styles.toggleBtn(user.access_lacas_share)} onClick={() => togglePermission(user.id, "access_lacas_share", user.access_lacas_share)}>
                         <div style={styles.toggleCircle(user.access_lacas_share)} />
                       </button>
-                    ) : (
-                      <span style={styles.mutedText}>Enable payment sheet</span>
-                    )}
+                    ) : <span style={styles.mutedText}>Enable payment A</span>}
+                  </td>
+                  <td style={{ ...styles.td, ...styles.centerCell }}>
+                    {paymentAEnabled ? (
+                      <button style={styles.toggleBtn(user.access_total_fees)} onClick={() => togglePermission(user.id, "access_total_fees", user.access_total_fees)}>
+                        <div style={styles.toggleCircle(user.access_total_fees)} />
+                      </button>
+                    ) : <span style={styles.mutedText}>Enable payment A</span>}
+                  </td>
+                  <td style={{ ...styles.td, ...styles.centerCell }}>
+                    {paymentAEnabled ? (
+                      <button style={styles.toggleBtn(user.access_payment_actions)} onClick={() => togglePermission(user.id, "access_payment_actions", user.access_payment_actions)}>
+                        <div style={styles.toggleCircle(user.access_payment_actions)} />
+                      </button>
+                    ) : <span style={styles.mutedText}>Enable payment A</span>}
+                  </td>
+
+                  {/* Team B Permissions Rendering */}
+                  <td style={{ ...styles.td, ...styles.centerCell }}>
+                    <button style={styles.toggleBtn(user.access_payment_sheet_clone_team_b)} onClick={() => togglePermission(user.id, "access_payment_sheet_clone_team_b", user.access_payment_sheet_clone_team_b)}>
+                      <div style={styles.toggleCircle(user.access_payment_sheet_clone_team_b)} />
+                    </button>
+                  </td>
+                  <td style={{ ...styles.td, ...styles.centerCell }}>
+                    {paymentBEnabled ? (
+                      <button style={styles.toggleBtn(user.access_tutor_share_clone_team_b)} onClick={() => togglePermission(user.id, "access_tutor_share_clone_team_b", user.access_tutor_share_clone_team_b)}>
+                        <div style={styles.toggleCircle(user.access_tutor_share_clone_team_b)} />
+                      </button>
+                    ) : <span style={styles.mutedText}>Enable payment B</span>}
+                  </td>
+                  <td style={{ ...styles.td, ...styles.centerCell }}>
+                    {paymentBEnabled ? (
+                      <button style={styles.toggleBtn(user.access_lacas_share_clone_team_b)} onClick={() => togglePermission(user.id, "access_lacas_share_clone_team_b", user.access_lacas_share_clone_team_b)}>
+                        <div style={styles.toggleCircle(user.access_lacas_share_clone_team_b)} />
+                      </button>
+                    ) : <span style={styles.mutedText}>Enable payment B</span>}
+                  </td>
+                  <td style={{ ...styles.td, ...styles.centerCell }}>
+                    {paymentBEnabled ? (
+                      <button style={styles.toggleBtn(user.access_total_fees_clone_team_b)} onClick={() => togglePermission(user.id, "access_total_fees_clone_team_b", user.access_total_fees_clone_team_b)}>
+                        <div style={styles.toggleCircle(user.access_total_fees_clone_team_b)} />
+                      </button>
+                    ) : <span style={styles.mutedText}>Enable payment B</span>}
+                  </td>
+                  <td style={{ ...styles.td, ...styles.centerCell }}>
+                    {paymentBEnabled ? (
+                      <button style={styles.toggleBtn(user.access_payment_actions_clone_team_b)} onClick={() => togglePermission(user.id, "access_payment_actions_clone_team_b", user.access_payment_actions_clone_team_b)}>
+                        <div style={styles.toggleCircle(user.access_payment_actions_clone_team_b)} />
+                      </button>
+                    ) : <span style={styles.mutedText}>Enable payment B</span>}
                   </td>
 
                   <td style={{ ...styles.td, ...styles.centerCell }}>
-                    {paymentEnabled ? (
-                      <button
-                        style={styles.toggleBtn(user.access_total_fees)}
-                        onClick={() =>
-                          togglePermission(
-                            user.id,
-                            "access_total_fees",
-                            user.access_total_fees
-                          )
-                        }
-                      >
-                        <div style={styles.toggleCircle(user.access_total_fees)} />
-                      </button>
-                    ) : (
-                      <span style={styles.mutedText}>Enable payment sheet</span>
-                    )}
-                  </td>
-                  <td style={{ ...styles.td, ...styles.centerCell }}>
-                    {paymentEnabled ? (
-                      <button
-                        style={styles.toggleBtn(user.access_payment_actions)}
-                        onClick={() =>
-                          togglePermission(
-                            user.id,
-                            "access_payment_actions",
-                            user.access_payment_actions
-                          )
-                        }
-                      >
-                        <div style={styles.toggleCircle(user.access_payment_actions)} />
-                      </button>
-                    ) : (
-                      <span style={styles.mutedText}>Enable payment sheet</span>
-                    )}
-                  </td>
-                  <td style={{ ...styles.td, ...styles.centerCell }}>
-                    <button
-                      style={styles.toggleBtn(user.access_chat)}
-                      onClick={() => togglePermission(user.id, "access_chat", user.access_chat)}
-                    >
+                    <button style={styles.toggleBtn(user.access_chat)} onClick={() => togglePermission(user.id, "access_chat", user.access_chat)}>
                       <div style={styles.toggleCircle(user.access_chat)} />
                     </button>
                   </td>
-
                   <td style={{ ...styles.td, ...styles.centerCell }}>
                     {user.access_chat ? (
-                      <button
-                        style={styles.toggleBtn(user.access_chat_send)}
-                        onClick={() => togglePermission(user.id, "access_chat_send", user.access_chat_send)}
-                      >
+                      <button style={styles.toggleBtn(user.access_chat_send)} onClick={() => togglePermission(user.id, "access_chat_send", user.access_chat_send)}>
                         <div style={styles.toggleCircle(user.access_chat_send)} />
                       </button>
                     ) : (
                       <span style={styles.mutedText}>Enable chat first</span>
                     )}
                   </td>
+                  
                   <td style={{ ...styles.td, textAlign: "right" }}>
                     <div style={styles.actionsWrap}>
                       {user.role === "otm" && (
-                        <button
-                          style={styles.portalBtn}
-                          onClick={() => navigate(`/admin/otm/${user.id}`)}
-                        >
+                        <button style={styles.portalBtn} onClick={() => navigate(`/admin/otm/${user.id}`)}>
                           Open Portal
                         </button>
                       )}
 
                       {user.role !== "admin" && (
-                        <button
-                          style={styles.deleteBtn}
-                          onClick={() => handleDelete(user.id)}
-                        >
+                        <button style={styles.deleteBtn} onClick={() => handleDelete(user.id)}>
                           Delete
                         </button>
                       )}

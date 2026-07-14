@@ -19,8 +19,7 @@ export function makeAuthController({ User, UserPresence }) {
     if (role === "hod") return 0;
     return requestedAccess ? 1 : 0;
   };
-
- const getPaymentSheetPermissions = ({
+const getPaymentSheetPermissions = ({
   role,
   access_payment_sheet = 0,
   access_tutor_share = 0,
@@ -49,29 +48,23 @@ export function makeAuthController({ User, UserPresence }) {
   }
 
   const paymentSheetAccess = toBoolInt(access_payment_sheet);
-const paymentSheetCloneTeamBAccess = toBoolInt(access_payment_sheet_clone_team_b);
-  if (!paymentSheetAccess) {
-    return {
-      accessPaymentSheet: paymentSheetAccess,
+  const paymentSheetCloneTeamBAccess = toBoolInt(access_payment_sheet_clone_team_b);
+
+  // Yeh object hamesha dono teams ka data return karega
+  return {
+    // Team A
+    accessPaymentSheet: paymentSheetAccess,
     accessTutorShare: paymentSheetAccess ? toBoolInt(access_tutor_share) : 0,
     accessLacasShare: paymentSheetAccess ? toBoolInt(access_lacas_share) : 0,
     accessTotalFees: paymentSheetAccess ? toBoolInt(access_total_fees) : 0,
     accessPaymentActions: paymentSheetAccess ? toBoolInt(access_payment_actions) : 0,
     
+    // Team B
     accessPaymentSheetCloneTeamB: paymentSheetCloneTeamBAccess,
     accessTutorShareCloneTeamB: paymentSheetCloneTeamBAccess ? toBoolInt(access_tutor_share_clone_team_b) : 0,
     accessLacasShareCloneTeamB: paymentSheetCloneTeamBAccess ? toBoolInt(access_lacas_share_clone_team_b) : 0,
     accessTotalFeesCloneTeamB: paymentSheetCloneTeamBAccess ? toBoolInt(access_total_fees_clone_team_b) : 0,
     accessPaymentActionsCloneTeamB: paymentSheetCloneTeamBAccess ? toBoolInt(access_payment_actions_clone_team_b) : 0,
-    };
-  }
-
-  return {
-    accessPaymentSheet: 1,
-    accessTutorShare: toBoolInt(access_tutor_share),
-    accessLacasShare: toBoolInt(access_lacas_share),
-    accessTotalFees: toBoolInt(access_total_fees),
-    accessPaymentActions: toBoolInt(access_payment_actions),
   };
 };
 
@@ -83,13 +76,16 @@ const paymentSheetCloneTeamBAccess = toBoolInt(access_payment_sheet_clone_team_b
     access_monthly: user.accessMonthly,
     access_demo: user.accessDemo,
     access_trash: user.accessTrash,
+    
+    // Team A
     access_payment_sheet: user.accessPaymentSheet,
     access_tutor_share: user.accessTutorShare,
     access_lacas_share: user.accessLacasShare,
     access_total_fees: user.accessTotalFees,
- access_payment_actions: user.accessPaymentActions,
+    access_payment_actions: user.accessPaymentActions,
  
- access_payment_sheet_clone_team_b: user.accessPaymentSheetCloneTeamB,
+    // Team B
+    access_payment_sheet_clone_team_b: user.accessPaymentSheetCloneTeamB,
     access_tutor_share_clone_team_b: user.accessTutorShareCloneTeamB,
     access_lacas_share_clone_team_b: user.accessLacasShareCloneTeamB,
     access_total_fees_clone_team_b: user.accessTotalFeesCloneTeamB,
@@ -99,10 +95,9 @@ const paymentSheetCloneTeamBAccess = toBoolInt(access_payment_sheet_clone_team_b
     access_hod_approvals: user.accessHodApprovals,
     access_staff: user.accessStaff,
     access_otm_management: user.accessOtmManagement,
-     access_chat: user.accessChat,
-  access_chat_send: user.accessChatSend,
-  });
-
+    access_chat: user.accessChat,
+    access_chat_send: user.accessChatSend,
+  });;
   async function createOrUpdatePresence({
     userId,
     sessionId,
@@ -224,11 +219,6 @@ const paymentSheetCloneTeamBAccess = toBoolInt(access_payment_sheet_clone_team_b
 
         const paymentPermissions = getPaymentSheetPermissions({
           role: finalRole,
-          access_payment_sheet: 0,
-          access_tutor_share: 0,
-          access_lacas_share: 0,
-          access_total_fees: 0,
-          access_payment_actions: 0,
         });
 
         const newUser = await User.create({
@@ -243,9 +233,14 @@ const paymentSheetCloneTeamBAccess = toBoolInt(access_payment_sheet_clone_team_b
           accessTutorShare: paymentPermissions.accessTutorShare,
           accessLacasShare: paymentPermissions.accessLacasShare,
           accessTotalFees: paymentPermissions.accessTotalFees,
-         accessPaymentActions: paymentPermissions.accessPaymentActions,
+          accessPaymentActions: paymentPermissions.accessPaymentActions,
+          accessPaymentSheetCloneTeamB: paymentPermissions.accessPaymentSheetCloneTeamB,
+          accessTutorShareCloneTeamB: paymentPermissions.accessTutorShareCloneTeamB,
+          accessLacasShareCloneTeamB: paymentPermissions.accessLacasShareCloneTeamB,
+          accessTotalFeesCloneTeamB: paymentPermissions.accessTotalFeesCloneTeamB,
+          accessPaymentActionsCloneTeamB: paymentPermissions.accessPaymentActionsCloneTeamB,
           accessChat: finalRole === "admin" ? 1 : 0,
-  accessChatSend: finalRole === "admin" ? 1 : 0,
+          accessChatSend: finalRole === "admin" ? 1 : 0,
         });
 
         return res.json({
@@ -276,7 +271,6 @@ const paymentSheetCloneTeamBAccess = toBoolInt(access_payment_sheet_clone_team_b
     },
 
     async listUsers(req, res) {
-      // Allow any logged-in user to see the list (needed for chat)
       try {
         const users = await User.findAll({
           order: [["createdAt", "DESC"]]
@@ -313,34 +307,24 @@ const paymentSheetCloneTeamBAccess = toBoolInt(access_payment_sheet_clone_team_b
       }
     },
 
-    async updatePermissions(req, res) {
+  async updatePermissions(req, res) {
       if (req.user.role !== "admin") {
         return res.status(403).json({ message: "Access denied" });
       }
 
       const { userId } = req.params;
+      // Yahan Team B ki saari fields add ki hain taake backend unhein capture kar sake
       const {
-        access_monthly,
-        access_demo,
-        access_trash,
-        access_payment_sheet,
-        access_tutor_share,
-        access_lacas_share,
-        access_total_fees,
-       access_payment_actions,
-        access_hod_approvals,
-        access_staff,
-        access_otm_management,
-        access_chat,
-  access_chat_send
+        access_monthly, access_demo, access_trash,
+        access_payment_sheet, access_tutor_share, access_lacas_share, access_total_fees, access_payment_actions,
+        access_payment_sheet_clone_team_b, access_tutor_share_clone_team_b, access_lacas_share_clone_team_b, 
+        access_total_fees_clone_team_b, access_payment_actions_clone_team_b, access_trash_clone_team_b,
+        access_hod_approvals, access_staff, access_otm_management, access_chat, access_chat_send
       } = req.body;
 
       try {
         const user = await User.findByPk(userId);
-
-        if (!user) {
-          return res.status(404).json({ message: "User not found" });
-        }
+        if (!user) return res.status(404).json({ message: "User not found" });
 
         const trashAccess = getTrashAccessByRole(user.role, access_trash);
 
@@ -351,6 +335,11 @@ const paymentSheetCloneTeamBAccess = toBoolInt(access_payment_sheet_clone_team_b
           access_lacas_share,
           access_total_fees,
           access_payment_actions,
+          access_payment_sheet_clone_team_b,
+          access_tutor_share_clone_team_b,
+          access_lacas_share_clone_team_b,
+          access_total_fees_clone_team_b,
+          access_payment_actions_clone_team_b,
         });
 
         await User.update(
@@ -358,25 +347,32 @@ const paymentSheetCloneTeamBAccess = toBoolInt(access_payment_sheet_clone_team_b
             accessMonthly: toBoolInt(access_monthly),
             accessDemo: toBoolInt(access_demo),
             accessTrash: trashAccess,
+            
+            // Team A
             accessPaymentSheet: paymentPermissions.accessPaymentSheet,
             accessTutorShare: paymentPermissions.accessTutorShare,
             accessLacasShare: paymentPermissions.accessLacasShare,
             accessTotalFees: paymentPermissions.accessTotalFees,
             accessPaymentActions: paymentPermissions.accessPaymentActions,
+            
+            // Team B
+            accessPaymentSheetCloneTeamB: paymentPermissions.accessPaymentSheetCloneTeamB,
+            accessTutorShareCloneTeamB: paymentPermissions.accessTutorShareCloneTeamB,
+            accessLacasShareCloneTeamB: paymentPermissions.accessLacasShareCloneTeamB,
+            accessTotalFeesCloneTeamB: paymentPermissions.accessTotalFeesCloneTeamB,
+            accessPaymentActionsCloneTeamB: paymentPermissions.accessPaymentActionsCloneTeamB,
+            accessTrashCloneTeamB: toBoolInt(access_trash_clone_team_b),
+            
             accessHodApprovals: toBoolInt(access_hod_approvals),
             accessStaff: toBoolInt(access_staff),
             accessOtmManagement: toBoolInt(access_otm_management),
             accessChat: user.role === "admin" ? 1 : toBoolInt(access_chat),
-             accessChatSend:user.role === "admin"? 1 : toBoolInt(access_chat) === 1  
-              ? toBoolInt(access_chat_send) : 0,
+            accessChatSend: user.role === "admin" ? 1 : (toBoolInt(access_chat) === 1 ? toBoolInt(access_chat_send) : 0),
           },
           { where: { id: userId } }
         );
 
-        return res.json({
-          success: true,
-          message: "Permissions updated"
-        });
+        return res.json({ success: true, message: "Permissions updated" });
       } catch (e) {
         console.error("UPDATE PERMISSIONS ERROR:", e);
         return res.status(500).json({ message: "Error updating permissions" });
