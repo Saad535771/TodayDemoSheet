@@ -34,6 +34,7 @@ export const NO_SYNC_FROM_TUITION_FIELDS = [
 export const TARGET_ONLY_FIELDS = [
   "rowColor",
   "tuitionNameColor",
+  "tutorNameColor",
   "orderIndex",
 ];
 
@@ -120,6 +121,7 @@ export async function upsertTodayDemoFromTuition({
         ...payload,
         rowColor: item.rowColor || "#ffffff",
         tuitionNameColor: item.tuitionNameColor || "#ffffff",
+        tutorNameColor: item.tutorNameColor || "#ffffff",
         orderIndex: item.orderIndex ?? 0,
       },
       { transaction }

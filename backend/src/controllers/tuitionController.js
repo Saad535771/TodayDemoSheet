@@ -190,6 +190,7 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
       role: user.role,
     }));
   }
+
   async function findOtmUserByName(otmName) {
     const needle = normalizeText(otmName)?.toLowerCase();
     if (!needle) return null;
@@ -212,6 +213,7 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
     });
     return Number(lastEntry?.sortOrder || 0) + 1;
   }
+
   async function syncLinkedOtmPortalEntry({ tuition }) {
     if (!OtmTuitionEntry || typeof OtmTuitionEntry.findOne !== "function") return;
     const sourceTuitionId = normalizeTuitionId(tuition?.tuitionId);
@@ -219,7 +221,6 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
     const targetUser = await findOtmUserByName(tuition?.otmName);
     const existingEntry = await OtmTuitionEntry.findOne({ where: { sourceTuitionId } });
     if (targetUser && NotificationService) {
-        // Agar naya entry hai ya user change hua hai
         if (!existingEntry || existingEntry.userId !== Number(targetUser.id)) {
             await NotificationService.createNotification({
                 moduleKey: "otm",
@@ -227,7 +228,7 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
                 actorUserId: targetUser.id,
                 title: `📘 New Tuition: ${tuition?.tuitionName || 'Assigned'}`,
                 message: `Aapko ek nayi tuition assign ki gayi hai: ${tuition?.tuitionName}`,
-                payload: { tuitionId: sourceTuitionId, colorState: "white" } // White (Default)
+                payload: { tuitionId: sourceTuitionId, colorState: "white" } 
             });
         }
     }
@@ -351,33 +352,14 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
         const limit = Math.min(parseInt(req.query.limit || "200", 10), 1000);
 
         const allowedFields = [
-          "tuitionId",
-          "tuitionName",
-          "tutorName",
-          "rejectedTutor",
-          "feedback",
-          "country",
-          "parentsContact",
-          "className",
-          "subjects",
-          "source",
-          "otmName",
-          "status",
-          "demoRating",
-          "syncFlag",
-          "estimatedFee",
-          "tutorFee",
-          "demoTime",
-          "classTime", // Added: Taaky classTime par search chal sakay
-          "demoDate",
-          "paymentApprovalStatus"
+          "tuitionId", "tuitionName", "tutorName", "rejectedTutor", "feedback",
+          "country", "parentsContact", "className", "subjects", "source",
+          "otmName", "status", "demoRating", "syncFlag", "estimatedFee",
+          "tutorFee", "demoTime", "classTime", "demoDate", "paymentApprovalStatus"
         ];
 
         const fields = fieldsParam
-          ? fieldsParam
-              .split(",")
-              .map((field) => field.trim())
-              .filter((field) => allowedFields.includes(field))
+          ? fieldsParam.split(",").map((field) => field.trim()).filter((field) => allowedFields.includes(field))
           : allowedFields;
 
         const where = { isDeleted: 0 };
@@ -395,14 +377,8 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
         }
 
         const allowedSorts = [
-          "orderIndex",
-          "tuitionId",
-          "tuitionName",
-          "tutorName",
-          "demoDate",
-          "timeHour",
-          "paymentApprovalStatus",
-          "paymentApprovalRequestedAt"
+          "orderIndex", "tuitionId", "tuitionName", "tutorName", "demoDate",
+          "timeHour", "paymentApprovalStatus", "paymentApprovalRequestedAt"
         ];
 
         const finalSortField = allowedSorts.includes(sortField) ? sortField : "orderIndex";
@@ -481,9 +457,7 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
         if (!item) return res.status(404).json({ message: "Tuition not found" });
 
         if (!hasStatus(item.status, "Tuition Done")) {
-          return res.status(400).json({
-            message: "Only Tuition Done records can be approved for payment"
-          });
+          return res.status(400).json({ message: "Only Tuition Done records can be approved for payment" });
         }
 
         if (action === "approve") {
@@ -575,7 +549,7 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
           estimatedFee: body.estimatedFee || null,
           tutorName: body.tutorName || null,
           tutorFee: body.tutorFee || body.tutorFees || null,
-          classTime: body.classTime || body.class_time || null, // Enhanced: Handle both camelCase and snake_case safely
+          classTime: body.classTime || body.class_time || null, 
           secondTutors: body.secondTutors || null,
           rejectedTutor: body.rejectedTutor || null,
           status: initialStatus,
@@ -592,25 +566,16 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
         const itemJson = item.toJSON();
         const syncWarnings = [];
 
-        const otmWarning = await safeSync("OTM PORTAL", () =>
-          syncLinkedOtmPortalEntry({ tuition: itemJson })
-        );
+        const otmWarning = await safeSync("OTM PORTAL", () => syncLinkedOtmPortalEntry({ tuition: itemJson }));
         if (otmWarning) syncWarnings.push(otmWarning);
 
-        const todayDemoWarning = await safeSync("TODAY DEMO", () =>
-          upsertTodayDemoFromTuition({ TodayDemo, item: itemJson })
-        );
+        const todayDemoWarning = await safeSync("TODAY DEMO", () => upsertTodayDemoFromTuition({ TodayDemo, item: itemJson }));
         if (todayDemoWarning) syncWarnings.push(todayDemoWarning);
 
-        const paymentWarning = await safeSync("PAYMENT", () =>
-          syncPaymentByApprovalState({ Payment, item: itemJson })
-        );
+        const paymentWarning = await safeSync("PAYMENT", () => syncPaymentByApprovalState({ Payment, item: itemJson }));
         if (paymentWarning) syncWarnings.push(paymentWarning);
 
-        return res.status(201).json({
-          item,
-          syncWarnings,
-        });
+        return res.status(201).json({ item, syncWarnings });
       } catch (error) {
         console.error("CREATE ERROR:", error);
         res.status(500).json({ message: "Database Error", error: error.message });
@@ -622,6 +587,10 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
         const tuitionId = normalizeTuitionId(req.params.tuitionId);
         const item = await Tuition.findOne({ where: { tuitionId } });
         if (!item) return res.status(404).json({ message: "Not found" });
+
+        // --- ADDED: Capture old data for history tracking ---
+        const oldData = item.toJSON();
+        // ----------------------------------------------------
 
         const previousHadTuitionDone = hasStatus(item.status, "Tuition Done");
         const previousOtmName = item.otmName;
@@ -635,8 +604,8 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
           date: "date",
           demoTime: "demoTime",
           time: "demoTime",
-          classTime: "classTime",      // Added: Handle camelCase update
-          class_time: "classTime",     // Added: Handle snake_case update
+          classTime: "classTime",      
+          class_time: "classTime",     
           tuitionName: "tuitionName",
           source: "source",
           otmName: "otmName",
@@ -663,7 +632,8 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
           sync: "syncFlag",
           syncFlag: "syncFlag",
           rowColor: "rowColor",
-          tuitionNameColor: "tuitionNameColor"
+          tuitionNameColor: "tuitionNameColor",
+          tutorNameColor: "tutorNameColor"
         };
 
         let demoTimeWasTouched = false;
@@ -694,22 +664,57 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
 
         await item.save();
 
+        // --- ADDED: History Tracking Logic Execution ---
+        try {
+            const fieldsToTrack = [
+                "tuitionName", "status", "estimatedFee", "tutorFee", 
+                "feedback", "date", "tutorName", "className", "demoTime", "classTime", 
+                "demoDate","tuitionNameColor", "tutorNameColor"
+            ];
+            const changes = [];
+            
+            // Generate exact new state directly from database mapping
+            const newData = item.toJSON();
+
+            fieldsToTrack.forEach((field) => {
+                const oldVal = String(oldData[field] || "");
+                const newVal = String(newData[field] || "");
+                
+                if (oldVal !== newVal) {
+                    changes.push([
+                        item.tuitionId,            
+                        req.user.id,          
+                        "UPDATE",
+                        field,                
+                        oldVal,
+                        newVal
+                    ]);
+                }
+            });
+
+            if (changes.length > 0) {
+                const placeholders = changes.map(() => "(?, ?, ?, ?, ?, ?)").join(", ");
+                const flatValues = changes.flat();
+                await Tuition.sequelize.query(
+                    `INSERT INTO tuition_histories (tuition_id, user_id, action_type, field_name, old_value, new_value) VALUES ${placeholders}`,
+                    { replacements: flatValues }
+                );
+            }
+        } catch (historyErr) {
+            console.error("HISTORY SAVE ERROR:", historyErr);
+        }
+        // ------------------------------------------------
+
         const itemJson = item.toJSON();
         const syncWarnings = [];
 
-        const otmWarning = await safeSync("OTM PORTAL", () =>
-          syncLinkedOtmPortalEntry({ tuition: itemJson })
-        );
+        const otmWarning = await safeSync("OTM PORTAL", () => syncLinkedOtmPortalEntry({ tuition: itemJson }));
         if (otmWarning) syncWarnings.push(otmWarning);
 
-        const todayDemoWarning = await safeSync("TODAY DEMO", () =>
-          upsertTodayDemoFromTuition({ TodayDemo, item: itemJson })
-        );
+        const todayDemoWarning = await safeSync("TODAY DEMO", () => upsertTodayDemoFromTuition({ TodayDemo, item: itemJson }));
         if (todayDemoWarning) syncWarnings.push(todayDemoWarning);
 
-        const paymentWarning = await safeSync("PAYMENT", () =>
-          syncPaymentByApprovalState({ Payment, item: itemJson })
-        );
+        const paymentWarning = await safeSync("PAYMENT", () => syncPaymentByApprovalState({ Payment, item: itemJson }));
         if (paymentWarning) syncWarnings.push(paymentWarning);
 
         return res.json({ item, syncWarnings });
@@ -725,16 +730,10 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
       if (result[0] === 0) return res.status(404).json({ message: "Not found" });
 
       if (OtmTuitionEntry) {
-        await safeSync("OTM PORTAL REMOVE", () =>
-          OtmTuitionEntry.destroy({ where: { sourceTuitionId: tuitionId } })
-        );
+        await safeSync("OTM PORTAL REMOVE", () => OtmTuitionEntry.destroy({ where: { sourceTuitionId: tuitionId } }));
       }
-      await safeSync("TODAY DEMO REMOVE", () =>
-        removeTodayDemoByTuitionId({ TodayDemo, tuitionId })
-      );
-      await safeSync("PAYMENT REMOVE", () =>
-        removePaymentByTuitionId({ Payment, tuitionId })
-      );
+      await safeSync("TODAY DEMO REMOVE", () => removeTodayDemoByTuitionId({ TodayDemo, tuitionId }));
+      await safeSync("PAYMENT REMOVE", () => removePaymentByTuitionId({ Payment, tuitionId }));
       res.json({ ok: true, message: "Moved to Recycle Bin" });
     },
 
@@ -762,15 +761,9 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
         }
 
         const itemJson = item.toJSON();
-        await safeSync("OTM PORTAL", () =>
-          syncLinkedOtmPortalEntry({ tuition: itemJson })
-        );
-        await safeSync("TODAY DEMO", () =>
-          upsertTodayDemoFromTuition({ TodayDemo, item: itemJson })
-        );
-        await safeSync("PAYMENT", () =>
-          syncPaymentByApprovalState({ Payment, item: itemJson })
-        );
+        await safeSync("OTM PORTAL", () => syncLinkedOtmPortalEntry({ tuition: itemJson }));
+        await safeSync("TODAY DEMO", () => upsertTodayDemoFromTuition({ TodayDemo, item: itemJson }));
+        await safeSync("PAYMENT", () => syncPaymentByApprovalState({ Payment, item: itemJson }));
       }
 
       res.json({ success: true, message: "Restored successfully" });
@@ -784,9 +777,7 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
       const { id } = req.params;
       const item = await Tuition.findByPk(id);
       if (item?.tuitionId && OtmTuitionEntry) {
-        await safeSync("OTM PORTAL FORCE DELETE", () =>
-          OtmTuitionEntry.destroy({ where: { sourceTuitionId: item.tuitionId } })
-        );
+        await safeSync("OTM PORTAL FORCE DELETE", () => OtmTuitionEntry.destroy({ where: { sourceTuitionId: item.tuitionId } }));
       }
       await Tuition.destroy({ where: { id } });
       res.json({ success: true, message: "Permanently deleted" });
@@ -823,12 +814,79 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
             }
           })
         );
-
         res.json({ success: true, message: "Order sequence updated!" });
       } catch (error) {
         console.error("REORDER ERROR:", error);
         res.status(500).json({ message: "Could not save order sequence", error: error.message });
       }
+    },
+
+    // --- ADDED: NEW ADMIN HISTORY FETCH API ---
+  async getTuitionHistory(req, res) {
+      if (req.user.role !== "admin") {
+        return res.status(403).json({ message: "Access denied. Admin only." });
+      }
+
+      try {
+        const { search, startDate, endDate, sort = "DESC", page = 1, limit = 50, tuitionId, fieldName } = req.query;
+        const offset = (page - 1) * limit;
+        
+        let query = `
+          SELECT th.*, u.name as edited_by, t.tuition_name 
+          FROM tuition_histories th
+          LEFT JOIN users u ON th.user_id = u.id
+          LEFT JOIN tuitions t ON th.tuition_id = t.tuition_id
+          WHERE 1=1
+        `;
+        const replacements = [];
+
+        // 1. Specific Cell Filters (Agar kisi khas row aur column ki history mangi gayi ho)
+        if (tuitionId) {
+          query += ` AND th.tuition_id = ?`;
+          replacements.push(tuitionId);
+        }
+        if (fieldName) {
+          query += ` AND th.field_name = ?`;
+          replacements.push(fieldName);
+        }
+
+        // 2. Date Filters (Default 24 hours sirf tabhi lagayen jab specific cell na mangi gayi ho)
+        if (!startDate && !endDate && !tuitionId) {
+          query += ` AND th.created_at >= NOW() - INTERVAL 24 HOUR`;
+        } else {
+          if (startDate) {
+            query += ` AND th.created_at >= ?`;
+            replacements.push(`${startDate} 00:00:00`);
+          }
+          if (endDate) {
+            query += ` AND th.created_at <= ?`;
+            replacements.push(`${endDate} 23:59:59`);
+          }
+        }
+
+        // 3. Search Filter
+        if (search) {
+          query += ` AND (t.tuition_name LIKE ? OR th.field_name LIKE ? OR u.name LIKE ? OR th.tuition_id LIKE ? OR th.old_value LIKE ? OR th.new_value LIKE ?)`;
+          const searchPattern = `%${search}%`;
+          replacements.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
+        }
+
+        // 4. Sorting & Pagination
+        const sortOrder = sort.toUpperCase() === "ASC" ? "ASC" : "DESC";
+        query += ` ORDER BY th.created_at ${sortOrder} LIMIT ? OFFSET ?`;
+        replacements.push(Number(limit), Number(offset));
+
+        const historyData = await Tuition.sequelize.query(query, {
+          replacements,
+          type: Tuition.sequelize.QueryTypes.SELECT
+        });
+
+        res.json({ success: true, data: historyData });
+      } catch (error) {
+        console.error("Fetch History Error:", error);
+        res.status(500).json({ message: "Error fetching history" });
+      }
     }
+    // ------------------------------------------
   };
 }

@@ -177,7 +177,11 @@ export function defineTuition(sequelize) {
         allowNull: true,
         field: "tuition_name_color",
       },
-
+      tutorNameColor: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+        field: 'tutor_name_color',
+      },
       paymentApprovalStatus: {
         type: DataTypes.ENUM("pending", "approved", "rejected"),
         allowNull: true,

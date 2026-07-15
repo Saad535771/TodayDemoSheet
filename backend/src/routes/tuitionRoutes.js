@@ -26,23 +26,18 @@ export function makeTuitionRoutes(tuitionController, requireAuth) {
   router.post("/assign", requireAuth, tuitionController.assignStaff);
   router.put("/:id/restore", requireAuth, tuitionController.restore);
   router.delete("/:id/force", requireAuth, tuitionController.forceDelete);
-
-  router.post(
-    "/",
-    requireAuth,
+  router.get("/history/track", requireAuth, tuitionController.getTuitionHistory);
+  router.post("/", requireAuth,
     body("tuitionId").isString().notEmpty(),
     tuitionController.create
   );
-
   router.post(
     "/:tuitionId/payment-approval",
     requireAuth,
     tuitionController.decidePaymentApproval
   );
-
   router.get("/:tuitionId", requireAuth, tuitionController.getByTuitionId);
   router.patch("/:tuitionId", requireAuth, tuitionController.update);
   router.delete("/:tuitionId", requireAuth, tuitionController.remove);
-
   return router;
 }
