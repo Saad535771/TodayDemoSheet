@@ -48,7 +48,6 @@ const styles = {
     textAlign: "center",
     verticalAlign: "middle",
     backgroundClip: "padding-box",
-    zIndex: 0,
   },
   inlineInput: {
     width: "auto",
@@ -93,14 +92,14 @@ const styles = {
   },
   pickerPopup: {
     position: "fixed",
-    top:'140px',
+    top: "320px",
     background: "white",
     border: "1px solid #ccc",
     padding: "5px",
     margin: "0px",
     borderRadius: "6px",
     boxShadow: "0 6px 16px rgba(0,0,0,0.15)",
-    zIndex: 999,
+    zIndex: 9000,
     width: "220px",
   },
   fixedSearchContainer: {
@@ -1489,7 +1488,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
       position: "relative",
       overflow: col.id === "status" ? "visible" : "hidden",
-      zIndex: isEditing && col.id === "status" ? 100 : 1,
+      zIndex: isEditing && col.id === "status" ? 2000 : 1,
     };
 
     if (isEditing && col.id === "status") {
@@ -1541,7 +1540,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
               }}
               style={{ ...styles.inlineInput, minWidth: "90px", width: "auto", height: "28px", flex: 1, padding: "0 6px", position: "relative", zIndex: 1, fontSize: "23px", background: "transparent" }}
             />
-            <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, minWidth: "220px", maxHeight: "220px", overflowY: "auto", background: "#ffffff", border: "1px solid #d1d5db", borderRadius: "10px", boxShadow: "0 10px 30px rgba(0,0,0,0.12)", zIndex: 1, padding: "6px" }}>
+            <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, minWidth: "220px", maxHeight: "220px", overflowY: "auto", background: "#ffffff", border: "1px solid #d1d5db", borderRadius: "10px", boxShadow: "0 10px 30px rgba(0,0,0,0.12)", zIndex: 3000, padding: "6px" }}>
               {filteredOptions.length ? (
                 filteredOptions.map((option) => {
                   const isActive = selectedStatuses.includes(option);
@@ -1722,7 +1721,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
     <div style={styles.card}>
       {contextMenu.visible && (
         <div style={{
-          position: "fixed", top: contextMenu.y, left: contextMenu.x, zIndex: 0,
+          position: "fixed", top: contextMenu.y, left: contextMenu.x, zIndex: 10000,
           background: "white", border: "1px solid #ccc", boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
           padding: "6px 0", borderRadius: "4px", minWidth: "160px"
         }}>
