@@ -48,6 +48,7 @@ const styles = {
     textAlign: "center",
     verticalAlign: "middle",
     backgroundClip: "padding-box",
+    zIndex: 0,
   },
   inlineInput: {
     width: "auto",
@@ -1488,7 +1489,7 @@ export default function MonthlyTuitionTable({ items, load, zoom, handleZoom }) {
       boxShadow: isSelected ? "inset 0 0 0 2px #107c41" : "none",
       position: "relative",
       overflow: col.id === "status" ? "visible" : "hidden",
-      // zIndex: isEditing && col.id === "status" ? 100 : 1,
+      zIndex: isEditing && col.id === "status" ? 100 : 1,
     };
 
     if (isEditing && col.id === "status") {
