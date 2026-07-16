@@ -28,7 +28,7 @@ export default (sequelize) => {
         allowNull: true,
         field: "demo_time",
       },
-		classTime: {
+      classTime: {
         type: DataTypes.STRING(50),
         allowNull: true,
         field: "class_time",
@@ -135,6 +135,12 @@ export default (sequelize) => {
         allowNull: true,
         defaultValue: "#ffffff",
         field: "tuition_name_color",
+      },
+      tutorNameColor: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+        defaultValue: "#ffffff",
+        field: "tutor_name_color",
       },
 
       orderIndex: {

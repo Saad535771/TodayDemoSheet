@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { api } from "../api/api.js";
-
+import CellHistoryPopup from "./CellHistoryPopup";
 const styles = {
   card: {
     background: "#ffffff",
@@ -1006,6 +1006,8 @@ const ColorSwatch = ({
           style={{
             ...styles.pickerPopup,
             left: popupPos.left,
+            top: popupPos.top + 28, // YEH LINE MISSING THI (taake box ke thik neechy popup aaye)
+            zIndex: 99999,          // z-index ko barha diya taake baki sab cheezon se upar show ho
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -1098,6 +1100,22 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,
   const isUnlockedRef = useRef(isUnlocked);
   const isUpdatingRef = useRef(isUpdating);
   const refreshInFlightRef = useRef(false);
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, tuitionId: null, fieldName: null });
+  const [historyPopup, setHistoryPopup] = useState({ visible: false, x: 0, y: 0, tuitionId: null, fieldName: null });
+  const handleContextMenu = (e, tuitionId, fieldName) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ visible: true, x: e.clientX, y: e.clientY, tuitionId, fieldName });
+  };
+
+  const closeContextMenu = () => setContextMenu(prev => ({ ...prev, visible: false }));
+
+  useEffect(() => {
+    if (contextMenu.visible) {
+      window.addEventListener("click", closeContextMenu);
+      return () => window.removeEventListener("click", closeContextMenu);
+    }
+  }, [contextMenu.visible]);
   const effectiveZoom = useMemo(() => {
     let next = globalZoom * localZoom;
     if (next < 0.4) next = 0.4;
@@ -2290,6 +2308,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,
     const value = getCellValue(item, col);
 
     if (col.id === "tuitionName") return item.tuitionNameColor || "inherit";
+    if (col.id === "tutorName") return item.tutorNameColor || "inherit";
     if (col.id === "rejectedTutor") return columnColors["Rejected Tutor"];
     if (col.id === "feedback" && isSatisfiedFeedback(value)) return "#16a34a";
     return "inherit";
@@ -2308,7 +2327,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,
     const commonTdStyle = {
       ...styles.td,
       padding:
-        col.kind === "tuitionName"
+        (col.id === "tuitionName" || col.id === "tutorName")
           ? "0 10px"
           : col.id === "status"
           ? "6px 8px"
@@ -2328,23 +2347,37 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,
       whiteSpace: col.id === "feedback" ? "normal" : "nowrap",
     };
 
-    if (isEditing && col.kind === "multiselect") {
+   if (isEditing && (col.id === "tuitionName" || col.id === "tutorName")) {
+      const colorField = col.id === "tuitionName" ? "tuitionNameColor" : "tutorNameColor";
       return (
-        <td key={reactCellKey} style={{ ...commonTdStyle, verticalAlign: "top" }}>
-          <StatusMultiEditor
-            inputRef={inputRef}
-            value={editValue}
-            options={col.options}
-            onChange={(nextValue) => {
-              editValueRef.current = nextValue;
-              setEditValue(nextValue);
-            }}
-            onImmediatePersist={(nextValue) => {
-              persistStatusEditorValue(item, nextValue);
-            }}
-            onCommit={() => commitEdit({ rowIndex, colId: col.id })}
-            onCancel={() => cancelEdit({ rowIndex, colId: col.id })}
-          />
+        <td style={{ ...commonTdStyle, backgroundColor: item[colorField] || "#ffffff" }}>
+          <div style={{ display: "flex", alignItems: "center", height: "100%", gap: "8px" }}>
+            <input
+              ref={inputRef}
+              autoFocus
+              type="text"
+              value={editValue}
+              onChange={(e) => {
+                editValueRef.current = e.target.value;
+                setEditValue(e.target.value);
+              }}
+              onContextMenu={(e) => handleContextMenu(e, item.tuitionId, col.field)}
+              onBlur={() => commitEdit({ rowIndex, colId: col.id })}
+              onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
+              style={{ ...styles.inlineInput, flex: 1 }}
+            />
+
+            <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+              <ColorSwatch
+                color={item[colorField] || "#ffffff"}
+                onChange={(c) => updateRecord(item, colorField, c)}
+                pickerId={`${colorField}-${instanceKey}-${item.tuitionId}`}
+                activeColorPicker={activeColorPicker}
+                onOpen={setActiveColorPicker}
+                onClose={() => setActiveColorPicker(null)}
+              />
+            </div>
+          </div>
         </td>
       );
     }
@@ -2435,7 +2468,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,
 
     if (isEditing) {
       return (
-        <td key={reactCellKey} style={commonTdStyle}>
+       <td key={reactCellKey} style={commonTdStyle}>
           <input
             ref={inputRef}
             autoFocus
@@ -2443,6 +2476,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,
             style={{ ...styles.inlineInput, flex: 1 }}
             value={editValue}
             onFocus={(e) => openEditorPicker(e.currentTarget, col)}
+            onContextMenu={(e) => handleContextMenu(e, item.tuitionId, col.field)}
             onChange={(e) => {
               editValueRef.current = e.target.value;
               setEditValue(e.target.value);
@@ -2454,7 +2488,8 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,
       );
     }
 
-    if (col.kind === "tuitionName") {
+    if (col.id === "tuitionName" || col.id === "tutorName") {
+      const colorField = col.id === "tuitionName" ? "tuitionNameColor" : "tutorNameColor";
       return (
         <td
           data-grid-row={rowIndex}
@@ -2463,33 +2498,22 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,
           tabIndex={0}
           className="excel-cell"
           onMouseDown={(e) => handleCellMouseDown(rowIndex, col.id, e)}
+          onContextMenu={(e) => handleContextMenu(e, item.tuitionId, col.field)}
           onMouseEnter={() => handleCellMouseEnter(rowIndex, col.id)}
           onDoubleClick={() => startEditingCell(rowIndex, col.id)}
           onKeyDown={(e) => handleCellKeyDown(e, rowIndex, col.id)}
           style={commonTdStyle}
         >
           <div style={{ display: "flex", alignItems: "center", height: "100%", gap: "8px" }}>
-            <span
-              style={{
-                flex: 1,
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {highlightText(value || "", searchTerm)}
+            <span style={{ flex: 1, textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {renderDisplayValue(col, value)}
             </span>
 
-            <div
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-            >
+            <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}>
               <ColorSwatch
-                color={item.tuitionNameColor || "#ffffff"}
-                onChange={(c) => updateRecord(item, "tuitionNameColor", c)}
-                pickerId={`tuitionNameColor-${instanceKey}-${item.tuitionId}`}
+                color={item[colorField] || "#ffffff"}
+                onChange={(c) => updateRecord(item, colorField, c)}
+                pickerId={`${colorField}-${instanceKey}-${item.tuitionId}`}
                 activeColorPicker={activeColorPicker}
                 onOpen={setActiveColorPicker}
                 onClose={() => setActiveColorPicker(null)}
@@ -2508,10 +2532,9 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,
         className="excel-cell"
         key={reactCellKey}
         onMouseDown={(e) => handleCellMouseDown(rowIndex, col.id, e)}
+        onContextMenu={(e) => handleContextMenu(e, item.tuitionId, col.field)}
         onMouseEnter={() => handleCellMouseEnter(rowIndex, col.id)}
-        onDoubleClick={() => {
-          if (col.editable) startEditingCell(rowIndex, col.id);
-        }}
+        onDoubleClick={() => { if (col.editable) startEditingCell(rowIndex, col.id); }}
         onKeyDown={(e) => handleCellKeyDown(e, rowIndex, col.id)}
         style={commonTdStyle}
       >
@@ -2545,6 +2568,36 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,
         }
       `}</style>
       <GlobalSearchHost />
+      {contextMenu.visible && (
+        <div style={{
+          position: "fixed", top: contextMenu.y, left: contextMenu.x, zIndex: 10000,
+          background: "white", border: "1px solid #ccc", boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+          padding: "6px 0", borderRadius: "4px", minWidth: "160px"
+        }}>
+          <div
+            style={{ padding: "8px 15px", cursor: "pointer", fontSize: "14px", fontFamily: "Arial, sans-serif", color: "#333" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setHistoryPopup({ visible: true, x: contextMenu.x, y: contextMenu.y, tuitionId: contextMenu.tuitionId, fieldName: contextMenu.fieldName });
+              closeContextMenu();
+            }}
+            onMouseEnter={(e) => e.target.style.background = "#f1f3f4"}
+            onMouseLeave={(e) => e.target.style.background = "transparent"}
+          >
+            Show edit history
+          </div>
+        </div>
+      )}
+
+      <CellHistoryPopup
+        isOpen={historyPopup.visible}
+        onClose={() => setHistoryPopup({ ...historyPopup, visible: false })}
+        x={historyPopup.x}
+        y={historyPopup.y}
+        tuitionId={historyPopup.tuitionId}
+        fieldName={historyPopup.fieldName}
+        apiUrl="/target/history" 
+      />
       <div style={styles.card}>
         <div style={styles.header(open, themeColor)} onClick={handleHeaderClick}>
           <div>
@@ -2894,9 +2947,7 @@ export default function SlotTable({ slot, onChanged, isProtected, isLoadingData,
     </>
   );
 }
-
 const TH = ({ children, style }) => <th style={{ ...styles.th, ...style }}>{children}</th>;
-
 function sanitizeKey(k) {
   return String(k).replace(/[^\w-]/g, "_");
 }

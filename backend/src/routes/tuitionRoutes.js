@@ -24,9 +24,9 @@ export function makeTuitionRoutes(tuitionController, requireAuth) {
   router.post("/reorder", requireAuth, tuitionController.reorder);
   router.get("/trash", requireAuth, tuitionController.getTrash);
   router.post("/assign", requireAuth, tuitionController.assignStaff);
-  router.put("/:id/restore", requireAuth, tuitionController.restore);
-  router.delete("/:id/force", requireAuth, tuitionController.forceDelete);
-  router.get("/history/track", requireAuth, tuitionController.getTuitionHistory);
+  router.put("/:id/restore",  tuitionController.restore);
+  router.delete("/:id/force",  tuitionController.forceDelete);
+  router.get("/history/track",  tuitionController.getTuitionHistory);
   router.post("/", requireAuth,
     body("tuitionId").isString().notEmpty(),
     tuitionController.create

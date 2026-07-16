@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../api/api.js"; // Apne path ke mutabiq adjust karein
 
-export default function CellHistoryPopup({ isOpen, onClose, x, y, tuitionId, fieldName }) {
+export default function CellHistoryPopup({ isOpen, onClose, x, y, tuitionId, fieldName,apiUrl = "/tuitions/history/track" }) {
   const [history, setHistory] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -12,7 +12,7 @@ export default function CellHistoryPopup({ isOpen, onClose, x, y, tuitionId, fie
       setLoading(true);
       try {
         // Specific cell ki history get kar rahy hain (Newest on top)
-        const response = await api.get("/tuitions/history/track", {
+        const response = await api.get(apiUrl, {
           params: { tuitionId, fieldName, limit: 100, sort: "DESC" },
         });
         setHistory(response.data?.data || []);
@@ -24,7 +24,7 @@ export default function CellHistoryPopup({ isOpen, onClose, x, y, tuitionId, fie
       }
     };
     fetchCellHistory();
-  }, [isOpen, tuitionId, fieldName]);
+  }, [isOpen, tuitionId, fieldName,apiUrl]);
 
   if (!isOpen) return null;
 

@@ -7,8 +7,6 @@ const allowedOrigins = [
   "http://today-demo-sheet-feedback.vercel.app",
   "https://app.excelhometutors.com",
   "http://app.excelhometutors.com",
-  "https://sheet.excelhometutors.com",
-  "http://sheet.excelhometutors.com",
   "http://localhost:3000",
   "http://localhost:5173",
   "http://172.16.3.133:5173",
@@ -96,22 +94,17 @@ notificationService,
     if (req.method === "OPTIONS") {
       return res.status(204).end();
     }
-
     next();
   });
-
   app.use(express.json({ limit: "5mb" }));
   app.use(morgan("dev"));
   if (notificationService?.responseHook) {
   app.use(notificationService.responseHook());
 }
- 
   app.use("/uploads", express.static("public/uploads"));
-
   app.get("/api/health", (req, res) => {
     res.json({ ok: true });
   });
-
   app.use("/api/auth", authRoutes);
   app.use("/api/tuitions", tuitionRoutes);
   app.use("/api/target", targetRoutes);
@@ -132,6 +125,5 @@ notificationService,
         process.env.NODE_ENV === "development" ? String(err?.message || err) : undefined,
     });
   });
-
   return app;
 }

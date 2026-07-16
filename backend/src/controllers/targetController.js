@@ -31,11 +31,10 @@ function normalizeDate(v) {
 
 export function makeTargetController({ TodayDemo, Tuition, Payment }) {
   const editableMap = {
-    // fields shared between Today Demo and Monthly Tuition
     demoTime: "demoTime",
     time: "demoTime",
-    classTime: "classTime",   // Added: Handle camelCase target updates
-    class_time: "classTime",  // Added: Handle snake_case target updates
+    classTime: "classTime",   
+    class_time: "classTime",  
     demoDate: "demoDate",
     tuitionName: "tuitionName",
     source: "source",
@@ -57,10 +56,9 @@ export function makeTargetController({ TodayDemo, Tuition, Payment }) {
     demoRating: "demoRating",
     syncFlag: "syncFlag",
     sync: "syncFlag",
-
-    // Today Demo only fields
     rowColor: "rowColor",
     tuitionNameColor: "tuitionNameColor",
+    tutorNameColor: "tutorNameColor",
     orderIndex: "orderIndex",
   };
 
@@ -173,7 +171,7 @@ export function makeTargetController({ TodayDemo, Tuition, Payment }) {
             transaction,
           });
         }
-
+        const oldData = targetItem.toJSON();
         const targetUpdates = {};
         const tuitionUpdates = {};
 
@@ -220,7 +218,44 @@ export function makeTargetController({ TodayDemo, Tuition, Payment }) {
         }
 
         await transaction.commit();
+        try {
+            const fieldsToTrack = [
+                "demoTime", "classTime", "tuitionName", "source", "country", 
+                "parentsContact", "className", "subjects", "daysPerWeek", 
+                "tutorName", "tutorFee", "rejectedTutor", "status", "feedback", 
+                "demoDate", "demoRating", "syncFlag", "rowColor", "tuitionNameColor", "orderIndex"
+            ];
+            const changes = [];
+            const newData = targetItem.toJSON();
 
+            fieldsToTrack.forEach((field) => {
+                const oldVal = String(oldData[field] || "");
+                const newVal = String(newData[field] || "");
+                
+                if (oldVal !== newVal) {
+                    changes.push([
+                        targetItem.tuitionId,            
+                        req.user.id,          
+                        "UPDATE",
+                        field,                
+                        oldVal,
+                        newVal
+                    ]);
+                }
+            });
+
+            if (changes.length > 0) {
+                const placeholders = changes.map(() => "(?, ?, ?, ?, ?, ?)").join(", ");
+                const flatValues = changes.flat();
+                await TodayDemo.sequelize.query(
+                    `INSERT INTO today_demo_histories (tuition_id, user_id, action_type, field_name, old_value, new_value) VALUES ${placeholders}`,
+                    { replacements: flatValues }
+                );
+            }
+        } catch (historyErr) {
+            console.error("TARGET HISTORY SAVE ERROR:", historyErr);
+        }
+        // -----------------------------------------------------------------
         // Payment sync hamesha monthly master se hi karo
         const tuitionFresh = await Tuition.findOne({ where: { tuitionId } });
         if (tuitionFresh) {
@@ -242,6 +277,64 @@ export function makeTargetController({ TodayDemo, Tuition, Payment }) {
           message: "Update failed",
           error: error.message,
         });
+      }
+    },
+
+    async getTargetHistory(req, res) {
+      try {
+        const { search, startDate, endDate, sort = "DESC", page = 1, limit = 50, tuitionId, fieldName } = req.query;
+        const offset = (page - 1) * limit;
+        
+        let query = `
+          SELECT th.*, u.name as edited_by, td.tuition_name 
+          FROM today_demo_histories th
+          LEFT JOIN users u ON th.user_id = u.id
+          LEFT JOIN today_demo td ON th.tuition_id = td.tuition_id
+          WHERE 1=1
+        `;
+        const replacements = [];
+
+        if (tuitionId) {
+          query += ` AND th.tuition_id = ?`;
+          replacements.push(tuitionId);
+        }
+        if (fieldName) {
+          query += ` AND th.field_name = ?`;
+          replacements.push(fieldName);
+        }
+
+        if (!startDate && !endDate && !tuitionId) {
+          query += ` AND th.created_at >= NOW() - INTERVAL 24 HOUR`;
+        } else {
+          if (startDate) {
+            query += ` AND th.created_at >= ?`;
+            replacements.push(`${startDate} 00:00:00`);
+          }
+          if (endDate) {
+            query += ` AND th.created_at <= ?`;
+            replacements.push(`${endDate} 23:59:59`);
+          }
+        }
+
+        if (search) {
+          query += ` AND (td.tuition_name LIKE ? OR th.field_name LIKE ? OR u.name LIKE ? OR th.tuition_id LIKE ? OR th.old_value LIKE ? OR th.new_value LIKE ?)`;
+          const searchPattern = `%${search}%`;
+          replacements.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
+        }
+
+        const sortOrder = sort.toUpperCase() === "ASC" ? "ASC" : "DESC";
+        query += ` ORDER BY th.created_at ${sortOrder} LIMIT ? OFFSET ?`;
+        replacements.push(Number(limit), Number(offset));
+
+        const historyData = await TodayDemo.sequelize.query(query, {
+          replacements,
+          type: TodayDemo.sequelize.QueryTypes.SELECT
+        });
+
+        res.json({ success: true, data: historyData });
+      } catch (error) {
+        console.error("Fetch Target History Error:", error);
+        res.status(500).json({ message: "Error fetching history" });
       }
     },
 

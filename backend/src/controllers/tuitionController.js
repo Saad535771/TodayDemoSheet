@@ -773,7 +773,6 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
       if (req.user.role !== "admin") {
         return res.status(403).json({ message: "Only Admin can delete permanently" });
       }
-
       const { id } = req.params;
       const item = await Tuition.findByPk(id);
       if (item?.tuitionId && OtmTuitionEntry) {
@@ -823,10 +822,6 @@ export function makeTuitionController({ Tuition, TodayDemo, Payment, User, OtmTu
 
     // --- ADDED: NEW ADMIN HISTORY FETCH API ---
   async getTuitionHistory(req, res) {
-      if (req.user.role !== "admin") {
-        return res.status(403).json({ message: "Access denied. Admin only." });
-      }
-
       try {
         const { search, startDate, endDate, sort = "DESC", page = 1, limit = 50, tuitionId, fieldName } = req.query;
         const offset = (page - 1) * limit;
