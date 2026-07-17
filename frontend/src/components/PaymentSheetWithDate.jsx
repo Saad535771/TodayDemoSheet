@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/api.js";
-import PaymentSheetHistoryPanel from "../pages/PaymentSheetHistoryPanel.jsx";
 import PaymentSheetInvoiceActions from "./PaymentSheetInvoiceActions.jsx";
+import CellHistoryPopup from "./CellHistoryPopup.jsx"; // <-- ADDED THIS IMPORT
 import "./PaymentSheetWithDate.global.css";
 
 const MIN_ZOOM = 0.7;
@@ -10,8 +10,6 @@ const ZOOM_STEP = 0.1;
 const MAX_HISTORY = 100;
 const RECENT_MUTATION_PAUSE_MS = 1200;
 const SILENT_RELOAD_DEBOUNCE_MS = 800;
-const PAGE_TOP_OFFSET = 78;
-const FIXED_TOOLBAR_HEIGHT = 118;
 const STICKY_TOP = -40;
 
 const DEFAULT_PAGE_SIZE = 200;
@@ -258,8 +256,6 @@ function getManualPaymentDateForDisplay(row = {}) {
 
   if (!paymentDate || paymentDate === "0000-00-00") return "";
 
-  // Backend/cycle default date ko manual Payment Date column mein show nahi karna.
-  // Example: date = 2026-06-01 aur paymentDate bhi 2026-06-01 ho to column blank rahega.
   if (isIsoDateOnly(paymentDate) && isMonthStartDate(paymentDate) && paymentDate === cycleDate) {
     return "";
   }
@@ -274,7 +270,7 @@ function normalizePaymentRow(row = {}) {
     ...row,
     contactNumber: getContactValue(row),
     paymentDate: getManualPaymentDateForDisplay({ ...row, date: cycleDate }),
-    date: cycleDate, // hidden month/tab cycle date
+    date: cycleDate, 
   };
 }
 function normalizeSearchText(value) {
@@ -362,14 +358,12 @@ function getDateGroupDay(value) {
   const raw = String(value || "").trim().toLowerCase();
   if (!raw) return Number.MAX_SAFE_INTEGER;
 
-  // Handles values like: 1st Of Month, 2nd of Month, 12th Of Month
   const ordinalMatch = raw.match(/^(\d{1,2})(st|nd|rd|th)?\b/);
   if (ordinalMatch) {
     const day = Number(ordinalMatch[1]);
     if (Number.isFinite(day)) return Math.max(1, Math.min(31, day));
   }
 
-  // Fallback for date formats like 2026-05-12 or 12/05/2026
   const isoMatch = raw.match(/\b\d{4}[-/](\d{1,2})[-/](\d{1,2})\b/);
   if (isoMatch) {
     const day = Number(isoMatch[2]);
@@ -891,8 +885,27 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
     left: 0,
     width: 0,
   });
-  const [auditOpen, setAuditOpen] = useState(false);
-  const [auditRow, setAuditRow] = useState(null);
+
+  // --- NEW CELL HISTORY MENU STATES ---
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, rowId: null, fieldName: null });
+  const [historyPopup, setHistoryPopup] = useState({ visible: false, x: 0, y: 0, rowId: null, fieldName: null });
+
+  const handleContextMenu = (e, rowId, fieldName) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ visible: true, x: e.clientX, y: e.clientY, rowId, fieldName });
+  };
+
+  const closeContextMenu = () => setContextMenu(prev => ({ ...prev, visible: false }));
+
+  useEffect(() => {
+    if (contextMenu.visible) {
+      window.addEventListener("click", closeContextMenu);
+      return () => window.removeEventListener("click", closeContextMenu);
+    }
+  }, [contextMenu.visible]);
+  // -------------------------------------
+
   const mountedRef = useRef(true);
   const itemsRef = useRef([]);
   const filteredItemsRef = useRef([]);
@@ -918,23 +931,12 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
 
   const currentRole = resolveCurrentUserRole(me);
 
-  // Sirf admin ko default full access hoga.
-  // HOD, OTM, Staff ke liye admin panel wali permissions follow hongi.
   const isAdminRole = currentRole === "admin";
+  const canSeeTutorShare = isAdminRole || resolveAccessFlag(me, "access_tutor_share");
+  const canSeeLacasShare = isAdminRole || resolveAccessFlag(me, "access_lacas_share");
+  const canSeeTotalFees = isAdminRole || resolveAccessFlag(me, "access_total_fees");
+  const canSeePaymentActions = isAdminRole || resolveAccessFlag(me, "access_payment_actions");
 
-  const canSeeTutorShare =
-    isAdminRole || resolveAccessFlag(me, "access_tutor_share");
-
-  const canSeeLacasShare =
-    isAdminRole || resolveAccessFlag(me, "access_lacas_share");
-
-  const canSeeTotalFees =
-    isAdminRole || resolveAccessFlag(me, "access_total_fees");
-
-  const canSeePaymentActions =
-    isAdminRole || resolveAccessFlag(me, "access_payment_actions");
-
-  const canSeeAuditTrail = isAdminRole;
   const zoomPercent = `${Math.round(zoomLevel * 100)}%`;
 
   const changeZoom = (direction) => {
@@ -962,7 +964,6 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         editable: true,
         width: 170,
         align: "center",
-        // kind: "tuitionName",
       },
       {
         id: "totalStudents",
@@ -1261,13 +1262,6 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
     }
   }, [editingCell, gridColumnMap]);
 
-
-  const openAuditPanel = () => {
-    if (!canSeeAuditTrail) return;
-    setAuditRow(null);
-    setAuditOpen(true);
-  };
-
   const syncHistoryMeta = () => {
     setHistoryMeta({
       canUndo: historyUndoRef.current.length > 0,
@@ -1327,9 +1321,6 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
   const withStableCycleDatePatch = (row = {}, patch = {}) => {
     const nextPatch = { ...(patch || {}) };
 
-    // Har update ke sath hidden cycle date bhejna zaroori hai,
-    // warna backend active row ko current month mein move kar deta hai
-    // aur selected old month tab se row ghaib ho jati hai.
     if (!Object.prototype.hasOwnProperty.call(nextPatch, "date")) {
       nextPatch.date = getStableCycleDateForRow(row);
     }
@@ -1557,7 +1548,6 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
       }
 
       // Fetch all records for the selected filters, then apply frontend sorting + pagination.
-      // This keeps 1st/2nd/3rd...12th Of Month sequence correct across all pages.
       const fetchLimit = 50000;
       const res = await api.get(
         `/payments-clone?page=1&limit=${fetchLimit}&month=all&year=all`
@@ -2842,7 +2832,8 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
 
     if (isEditing && col.kind === "multiSelect") {
       return (
-        <td key={cellKey} className="pswd-td pswd-data-cell" style={editingStyleVars}>
+        <td key={cellKey} className="pswd-td pswd-data-cell" style={editingStyleVars}
+            onContextMenu={(e) => handleContextMenu(e, rowId, col.id)}>
           <select
             ref={inputRef}
             autoFocus
@@ -2889,6 +2880,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
                 editValueRef.current = e.target.value;
                 setEditValue(e.target.value);
               }}
+              onContextMenu={(e) => handleContextMenu(e, rowId, col.id)}
               onBlur={() => void commitEdit({ rowIndex, colId: col.id })}
               onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
               className="pswd-input"
@@ -2939,6 +2931,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
               editValueRef.current = e.target.value;
               setEditValue(e.target.value);
             }}
+            onContextMenu={(e) => handleContextMenu(e, rowId, col.id)}
             onBlur={() => void commitEdit({ rowIndex, colId: col.id })}
             onKeyDown={(e) => handleEditInputKeyDown(e, rowIndex, col.id, col)}
             className="pswd-input"
@@ -2955,6 +2948,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
           data-grid-col={col.id}
           tabIndex={0}
           className="pswd-td pswd-data-cell pswd-excel-cell"
+          onContextMenu={(e) => handleContextMenu(e, rowId, col.id)}
           onMouseDown={(e) => handleCellMouseDown(rowIndex, col.id, e)}
           onMouseEnter={() => handleCellMouseEnter(rowIndex, col.id)}
           onDoubleClick={() => startEditingCell(rowIndex, col.id)}
@@ -2991,6 +2985,7 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
         data-grid-col={col.id}
         tabIndex={0}
         className="pswd-td pswd-data-cell pswd-excel-cell"
+        onContextMenu={(e) => handleContextMenu(e, rowId, col.id)}
         onMouseDown={(e) => handleCellMouseDown(rowIndex, col.id, e)}
         onMouseEnter={() => handleCellMouseEnter(rowIndex, col.id)}
         onClick={() => {
@@ -3021,6 +3016,38 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
 
   return (
     <div className="pswd-page">
+      {/* --- HISTORY CONTEXT MENU & POPUP START --- */}
+      {contextMenu.visible && (
+        <div style={{
+          position: "fixed", top: contextMenu.y, left: contextMenu.x, zIndex: 10000,
+          background: "white", border: "1px solid #ccc", boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+          padding: "6px 0", borderRadius: "4px", minWidth: "160px"
+        }}>
+          <div
+            style={{ padding: "8px 15px", cursor: "pointer", fontSize: "14px", fontFamily: "Arial, sans-serif", color: "#333" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setHistoryPopup({ visible: true, x: contextMenu.x, y: contextMenu.y, rowId: contextMenu.rowId, fieldName: contextMenu.fieldName });
+              closeContextMenu();
+            }}
+            onMouseEnter={(e) => e.target.style.background = "#f1f3f4"}
+            onMouseLeave={(e) => e.target.style.background = "transparent"}
+          >
+            Show edit history
+          </div>
+        </div>
+      )}
+
+      <CellHistoryPopup
+        isOpen={historyPopup.visible}
+        onClose={() => setHistoryPopup({ ...historyPopup, visible: false })}
+        x={historyPopup.x}
+        y={historyPopup.y}
+        paymentCloneId={historyPopup.rowId} 
+        fieldName={historyPopup.fieldName}
+        apiUrl="/payments-clone/history/track"
+      />
+      {/* --- HISTORY CONTEXT MENU & POPUP END --- */}
       <div className="pswd-card" ref={cardRef}>
         {isHeaderPinned ? (
           <div style={{ height: `${headerMetrics.height + 4}px` }} />
@@ -3079,17 +3106,6 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
             <button onClick={() => void loadRows({ initial: true })} className="pswd-btn">
               Refresh
             </button>
-
-            {canSeeAuditTrail ? (
-              <button
-                onClick={openAuditPanel}
-                className="pswd-btn"
-                disabled={!items.length}
-                title="Open history panel"
-              >
-                Sheet History
-              </button>
-            ) : null}
 
             <button
               onClick={() => void undoLastAction()}
@@ -3384,16 +3400,6 @@ export default function PaymentSheetWithDate({ me, isActive = true, onCountChang
           </div>
         </div>
       </div>
-
-      <PaymentSheetHistoryPanel
-        open={auditOpen}
-        onClose={() => {
-          setAuditOpen(false);
-          setAuditRow(null);
-        }}
-        scope="sheet"
-        moduleName="payment_sheet_with_date"
-      />
     </div>
   );
 }

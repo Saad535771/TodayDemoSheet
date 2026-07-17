@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { api } from "../api/api.js"; // Apne path ke mutabiq adjust karein
-
-export default function CellHistoryPopup({ isOpen, onClose, x, y, tuitionId, fieldName,apiUrl = "/tuitions/history/track" }) {
+import { api } from "../api/api.js"; 
+export default function CellHistoryPopup({ 
+  isOpen, 
+  onClose, 
+  x, 
+  y, 
+  tuitionId,            // Purani sheets (Tuitions, TodayDemo) ke liye
+  paymentCloneId,       // Payment Team A ke liye
+  paymentCloneTeamBId, 
+  fieldName, 
+  apiUrl = "/tuitions/history/track" 
+}) {
   const [history, setHistory] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -11,10 +20,14 @@ export default function CellHistoryPopup({ isOpen, onClose, x, y, tuitionId, fie
     const fetchCellHistory = async () => {
       setLoading(true);
       try {
-        // Specific cell ki history get kar rahy hain (Newest on top)
-        const response = await api.get(apiUrl, {
-          params: { tuitionId, fieldName, limit: 100, sort: "DESC" },
-        });
+        const params = { fieldName, limit: 100, sort: "DESC" };
+        
+        // Jo bhi sheet id pass karegi, wahi parameter API ko jayega
+        if (tuitionId) params.tuitionId = tuitionId;
+        if (paymentCloneId) params.rowId = paymentCloneId;
+        if (paymentCloneTeamBId) params.rowId = paymentCloneTeamBId;
+
+        const response = await api.get(apiUrl, { params });
         setHistory(response.data?.data || []);
         setCurrentIndex(0);
       } catch (error) {
@@ -24,7 +37,7 @@ export default function CellHistoryPopup({ isOpen, onClose, x, y, tuitionId, fie
       }
     };
     fetchCellHistory();
-  }, [isOpen, tuitionId, fieldName,apiUrl]);
+  },[isOpen, tuitionId, paymentCloneId, paymentCloneTeamBId, fieldName, apiUrl]);
 
   if (!isOpen) return null;
 
@@ -85,13 +98,11 @@ export default function CellHistoryPopup({ isOpen, onClose, x, y, tuitionId, fie
                     background: "none", border: "none", cursor: currentIndex === 0 ? "default" : "pointer",
                     color: currentIndex === 0 ? "#ccc" : "#5f6368", fontSize: "16px", padding: "0 4px"
                   }}
-                  title="Newer edit"
-                >
+                  title="Newer edit">
                   {">"}
                 </button>
               </div>
             </div>
-
             {/* Change Text */}
             <div style={{ fontSize: "13px", color: "#202124", lineHeight: "1.5" }}>
               {!record.old_value ? (

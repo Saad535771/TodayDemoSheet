@@ -889,7 +889,42 @@ for (const row of rows) {
 
         const afterData = serializeRow(row);
         const changedColumns = getChangedColumns(beforeData, afterData, Object.keys(payload));
+        try {
+            const fieldsToTrack = [
+                "paymentDate", "dateWithMonth", "tuitionName", "totalStudents", "country",
+                "subjects", "className", "tutorName", "tutorFee", "lacasShare", "totalFees",
+                "status", "feedback", "contactNumber", "notes", "otmName", "assignedStaffId",
+                "rowColor", "tuitionNameColor", "daysPerWeek"
+            ];
+            const changes = [];
 
+            fieldsToTrack.forEach((field) => {
+                const oldVal = String(beforeData[field] || "");
+                const newVal = String(afterData[field] || "");
+
+                if (oldVal !== newVal) {
+                    changes.push([
+                        row.id, 
+                        req.user?.id || null,
+                        "UPDATE",
+                        field,
+                        oldVal,
+                        newVal
+                    ]);
+                }
+            });
+
+            if (changes.length > 0) {
+                const placeholders = changes.map(() => "(?, ?, ?, ?, ?, ?)").join(", ");
+                const flatValues = changes.flat();
+                await PaymentClone.sequelize.query(
+                    `INSERT INTO payment_clone_histories (payment_clone_id, user_id, action_type, field_name, old_value, new_value) VALUES ${placeholders}`,
+                    { replacements: flatValues }
+                );
+            }
+        } catch (historyErr) {
+            console.error("PAYMENT CLONE HISTORY SAVE ERROR:", historyErr);
+        }
         if (changedColumns.length) {
           await createAuditLog({
             req,
@@ -1189,7 +1224,69 @@ for (const row of rows) {
         });
       }
     },
+// --- NEW ADMIN HISTORY FETCH API (TEAM A) ---
+  // --- NEW ADMIN HISTORY FETCH API (TEAM A) ---
+    async getPaymentHistory(req, res) {
+      try {
+        // req.query se directly generic 'rowId' get kar rahy hain
+        const { search, startDate, endDate, sort = "DESC", page = 1, limit = 50, rowId, fieldName } = req.query;
+        const offset = (page - 1) * limit;
+        
+        let query = `
+          SELECT ph.*, u.name as edited_by 
+          FROM payment_clone_histories ph
+          LEFT JOIN users u ON ph.user_id = u.id
+          WHERE 1=1
+        `;
+        const replacements = [];
 
+        if (rowId) {
+          query += ` AND ph.payment_clone_id = ?`;
+          replacements.push(Number(rowId));
+        }
+        if (fieldName) {
+          query += ` AND ph.field_name = ?`;
+          replacements.push(fieldName);
+        }
+
+        if (!startDate && !endDate && !rowId) {
+          query += ` AND ph.created_at >= NOW() - INTERVAL 24 HOUR`;
+        } else {
+          if (startDate) {
+            query += ` AND ph.created_at >= ?`;
+            replacements.push(`${startDate} 00:00:00`);
+          }
+          if (endDate) {
+            query += ` AND ph.created_at <= ?`;
+            replacements.push(`${endDate} 23:59:59`);
+          }
+        }
+
+        if (search) {
+          query += ` AND (ph.field_name LIKE ? OR u.name LIKE ? OR ph.old_value LIKE ? OR ph.new_value LIKE ?)`;
+          const searchPattern = `%${search}%`;
+          replacements.push(searchPattern, searchPattern, searchPattern, searchPattern);
+        }
+
+        const sortOrder = sort.toUpperCase() === "ASC" ? "ASC" : "DESC";
+        query += ` ORDER BY ph.created_at ${sortOrder} LIMIT ? OFFSET ?`;
+        replacements.push(Number(limit), Number(offset));
+
+        // Use standard "SELECT" string to prevent undefined QueryTypes errors
+        const historyData = await PaymentClone.sequelize.query(query, {
+          replacements,
+          type: "SELECT"
+        });
+
+        res.json({ success: true, data: historyData });
+      } catch (error) {
+        console.error("Fetch Payment History Error:", error);
+        // Error details response mein bhej rahy hain taa k debugging aasaan ho
+        res.status(500).json({ message: "Error fetching history", error: error.message });
+      }
+    },
+
+    
     async forceDeleteTrash(req, res) {
       try {
         const { id } = req.params;

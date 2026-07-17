@@ -33,7 +33,7 @@ export function makePaymentCloneRoutes(paymentCloneController, requireAuth) {
   // POST /payments-clone/notifications/read
   router.get("/notifications/count", requireAuth, call("notificationCount"));
   router.post("/notifications/read", requireAuth, call("markNotificationsRead"));
-
+  router.get("/history/track", requireAuth, call("getPaymentHistory"));
   // Reorder route
   // POST /payments-clone/reorder
   router.post("/reorder", requireAuth, call("reorder"));
