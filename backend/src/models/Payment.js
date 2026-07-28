@@ -9,7 +9,6 @@ export function definePayment(sequelize) {
         autoIncrement: true,
         primaryKey: true,
       },
-
       // internal sync key
       tuitionId: {
         type: DataTypes.STRING(100),

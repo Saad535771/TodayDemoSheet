@@ -1,120 +1,469 @@
-import { makeSequelize } from '../config/db.js';
-import { QueryTypes } from 'sequelize';
+import sequelize from "../config/db.js";
+import { QueryTypes } from "sequelize";
+const TABLE_NAME = "tuition_reports";
 
-const sequelize = makeSequelize();
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(
+    object || {},
+    key
+  );
+}
 
-const ReportModel = {
-  // 1. Fetch All Reports
-  findAll: async () => {
-    const rows = await sequelize.query('SELECT * FROM tuition_reports ORDER BY id DESC', {
-      type: QueryTypes.SELECT
-    });
-    return rows;
-  },
+function normalizeText(value, fallback = "") {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
 
-  // 2. Create New Report
-  create: async ({ tuitionName, groupName, tutorName, reportStatus,displayOrder, rowColor }) => {
-    const groupNameStr = typeof groupName === 'object' ? JSON.stringify(groupName) : groupName;
-    const tutorNameStr = typeof tutorName === 'object' ? JSON.stringify(tutorName) : tutorName;
+  return String(value).trim();
+}
 
-    const [result] = await sequelize.query(
-      `INSERT INTO tuition_reports (tuition_name, group_name, tutor_name, report_status,display_order, row_color) VALUES (?,?,?,?,?,?)`,
-      {
-        // FIX: tutorName ki jagah tutorNameStr pass hoga taake array string ban kar jaye
-        replacements: [tuitionName, groupNameStr, tutorNameStr || '', reportStatus || 'report pending', displayOrder || 0, rowColor || null]
-      }
-    );
-    return result; 
-  },
+function normalizeList(value, depth = 0) {
+  if (
+    depth > 8 ||
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return [];
+  }
 
-  // 3. Find By ID
-  findById: async (id) => {
-    const rows = await sequelize.query('SELECT * FROM tuition_reports WHERE id = ?', {
-      replacements: [id],
-      type: QueryTypes.SELECT
-    });
-    return rows[0];
-  },
+  if (Array.isArray(value)) {
+    return [
+      ...new Set(
+        value
+          .flatMap((item) =>
+            normalizeList(item, depth + 1)
+          )
+          .map((item) =>
+            String(item || "").trim()
+          )
+          .filter(Boolean)
+      ),
+    ];
+  }
 
-// 4. Update Full Report (PUT)
-  update: async (id, data) => {
-    const { tuitionName, groupName, tutorName, reportStatus, displayOrder, rowColor } = data;
-    
-    // Fix: Ensure groupName and tutorName are safely converted to JSON string or null
-    let groupNameStr = null;
-    if (groupName !== undefined && groupName !== null && groupName !== '') {
-      groupNameStr = typeof groupName === 'object' ? JSON.stringify(groupName) : JSON.stringify(String(groupName).split(',').map(s => s.trim()).filter(Boolean));
-    }
-
-    let tutorNameStr = null;
-    if (tutorName !== undefined && tutorName !== null && tutorName !== '') {
-      tutorNameStr = typeof tutorName === 'object' ? JSON.stringify(tutorName) : JSON.stringify(String(tutorName).split(',').map(s => s.trim()).filter(Boolean));
-    }
-
-    const [results, metadata] = await sequelize.query(
-      `UPDATE tuition_reports SET 
-        tuition_name = COALESCE(?, tuition_name), 
-        group_name = COALESCE(?, group_name), 
-        tutor_name = COALESCE(?, tutor_name), 
-        report_status = COALESCE(?, report_status),
-        display_order = COALESCE(?, display_order),
-        row_color = COALESCE(?, row_color)
-       WHERE id = ?`,
-      {
-        replacements: [tuitionName, groupNameStr, tutorNameStr, reportStatus, displayOrder, rowColor, id]
-      }
-    );
-    return metadata.affectedRows;
-  },
-  // 5. Partial Update (PATCH)
-  patch: async (id, fields) => {
-    const keys = [];
-    const values = [];
-
-    if (fields.tuitionName !== undefined) {
-      keys.push('tuition_name = ?');
-      values.push(fields.tuitionName);
-    }
-    if (fields.groupName !== undefined) {
-      keys.push('group_name = ?');
-      values.push(typeof fields.groupName === 'object' ? JSON.stringify(fields.groupName) : fields.groupName);
-    }
-    if (fields.tutorName !== undefined) {
-      keys.push('tutor_name = ?');
-      values.push(typeof fields.tutorName === 'object' ? JSON.stringify(fields.tutorName) : fields.tutorName);
-    }
-    if (fields.reportStatus !== undefined) {
-      keys.push('report_status = ?');
-      values.push(fields.reportStatus);
-    }
-
-    if (keys.length === 0) return 0;
-
-    values.push(id);
-    const query = `UPDATE tuition_reports SET ${keys.join(', ')} WHERE id = ?`;
-    const [results, metadata] = await sequelize.query(query, {
-      replacements: values
-    });
-    return metadata.affectedRows;
-  },
-
-  // 6. Delete Report (DELETE)
-  delete: async (id) => {
-    // FIX: 'reports' ki jagah sahi table name 'tuition_reports' kar diya gaya hai
-    const [results, metadata] = await sequelize.query('DELETE FROM tuition_reports WHERE id = ?', {
-      replacements: [id]
-    });
-    return metadata.affectedRows;
-  },
-  reorder: async (orderedIds) => {
-  for (let i = 0; i < orderedIds.length; i++) {
-    await sequelize.query(
-      'UPDATE tuition_reports SET display_order = ? WHERE id = ?',
-      { replacements: [i, orderedIds[i]] }
+  if (typeof value === "object") {
+    return normalizeList(
+      Object.values(value),
+      depth + 1
     );
   }
-  return true;
-},
-  
+
+  const text = String(value).trim();
+
+  if (!text) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(text);
+
+    return normalizeList(
+      parsed,
+      depth + 1
+    );
+  } catch {
+    return [
+      ...new Set(
+        text
+          .split(/[,|\n]+/)
+          .map((item) => item.trim())
+          .filter(Boolean)
+      ),
+    ];
+  }
+}
+
+function normalizeJsonList(value) {
+  return JSON.stringify(
+    normalizeList(value)
+  );
+}
+
+function normalizeInteger(
+  value,
+  fallback = 0
+) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return fallback;
+  }
+
+  return Math.max(
+    0,
+    Math.trunc(number)
+  );
+}
+
+function getAffectedRows(result, metadata) {
+  if (
+    metadata &&
+    typeof metadata.affectedRows === "number"
+  ) {
+    return metadata.affectedRows;
+  }
+
+  if (
+    result &&
+    typeof result.affectedRows === "number"
+  ) {
+    return result.affectedRows;
+  }
+
+  if (typeof metadata === "number") {
+    return metadata;
+  }
+
+  if (
+    Array.isArray(metadata) &&
+    typeof metadata[1] === "number"
+  ) {
+    return metadata[1];
+  }
+
+  return 0;
+}
+
+const ReportModel = {
+  async create({
+    tuitionName,
+    groupName,
+    tutorName,
+    reportStatus,
+    displayOrder,
+    rowColor,
+  } = {}) {
+    const replacements = {
+      tuitionName: normalizeText(
+        tuitionName
+      ),
+
+      groupName:
+        normalizeJsonList(groupName),
+
+      tutorName:
+        normalizeJsonList(tutorName),
+
+      reportStatus:
+        normalizeText(
+          reportStatus,
+          "report pending"
+        ) || "report pending",
+
+      displayOrder:
+        normalizeInteger(
+          displayOrder,
+          0
+        ),
+
+      rowColor:
+        normalizeText(rowColor),
+    };
+
+    const [result] =
+      await sequelize.query(
+        `
+          INSERT INTO ${TABLE_NAME}
+          (
+            tuition_name,
+            group_name,
+            tutor_name,
+            report_status,
+            display_order,
+            row_color
+          )
+          VALUES
+          (
+            :tuitionName,
+            :groupName,
+            :tutorName,
+            :reportStatus,
+            :displayOrder,
+            :rowColor
+          )
+        `,
+        {
+          replacements,
+        }
+      );
+
+    return Number(
+      result?.insertId ||
+      result ||
+      0
+    );
+  },
+
+  async findAll() {
+    return sequelize.query(
+      `
+        SELECT
+          id,
+          tuition_name,
+          group_name,
+          tutor_name,
+          report_status,
+          display_order,
+          row_color,
+          created_at
+        FROM ${TABLE_NAME}
+        ORDER BY
+          COALESCE(display_order, 0) ASC,
+          id ASC
+      `,
+      {
+        type: QueryTypes.SELECT,
+      }
+    );
+  },
+
+  async findById(id) {
+    const rows =
+      await sequelize.query(
+        `
+          SELECT
+            id,
+            tuition_name,
+            group_name,
+            tutor_name,
+            report_status,
+            display_order,
+            row_color,
+            created_at
+          FROM ${TABLE_NAME}
+          WHERE id = :id
+          LIMIT 1
+        `,
+        {
+          replacements: {
+            id: Number(id),
+          },
+
+          type: QueryTypes.SELECT,
+        }
+      );
+
+    return rows[0] || null;
+  },
+
+  async update(id, data = {}) {
+    const setParts = [];
+    const replacements = {
+      id: Number(id),
+    };
+
+    /*
+     * Dynamic query ban rahi hai:
+     * jo field request mein maujood nahi,
+     * uska SQL placeholder bhi create nahi hoga.
+     */
+
+    if (
+      hasOwn(data, "tuitionName") ||
+      hasOwn(data, "tuition_name")
+    ) {
+      setParts.push(
+        "tuition_name = :tuitionName"
+      );
+
+      replacements.tuitionName =
+        normalizeText(
+          data.tuitionName ??
+          data.tuition_name
+        );
+    }
+
+    if (
+      hasOwn(data, "groupName") ||
+      hasOwn(data, "group_name")
+    ) {
+      setParts.push(
+        "group_name = :groupName"
+      );
+
+      replacements.groupName =
+        normalizeJsonList(
+          data.groupName ??
+          data.group_name
+        );
+    }
+
+    if (
+      hasOwn(data, "tutorName") ||
+      hasOwn(data, "tutor_name")
+    ) {
+      setParts.push(
+        "tutor_name = :tutorName"
+      );
+
+      replacements.tutorName =
+        normalizeJsonList(
+          data.tutorName ??
+          data.tutor_name
+        );
+    }
+
+    if (
+      hasOwn(data, "reportStatus") ||
+      hasOwn(data, "report_status")
+    ) {
+      setParts.push(
+        "report_status = :reportStatus"
+      );
+
+      replacements.reportStatus =
+        normalizeText(
+          data.reportStatus ??
+          data.report_status,
+          "report pending"
+        ) || "report pending";
+    }
+
+    if (
+      hasOwn(data, "displayOrder") ||
+      hasOwn(data, "display_order")
+    ) {
+      const rawDisplayOrder =
+        data.displayOrder ??
+        data.display_order;
+
+      /*
+       * Undefined ho to field skip hogi.
+       * SQL replacement kabhi undefined nahi hogi.
+       */
+      if (
+        rawDisplayOrder !== undefined &&
+        rawDisplayOrder !== null &&
+        rawDisplayOrder !== ""
+      ) {
+        setParts.push(
+          "display_order = :displayOrder"
+        );
+
+        replacements.displayOrder =
+          normalizeInteger(
+            rawDisplayOrder,
+            0
+          );
+      }
+    }
+
+    if (
+      hasOwn(data, "rowColor") ||
+      hasOwn(data, "row_color")
+    ) {
+      setParts.push(
+        "row_color = :rowColor"
+      );
+
+      replacements.rowColor =
+        normalizeText(
+          data.rowColor ??
+          data.row_color
+        );
+    }
+
+    if (!setParts.length) {
+      const existing =
+        await this.findById(id);
+
+      return existing ? 1 : 0;
+    }
+
+    const [result, metadata] =
+      await sequelize.query(
+        `
+          UPDATE ${TABLE_NAME}
+          SET ${setParts.join(", ")}
+          WHERE id = :id
+        `,
+        {
+          replacements,
+        }
+      );
+
+    return getAffectedRows(
+      result,
+      metadata
+    );
+  },
+
+  async patch(id, data = {}) {
+    return this.update(id, data);
+  },
+
+  async delete(id) {
+    const [result, metadata] =
+      await sequelize.query(
+        `
+          DELETE FROM ${TABLE_NAME}
+          WHERE id = :id
+        `,
+        {
+          replacements: {
+            id: Number(id),
+          },
+        }
+      );
+
+    return getAffectedRows(
+      result,
+      metadata
+    );
+  },
+
+  async reorder(orderedIds = []) {
+    if (!Array.isArray(orderedIds)) {
+      return 0;
+    }
+
+    const ids = orderedIds
+      .map(Number)
+      .filter(
+        (id) =>
+          Number.isInteger(id) &&
+          id > 0
+      );
+
+    if (!ids.length) {
+      return 0;
+    }
+
+    const transaction =
+      await sequelize.transaction();
+
+    try {
+      for (
+        let index = 0;
+        index < ids.length;
+        index += 1
+      ) {
+        await sequelize.query(
+          `
+            UPDATE ${TABLE_NAME}
+            SET display_order = :displayOrder
+            WHERE id = :id
+          `,
+          {
+            replacements: {
+              displayOrder: index,
+              id: ids[index],
+            },
+
+            transaction,
+          }
+        );
+      }
+
+      await transaction.commit();
+
+      return ids.length;
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  },
 };
+
 export default ReportModel;
