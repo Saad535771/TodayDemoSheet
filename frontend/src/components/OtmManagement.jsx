@@ -317,6 +317,24 @@ export default function OtmManagement() {
     bootstrap();
   }, [requestedUserId]);
 
+  function applyMutationResult(data = {}) {
+    if (Array.isArray(data.entries)) {
+      setEntries(data.entries);
+    }
+    if (Array.isArray(data.reportRows)) {
+      setReportRows(data.reportRows);
+    }
+    if (data.reportSummary !== undefined) {
+      setReportSummary(data.reportSummary);
+    }
+    if (Array.isArray(data.totalClassRows)) {
+      setTotalClassRows(data.totalClassRows);
+    }
+    if (data.totalClassSummary !== undefined) {
+      setTotalClassSummary(data.totalClassSummary);
+    }
+  }
+
   useEffect(() => {
     const sessionId = localStorage.getItem("session_id") || sessionStorage.getItem("session_id");
     if (!sessionId) return;
@@ -341,93 +359,31 @@ export default function OtmManagement() {
     const targetUserId = isAdmin ? Number(requestedUserId || selectedUser?.id || 0) : null;
     const body = isAdmin ? { ...payload, userId: targetUserId } : payload;
     const res = await api.post("/otm-management/entries", body);
-    await bootstrap();
-    return res.data?.entry || res.data?.data;
+    const data = res.data || {};
+    applyMutationResult(data);
+    return data.entry || data.data;
   }
 
   async function updateEntry(entryId, payload) {
     const targetUserId = isAdmin ? Number(requestedUserId || selectedUser?.id || 0) : null;
     const body = isAdmin ? { ...payload, userId: targetUserId } : payload;
     const res = await api.put(`/otm-management/entries/${entryId}`, body);
-    await bootstrap();
-    return res.data?.entry || res.data?.data;
+    const data = res.data || {};
+    applyMutationResult(data);
+    return data.entry || data.data;
   }
 
   async function reorderEntries(orderedIds) {
     const targetUserId = isAdmin ? Number(requestedUserId || selectedUser?.id || 0) : null;
     const body = isAdmin ? { orderedIds, userId: targetUserId } : { orderedIds };
-    await api.post("/otm-management/entries/reorder", body);
-    await bootstrap();
+    const res = await api.post("/otm-management/entries/reorder", body);
+    applyMutationResult(res.data || {});
   }
 
   async function deleteEntry(entryId) {
     const suffix = isAdmin ? `?userId=${requestedUserId || selectedUser?.id}` : "";
-    await api.delete(`/otm-management/entries/${entryId}${suffix}`);
-    await bootstrap();
-  }
-
-  function withTargetUser(payload = {}) {
-    const targetUserId = isAdmin ? Number(requestedUserId || selectedUser?.id || 0) : null;
-    return isAdmin ? { ...payload, userId: targetUserId } : payload;
-  }
-
-  function applyTotalClassResponse(data = {}) {
-    if (Array.isArray(data.rows)) {
-      setTotalClassRows(data.rows);
-      setTotalClassSummary({
-        totalScheduled: data.rows.reduce(
-          (sum, row) => sum + Number(row.totalClasses || 0),
-          0
-        ),
-        totalHours: data.rows.reduce(
-          (sum, row) => sum + Number(row.durationMinutes || 0) / 60,
-          0
-        ),
-        completedClasses: data.rows.reduce(
-          (sum, row) => sum + Number(row.totalDoneClasses || 0),
-          0
-        ),
-      });
-    }
-    if (Array.isArray(data.entries)) setEntries(data.entries);
-  }
-
-  async function createTotalClass(payload) {
-    const res = await api.post("/otm-management/total-class", withTargetUser(payload));
-    applyTotalClassResponse(res.data);
-    return res.data?.row;
-  }
-
-  async function updateTotalClass(rowId, payload) {
-    const res = await api.put(
-      `/otm-management/total-class/${rowId}`,
-      withTargetUser(payload)
-    );
-    applyTotalClassResponse(res.data);
-    return res.data?.row;
-  }
-
-  async function bulkUpdateTotalClasses(rows) {
-    const res = await api.put(
-      "/otm-management/total-class/bulk",
-      withTargetUser({ rows })
-    );
-    applyTotalClassResponse(res.data);
-    return res.data?.rows || [];
-  }
-
-  async function reorderTotalClasses(orderedIds) {
-    const res = await api.post(
-      "/otm-management/total-class/reorder",
-      withTargetUser({ orderedIds })
-    );
-    applyTotalClassResponse(res.data);
-  }
-
-  async function deleteTotalClass(rowId) {
-    const suffix = isAdmin ? `?userId=${requestedUserId || selectedUser?.id}` : "";
-    const res = await api.delete(`/otm-management/total-class/${rowId}${suffix}`);
-    applyTotalClassResponse(res.data);
+    const res = await api.delete(`/otm-management/entries/${entryId}${suffix}`);
+    applyMutationResult(res.data || {});
   }
 
   function handleOpenPortal(userId) {
@@ -471,7 +427,7 @@ export default function OtmManagement() {
       title={isAdmin ? `OTM Portal - ${selectedUser?.name || "User"}` : "OTM Management"}
       subtitle={
         isAdmin
-          ? `Admin mode: ${selectedUser?.name || "User"} can edit without readload`
+          ? `Admin mode: ${selectedUser?.name || "User"} can edit without reload`
           : `Logged in as ${user?.name || user?.email || "OTM User"}`
       }
       initialEntries={entries}
@@ -485,11 +441,6 @@ export default function OtmManagement() {
       onUpdateEntry={updateEntry}
       onReorderEntries={reorderEntries}
       onDeleteEntry={deleteEntry}
-      onCreateTotalClass={createTotalClass}
-      onUpdateTotalClass={updateTotalClass}
-      onBulkUpdateTotalClasses={bulkUpdateTotalClasses}
-      onReorderTotalClasses={reorderTotalClasses}
-      onDeleteTotalClass={deleteTotalClass}
       onAdminUserChange={handleAdminUserChange}
       onBackToDirectory={isAdmin ? handleBackToDirectory : undefined}
     />

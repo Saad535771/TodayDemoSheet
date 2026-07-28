@@ -34,7 +34,152 @@ const COLUMNS = [
   { key: "rowColor", label: "Row Color", width: 92, type: "color" },
 ];
 
+
+function normalizeBadgeValues(value, depth = 0) {
+  if (depth > 8 || value === null || value === undefined) return [];
+
+  if (Array.isArray(value)) {
+    return [...new Set(value.flatMap((item) => normalizeBadgeValues(item, depth + 1)).filter(Boolean))];
+  }
+
+  if (typeof value === "object") {
+    return normalizeBadgeValues(Object.values(value), depth + 1);
+  }
+
+  const text = String(value).trim();
+  if (!text) return [];
+
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed !== text) return normalizeBadgeValues(parsed, depth + 1);
+  } catch {
+    // Plain comma-separated values are handled below.
+  }
+
+  const cleaned = text
+    .replace(/\\"/g, '"')
+    .replace(/^[\s\[\]"'\\]+|[\s\[\]"'\\]+$/g, "")
+    .trim();
+
+  if (!cleaned) return [];
+
+  return [...new Set(
+    cleaned
+      .split(/[,|\n]+/)
+      .map((item) => item.replace(/\\"/g, '"').replace(/^[\s\[\]"'\\]+|[\s\[\]"'\\]+$/g, "").trim())
+      .filter(Boolean)
+  )];
+}
+
+function normalizeRowForUi(row = {}) {
+  return {
+    ...row,
+    tutorName: normalizeBadgeValues(row.tutorName),
+    groupName: normalizeBadgeValues(row.groupName),
+  };
+}
+
+function getClassStatusStyle(status = "") {
+  const value = String(status || "").trim().toLowerCase();
+
+  if (value === "class done") {
+    return { background: "#dcfce7", color: "#166534", border: "#86efac" };
+  }
+  if (value === "class pending") {
+    return { background: "#fef3c7", color: "#92400e", border: "#fde68a" };
+  }
+  if (value === "missed by teacher") {
+    return { background: "#fee2e2", color: "#b91c1c", border: "#fca5a5" };
+  }
+  if (value === "missed by student") {
+    return { background: "#ffedd5", color: "#c2410c", border: "#fdba74" };
+  }
+  if (value === "tuition pause") {
+    return { background: "#e0e7ff", color: "#3730a3", border: "#a5b4fc" };
+  }
+
+  return { background: "#f8fafc", color: "#475569", border: "#cbd5e1" };
+}
+
+function BadgeEditor({ value, variant, placeholder, common, onChange }) {
+  const values = normalizeBadgeValues(value);
+  const [draft, setDraft] = useState("");
+
+  const commit = (rawValue = draft) => {
+    const incoming = normalizeBadgeValues(rawValue);
+    if (!incoming.length) return false;
+    onChange([...new Set([...values, ...incoming])]);
+    setDraft("");
+    return true;
+  };
+
+  const remove = (item) => {
+    onChange(values.filter((current) => current !== item));
+  };
+
+  return (
+    <div className="otm-badge-editor">
+      {values.map((item, index) => (
+        <span key={`${item}-${index}`} className={`otm-value-badge otm-value-badge--${variant}`}>
+          <span>{item}</span>
+          <button
+            type="button"
+            tabIndex={-1}
+            className="otm-value-badge__remove"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => remove(item)}
+            aria-label={`Remove ${item}`}
+          >
+            ×
+          </button>
+        </span>
+      ))}
+
+      <input
+        {...common}
+        type="text"
+        value={draft}
+        placeholder={values.length ? "+ add" : placeholder}
+        className="otm-total-editor otm-badge-editor__input"
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if ((event.key === "Enter" || event.key === ",") && draft.trim()) {
+            event.preventDefault();
+            event.stopPropagation();
+            commit();
+            return;
+          }
+
+          if (event.key === "Backspace" && !draft && values.length) {
+            event.preventDefault();
+            remove(values[values.length - 1]);
+            return;
+          }
+
+          common.onKeyDown?.(event);
+        }}
+        onPaste={(event) => {
+          const pasted = event.clipboardData?.getData("text/plain") || "";
+          if (/[,|\n]/.test(pasted)) {
+            event.preventDefault();
+            commit(pasted);
+            return;
+          }
+          common.onPaste?.(event);
+        }}
+        onBlur={(event) => {
+          if (draft.trim()) commit();
+          common.onBlur?.(event);
+        }}
+      />
+    </div>
+  );
+}
+
 function normalizeCellValue(column, value) {
+  if (column.key === "tutorName" || column.key === "groupName") {
+    return normalizeBadgeValues(value);
+  }
   if (column.type === "number") {
     if (value === "") return "";
     const number = Number(value);
@@ -59,8 +204,8 @@ function emptyRow() {
     duration: "1 hour",
     durationMinutes: 60,
     tuitionName: "New Tuition",
-    tutorName: "",
-    groupName: "",
+    tutorName: [],
+    groupName: [],
     studentName: "",
     classStartTime: "",
     classEndTime: "",
@@ -105,7 +250,9 @@ export default function OtmTotalClassSheet({
   onDeleteRow,
   onReorderRows,
 }) {
-  const [localRows, setLocalRows] = useState(Array.isArray(rows) ? rows : []);
+  const [localRows, setLocalRows] = useState(
+    (Array.isArray(rows) ? rows : []).map(normalizeRowForUi)
+  );
   const [activeCell, setActiveCell] = useState("");
   const [draggedId, setDraggedId] = useState(null);
   const [savingIds, setSavingIds] = useState([]);
@@ -114,7 +261,7 @@ export default function OtmTotalClassSheet({
   const rowsRef = useRef(localRows);
 
   useEffect(() => {
-    setLocalRows(Array.isArray(rows) ? rows : []);
+    setLocalRows((Array.isArray(rows) ? rows : []).map(normalizeRowForUi));
   }, [rows]);
 
   useEffect(() => {
@@ -335,6 +482,18 @@ export default function OtmTotalClassSheet({
     const value = row[column.key] ?? "";
     const common = editorProps(row, column);
 
+    if (column.key === "tutorName" || column.key === "groupName") {
+      return (
+        <BadgeEditor
+          value={value}
+          variant={column.key === "groupName" ? "group" : "tutor"}
+          placeholder={column.key === "groupName" ? "Add group" : "Add tutor"}
+          common={common}
+          onChange={(nextValues) => updateCell(row.id, column, nextValues)}
+        />
+      );
+    }
+
     if (column.type === "boolean") {
       return (
         <input
@@ -353,7 +512,21 @@ export default function OtmTotalClassSheet({
           {...common}
           value={value}
           onChange={(event) => updateCell(row.id, column, event.target.value)}
-          style={cellInputStyle}
+          style={{
+            ...cellInputStyle,
+            ...getClassStatusStyle(value),
+            width: "calc(100% - 10px)",
+            minHeight: 28,
+            margin: 5,
+            padding: "4px 10px",
+            border: `1px solid ${getClassStatusStyle(value).border}`,
+            borderRadius: 999,
+            fontSize: 11,
+            fontWeight: 800,
+            textAlign: "center",
+            textAlignLast: "center",
+            cursor: "pointer",
+          }}
         >
           <option value="">--</option>
           {statusOptions.map((status) => (
@@ -417,6 +590,61 @@ export default function OtmTotalClassSheet({
         .otm-total-cell--active { box-shadow: inset 0 0 0 2px #16a34a; z-index: 3; }
         .otm-total-editor { width: 100%; min-height: 34px; border: 0; border-radius: 0; padding: 7px 8px; background: transparent; font: inherit; }
         .otm-total-editor:focus { outline: none; background: #ecfdf5; }
+        .otm-badge-editor {
+          width: 100%;
+          min-height: 34px;
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 4px;
+          padding: 3px 5px;
+          box-sizing: border-box;
+          background: transparent;
+        }
+        .otm-badge-editor:focus-within { background: #ecfdf5; }
+        .otm-badge-editor__input {
+          flex: 1 1 64px;
+          min-width: 58px;
+          width: auto !important;
+          min-height: 24px !important;
+          padding: 2px 4px !important;
+        }
+        .otm-value-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          max-width: 100%;
+          padding: 2px 4px 2px 7px;
+          border-radius: 999px;
+          font-size: 10px;
+          font-weight: 800;
+          line-height: 1.35;
+          white-space: nowrap;
+        }
+        .otm-value-badge--group {
+          background: #dbeafe;
+          color: #1d4ed8;
+          border: 1px solid #93c5fd;
+        }
+        .otm-value-badge--tutor {
+          background: #ede9fe;
+          color: #6d28d9;
+          border: 1px solid #c4b5fd;
+        }
+        .otm-value-badge__remove {
+          width: 16px;
+          height: 16px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 0;
+          border-radius: 999px;
+          padding: 0;
+          background: rgba(15, 23, 42, 0.09);
+          color: inherit;
+          cursor: pointer;
+          line-height: 1;
+        }
         .otm-drag-handle { cursor: grab; user-select: none; font-size: 18px; }
         .otm-drag-handle:active { cursor: grabbing; }
       `}</style>
@@ -448,22 +676,7 @@ export default function OtmTotalClassSheet({
         showStatus
       />
 
-      {summary && (
-        <div style={styles.sectionGrid}>
-          <div style={styles.statCard}>
-            <h4 style={styles.statTitle}>Total Classes</h4>
-            <div style={styles.statValue}>{summary.totalScheduled ?? summary.totalClasses ?? 0}</div>
-          </div>
-          <div style={styles.statCard}>
-            <h4 style={styles.statTitle}>Total Hours</h4>
-            <div style={styles.statValue}>{Number(summary.totalHours || 0).toFixed(1)}</div>
-          </div>
-          <div style={styles.statCard}>
-            <h4 style={styles.statTitle}>Completed</h4>
-            <div style={styles.statValue}>{summary.completedClasses ?? 0}</div>
-          </div>
-        </div>
-      )}
+     
 
       <div style={{ ...styles.sheetWrap, overflow: "hidden" }}>
         <div style={{ ...styles.sheetViewport, overflow: "auto", maxHeight: "70vh" }}>

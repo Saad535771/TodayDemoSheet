@@ -20,8 +20,9 @@ export function defineOtmTotalClass(sequelize) {
         field: "source_entry_id",
       },
       day: {
-        type: DataTypes.STRING(30),
+        type: DataTypes.STRING(255),
         allowNull: true,
+        defaultValue: "",
       },
       days: {
         type: DataTypes.STRING(255),

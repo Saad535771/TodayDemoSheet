@@ -17,6 +17,7 @@ export function defineOtmTuitionEntry(sequelize) {
       day: {
         type: DataTypes.STRING(255),
         allowNull: false,
+        defaultValue: "",
       },
       days: {
         type: DataTypes.JSON,
@@ -48,6 +49,7 @@ export function defineOtmTuitionEntry(sequelize) {
       tuitionName: {
         type: DataTypes.STRING(255),
         allowNull: false,
+        defaultValue: "",
         field: "tuition_name",
       },
       tutorName: {
@@ -115,27 +117,6 @@ export function defineOtmTuitionEntry(sequelize) {
         type: DataTypes.STRING(20),
         allowNull: true,
         field: "row_color",
-      },
-      sourceTuitionId: {
-        type: DataTypes.STRING(100),
-        allowNull: true,
-        field: "source_tuition_id",
-      },
-      tuitionStartDate: {
-        type: DataTypes.DATEONLY,
-        allowNull: true,
-        field: "tuition_start_date",
-      },
-      tuitionStartWeek: {
-        type: DataTypes.STRING(10),
-        allowNull: true,
-        field: "tuition_start_week",
-      },
-      pauseNextCycle: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: false,
-        field: "pause_next_cycle",
       },
       sortOrder: {
         type: DataTypes.INTEGER.UNSIGNED,

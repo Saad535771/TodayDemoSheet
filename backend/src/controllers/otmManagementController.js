@@ -170,7 +170,14 @@ export function makeOtmManagementController({
       !Number.isFinite(userId) || userId <= 0 || userId === actingUserId;
 
     if (!shouldAutoPickOtmUser) {
-      targetUser = await User.findByPk(userId);
+    targetUser = await User.findByPk(userId, {
+  attributes: [
+    "id",
+    "name",
+    "email",
+    "role",
+  ],
+});
 
       if (!targetUser) {
         return { error: { status: 404, message: "Selected user not found" } };
@@ -182,10 +189,22 @@ export function makeOtmManagementController({
     }
 
     if (!targetUser) {
-      targetUser = await User.findOne({
-        where: { role: "otm" },
-        order: [["name", "ASC"], ["email", "ASC"], ["id", "ASC"]],
-      });
+     targetUser = await User.findOne({
+  where: {
+    role: "otm",
+  },
+  attributes: [
+    "id",
+    "name",
+    "email",
+    "role",
+  ],
+  order: [
+    ["name", "ASC"],
+    ["email", "ASC"],
+    ["id", "ASC"],
+  ],
+});
 
       if (!targetUser) {
         return {
@@ -204,78 +223,330 @@ export function makeOtmManagementController({
     return { userId, targetUser, actingUserId };
   }
 
-  function buildSingleEntryPayload(body = {}) {
-    const requestedDays = safeSortDays(body.days ?? body.day);
-    const day = safeText(body.day) || requestedDays[0] || null;
-    const timeAssignments = safeTimeAssignments(body.timeAssignments, day ? [day] : []);
-    const fallbackSlots = safeArrayInput(body.timeSlots ?? body.time).map(safeTimeLabel);
-    const time = timeAssignments?.[day] || fallbackSlots[0] || safeTimeLabel(body.time);
+function buildSingleEntryPayload(body = {}) {
+  const days = safeSortDays(body.days ?? body.day);
 
-    const schedule = buildScheduleFields({
-      days: day ? [day] : [],
-      timeSlots: time ? [time] : [],
-      durationMinutes: body.durationMinutes ?? body.durationLabel ?? body.duration,
-    });
+  const timeAssignments = safeTimeAssignments(
+    body.timeAssignments,
+    days
+  );
 
-    const status = safeLower(body.status);
-    const normalizedStatus = OTM_STATUS_OPTIONS.includes(status) ? status : "class pending";
-    const rawStartDate = safeText(body.tuitionStartDate || body.tuitionStartMonth);
-    const tuitionStartDate = /^\d{4}-\d{2}$/.test(rawStartDate)
-      ? `${rawStartDate}-01`
-      : /^\d{4}-\d{2}-\d{2}$/.test(rawStartDate)
-        ? rawStartDate
-        : null;
+  const fallbackSlots = safeArrayInput(
+    body.timeSlots ?? body.time
+  ).map(safeTimeLabel);
 
-    return {
-      day: schedule.day,
-      days: schedule.days,
-      time: schedule.time,
-      timeSlots: schedule.timeSlots,
-      durationLabel: schedule.durationLabel,
-      durationMinutes: schedule.durationMinutes,
-      tuitionName: safeText(body.tuitionName),
-      tutorName: safeText(body.tutorName),
-      groupName: safeText(body.groupName),
-      studentName: safeText(body.studentName),
-      classStartTime: schedule.classStartTime,
-      classStartTimes: schedule.classStartTimes,
-      classEndTime: schedule.classEndTime,
-      classEndTimes: schedule.classEndTimes,
-      status: normalizedStatus,
-      reportStatus: safeText(body.reportStatus) || "pending report",
-      decidedFee: parseDecidedFee(body.decidedFee),
-      tutorFee: parseDecidedFee(body.tutorFee),
-      notes: safeText(body.notes),
-      rowColor: safeText(body.rowColor),
-      sourceTuitionId: safeText(body.sourceTuitionId) || null,
-      tuitionStartDate,
-      tuitionStartWeek: safeText(body.tuitionStartWeek) || null,
-      pauseNextCycle: toBoolean(body.pauseNextCycle),
-    };
-  }
-
-  function expandCreatePayload(body = {}) {
-    const days = safeSortDays(body.days ?? body.day);
-    const timeAssignments = safeTimeAssignments(body.timeAssignments, days);
-    const fallbackSlots = safeArrayInput(body.timeSlots ?? body.time).map(safeTimeLabel);
-
-    return days.map((day, index) => {
-      const time =
-        timeAssignments?.[day] ||
+  // Har selected day ka respective time.
+  const timeSlots = days
+    .map((day, index) => {
+      return (
+        safeTimeLabel(timeAssignments?.[day]) ||
         fallbackSlots[index] ||
         fallbackSlots[0] ||
-        safeTimeLabel(body.time);
+        safeTimeLabel(body.time)
+      );
+    })
+    .filter(Boolean);
 
-      return buildSingleEntryPayload({
-        ...body,
-        day,
-        days: [day],
-        time,
-        timeSlots: time ? [time] : [],
-        timeAssignments: { [day]: time },
-      });
-    });
+  const schedule = buildScheduleFields({
+    days,
+    timeSlots,
+    durationMinutes:
+      body.durationMinutes ??
+      body.durationLabel ??
+      body.duration ??
+      60,
+  });
+
+  const rawStatus = safeLower(body.status);
+
+  const normalizedStatus = rawStatus
+    ? OTM_STATUS_OPTIONS.includes(rawStatus)
+      ? rawStatus
+      : rawStatus
+    : "class pending";
+
+  const rawStartDate = safeText(
+    body.tuitionStartDate || body.tuitionStartMonth
+  );
+
+  const tuitionStartDate = /^\d{4}-\d{2}$/.test(rawStartDate)
+    ? `${rawStartDate}-01`
+    : /^\d{4}-\d{2}-\d{2}$/.test(rawStartDate)
+      ? rawStartDate
+      : null;
+
+  return {
+    // Multiple days display text:
+    // "Monday, Tuesday, Wednesday"
+    day: days.join(", "),
+
+    // Actual JSON array:
+    // ["Monday", "Tuesday", "Wednesday"]
+    days,
+
+    // Compatibility ke liye first time.
+    time: timeSlots[0] || "",
+
+    // Actual multiple time values.
+    timeSlots,
+
+    durationLabel:
+      safeText(schedule.durationLabel) || "1 hour",
+
+    durationMinutes:
+      toUnsignedInteger(schedule.durationMinutes, 60) || 60,
+
+    tuitionName: safeText(body.tuitionName),
+    tutorName: safeText(body.tutorName),
+    groupName: safeText(body.groupName),
+    studentName: safeText(body.studentName),
+
+    classStartTime:
+      safeText(schedule.classStartTime) ||
+      timeSlots[0] ||
+      "",
+
+    classStartTimes:
+      Array.isArray(schedule.classStartTimes) &&
+      schedule.classStartTimes.length
+        ? schedule.classStartTimes
+        : timeSlots,
+
+    classEndTime:
+      safeText(schedule.classEndTime),
+
+    classEndTimes:
+      Array.isArray(schedule.classEndTimes)
+        ? schedule.classEndTimes
+        : [],
+
+    status: normalizedStatus,
+
+    reportStatus:
+      safeText(body.reportStatus) || "pending report",
+
+    decidedFee: toNullableMoney(body.decidedFee),
+    tutorFee: toNullableMoney(body.tutorFee),
+
+    notes: safeText(body.notes),
+    rowColor: safeText(body.rowColor),
+
+    sourceTuitionId:
+      safeText(body.sourceTuitionId) || null,
+
+    tuitionStartDate,
+
+    tuitionStartWeek:
+      safeText(body.tuitionStartWeek) || null,
+
+    pauseNextCycle:
+      toBoolean(body.pauseNextCycle),
+  };
+}
+
+function expandCreatePayload(body = {}) {
+  return [buildSingleEntryPayload(body)];
+}
+function buildEntryUpdatePayload(body = {}, current = {}) {
+  const payload = {};
+
+  const has = (key) =>
+    Object.prototype.hasOwnProperty.call(body, key);
+
+  const scheduleKeys = [
+    "day",
+    "days",
+    "time",
+    "timeSlots",
+    "timeAssignments",
+    "durationMinutes",
+    "durationLabel",
+    "duration",
+  ];
+
+  const scheduleChanged = scheduleKeys.some(has);
+
+ if (scheduleChanged) {
+  let effectiveDays;
+
+  if (has("days")) {
+    effectiveDays = safeSortDays(body.days);
+  } else if (has("day")) {
+    effectiveDays = safeSortDays(body.day);
+  } else {
+    effectiveDays = safeSortDays(
+      current.days ?? current.day
+    );
   }
+
+  let effectiveTimeSlots = safeArrayInput(
+    current.timeSlots ?? current.time
+  ).map(safeTimeLabel);
+
+  if (has("timeAssignments")) {
+    effectiveTimeSlots = effectiveDays
+      .map((day) =>
+        safeTimeLabel(body.timeAssignments?.[day])
+      )
+      .filter(Boolean);
+  } else if (has("timeSlots")) {
+    effectiveTimeSlots = safeArrayInput(
+      body.timeSlots
+    ).map(safeTimeLabel);
+  } else if (has("time")) {
+    const suppliedTime = safeTimeLabel(body.time);
+
+    effectiveTimeSlots = effectiveDays.length
+      ? effectiveDays.map(() => suppliedTime)
+      : suppliedTime
+        ? [suppliedTime]
+        : [];
+  }
+
+  const effectiveDuration = has("durationMinutes")
+    ? body.durationMinutes
+    : has("durationLabel")
+      ? body.durationLabel
+      : has("duration")
+        ? body.duration
+        : current.durationMinutes ??
+          current.durationLabel ??
+          current.duration ??
+          60;
+
+  const schedule = buildScheduleFields({
+    days: effectiveDays,
+    timeSlots: effectiveTimeSlots,
+    durationMinutes: effectiveDuration,
+  });
+
+  payload.day = effectiveDays.join(", ");
+  payload.days = effectiveDays;
+
+  payload.time =
+    effectiveTimeSlots[0] || "";
+
+  payload.timeSlots =
+    effectiveTimeSlots;
+
+  payload.durationLabel =
+    safeText(schedule.durationLabel) ||
+    "1 hour";
+
+  payload.durationMinutes =
+    toUnsignedInteger(
+      schedule.durationMinutes,
+      60
+    ) || 60;
+
+  payload.classStartTime =
+    safeText(schedule.classStartTime) ||
+    effectiveTimeSlots[0] ||
+    "";
+
+  payload.classStartTimes =
+    Array.isArray(schedule.classStartTimes) &&
+    schedule.classStartTimes.length
+      ? schedule.classStartTimes
+      : effectiveTimeSlots;
+
+  payload.classEndTime =
+    safeText(schedule.classEndTime);
+
+  payload.classEndTimes =
+    Array.isArray(schedule.classEndTimes)
+      ? schedule.classEndTimes
+      : [];
+}
+
+  const textFields = [
+    "tuitionName",
+    "tutorName",
+    "groupName",
+    "studentName",
+    "notes",
+    "rowColor",
+    "sourceTuitionId",
+    "tuitionStartWeek",
+  ];
+
+  textFields.forEach((field) => {
+    if (has(field)) {
+      payload[field] = safeText(body[field]);
+    }
+  });
+
+  if (has("status")) {
+    payload.status = safeLower(body.status);
+  }
+
+  if (has("reportStatus")) {
+    payload.reportStatus = safeText(
+      body.reportStatus
+    );
+  }
+
+  if (has("decidedFee")) {
+    payload.decidedFee = toNullableMoney(
+      body.decidedFee
+    );
+  }
+
+  if (has("tutorFee")) {
+    payload.tutorFee = toNullableMoney(
+      body.tutorFee
+    );
+  }
+
+  if (
+    has("tuitionStartDate") ||
+    has("tuitionStartMonth")
+  ) {
+    payload.tuitionStartDate =
+      normalizeDateOnly(
+        body.tuitionStartDate ??
+          body.tuitionStartMonth
+      );
+  }
+
+  if (has("pauseNextCycle")) {
+    payload.pauseNextCycle = toBoolean(
+      body.pauseNextCycle
+    );
+  }
+
+  // Direct start-time cell edit
+  if (
+    !scheduleChanged &&
+    has("classStartTime")
+  ) {
+    payload.classStartTime = safeTimeLabel(
+      body.classStartTime
+    );
+
+    payload.classStartTimes =
+      payload.classStartTime
+        ? [payload.classStartTime]
+        : [];
+  }
+
+  // Direct end-time cell edit
+  if (
+    !scheduleChanged &&
+    has("classEndTime")
+  ) {
+    payload.classEndTime = safeTimeLabel(
+      body.classEndTime
+    );
+
+    payload.classEndTimes =
+      payload.classEndTime
+        ? [payload.classEndTime]
+        : [];
+  }
+
+  return payload;
+}
 
   async function syncReportTable(userId) {
     const entries = await OtmTuitionEntry.findAll({
@@ -731,110 +1002,156 @@ export function makeOtmManagementController({
       }
     },
 
-    async createEntry(req, res) {
-      const target = await resolveTargetUser(req, { forWrite: true });
-      if (target.error) {
-        return res.status(target.error.status).json({ message: target.error.message });
-      }
+async createEntry(req, res) {
+  const target = await resolveTargetUser(req, {
+    forWrite: true,
+  });
 
-      try {
-        const payloads = expandCreatePayload(req.body);
+  if (target.error) {
+    return res
+      .status(target.error.status)
+      .json({
+        message: target.error.message,
+      });
+  }
 
-        if (payloads.length === 0) {
-          return res.status(400).json({ message: "At least one day is required" });
-        }
+  try {
+    const payloads = expandCreatePayload(req.body);
 
-        if (payloads.some((item) => !item.day || !item.tuitionName || !item.time)) {
-          return res.status(400).json({ message: "Day, time and Tuition Name are required for each row" });
-        }
+    const lastEntry =
+      await OtmTuitionEntry.findOne({
+        where: {
+          userId: target.userId,
+        },
+        order: [
+          ["sortOrder", "DESC"],
+          ["id", "DESC"],
+        ],
+      });
 
-        const lastEntry = await OtmTuitionEntry.findOne({
-          where: { userId: target.userId },
-          order: [["sortOrder", "DESC"], ["id", "DESC"]],
-        });
+    let nextSortOrder = Number(
+      lastEntry?.sortOrder || 0
+    );
 
-        let nextSortOrder = Number(lastEntry?.sortOrder || 0);
-        const createdEntries = [];
+    const createdEntries = [];
 
-        for (const payload of payloads) {
-          nextSortOrder += 1;
-          const entry = await OtmTuitionEntry.create({
-            userId: target.userId,
-            ...payload,
-            sortOrder: nextSortOrder,
-            createdBy: target.actingUserId,
-            updatedBy: target.actingUserId,
-          });
-          createdEntries.push(entry.get({ plain: true }));
-        }
+    for (const payload of payloads) {
+      nextSortOrder += 1;
 
-        const { reportRows, totalClassRows } = await syncAllTables(target.userId);
-
-        return res.json({
-          success: true,
-          message: `${createdEntries.length} row(s) created successfully`,
-          entry: createdEntries[0] || null,
-          entries: createdEntries,
-          reportRows,
-          totalClassRows,
-        });
-      } catch (error) {
-        console.error("OTM CREATE ENTRY ERROR:", error);
-        console.error("OTM CREATE ENTRY ERROR MESSAGE:", error?.message);
-        console.error("OTM CREATE ENTRY SQL ERROR:", error?.parent?.sqlMessage);
-        console.error("OTM CREATE ENTRY STACK:", error?.stack);
-
-        return res.status(500).json({
-          message:
-            error?.parent?.sqlMessage ||
-            error?.message ||
-            "Failed to create row(s)",
-        });
-      }
-    },
-
-    async updateEntry(req, res) {
-      const target = await resolveTargetUser(req, { forWrite: true });
-      if (target.error) {
-        return res.status(target.error.status).json({ message: target.error.message });
-      }
-
-      try {
-        const entry = await OtmTuitionEntry.findOne({
-          where: {
-            id: req.params.entryId,
-            userId: target.userId,
-          },
-        });
-
-        if (!entry) {
-          return res.status(404).json({ message: "Entry not found" });
-        }
-
-        const payload = buildSingleEntryPayload(req.body);
-        if (!payload.day || !payload.tuitionName || !payload.time) {
-          return res.status(400).json({ message: "Day, time and Tuition Name are required" });
-        }
-
-        await entry.update({
+      const entry =
+        await OtmTuitionEntry.create({
+          userId: target.userId,
           ...payload,
+          sortOrder: nextSortOrder,
+          createdBy: target.actingUserId,
           updatedBy: target.actingUserId,
         });
 
-        const { reportRows, totalClassRows } = await syncAllTables(target.userId);
+      createdEntries.push(
+        entry.get({ plain: true })
+      );
+    }
 
-        return res.json({
-          success: true,
-          message: "Entry updated successfully",
-          entry: entry.get({ plain: true }),
-          reportRows,
-          totalClassRows,
-        });
-      } catch (error) {
-        console.error("OTM UPDATE ENTRY ERROR:", error);
-        return res.status(500).json({ message: "Failed to update entry" });
-      }
-    },
+    // Reports aur Total Classes dono sync rahenge.
+    const {
+      reportRows,
+      totalClassRows,
+    } = await syncAllTables(target.userId);
+
+    return res.json({
+      success: true,
+      message: `${createdEntries.length} row(s) created successfully`,
+      entry: createdEntries[0] || null,
+      entries: createdEntries,
+      reportRows,
+      totalClassRows,
+    });
+  } catch (error) {
+    console.error(
+      "OTM CREATE ENTRY ERROR:",
+      error
+    );
+
+    console.error(
+      "OTM CREATE ENTRY SQL ERROR:",
+      error?.parent?.sqlMessage
+    );
+
+    return res.status(500).json({
+      message:
+        error?.parent?.sqlMessage ||
+        error?.message ||
+        "Failed to create row(s)",
+    });
+  }
+},
+
+async updateEntry(req, res) {
+  const target = await resolveTargetUser(req, {
+    forWrite: true,
+  });
+
+  if (target.error) {
+    return res
+      .status(target.error.status)
+      .json({
+        message: target.error.message,
+      });
+  }
+
+  try {
+    const entry =
+      await OtmTuitionEntry.findOne({
+        where: {
+          id: req.params.entryId,
+          userId: target.userId,
+        },
+      });
+
+    if (!entry) {
+      return res.status(404).json({
+        message: "Entry not found",
+      });
+    }
+
+    // Sirf request mein bheje gaye fields update honge.
+    const payload = buildEntryUpdatePayload(
+      req.body,
+      entry.get({ plain: true })
+    );
+
+    await entry.update({
+      ...payload,
+      updatedBy: target.actingUserId,
+    });
+
+    // Har edit ke baad reports aur total classes sync.
+    const {
+      reportRows,
+      totalClassRows,
+    } = await syncAllTables(target.userId);
+
+    return res.json({
+      success: true,
+      message: "Entry updated successfully",
+      entry: entry.get({ plain: true }),
+      reportRows,
+      totalClassRows,
+    });
+  } catch (error) {
+    console.error(
+      "OTM UPDATE ENTRY ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      message:
+        error?.parent?.sqlMessage ||
+        error?.message ||
+        "Failed to update entry",
+    });
+  }
+},
 
     async reorderEntries(req, res) {
       const target = await resolveTargetUser(req, { forWrite: true });
@@ -1017,9 +1334,6 @@ export function makeOtmManagementController({
         if (!row) return res.status(404).json({ message: "Total class row not found" });
 
         const payload = buildTotalClassWritePayload(req.body, row.get({ plain: true }));
-        if (Object.prototype.hasOwnProperty.call(payload, "tuitionName") && !payload.tuitionName) {
-          return res.status(400).json({ message: "Tuition Name is required" });
-        }
 
         await row.update(payload);
 
@@ -1030,14 +1344,10 @@ export function makeOtmManagementController({
 
           if (sourceEntry) {
             const entryPayload = buildSingleEntryPayload(totalClassRowToEntryBody(row, sourceEntry));
-            if (entryPayload.day && entryPayload.time && entryPayload.tuitionName) {
-              await sourceEntry.update({
-                ...entryPayload,
-                updatedBy: target.actingUserId,
-              });
-              await syncReportTable(target.userId);
-              await syncTotalClassTable(target.userId);
-            }
+           await sourceEntry.update({
+  ...entryPayload,
+  updatedBy: target.actingUserId,
+});
           }
         }
 
