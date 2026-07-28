@@ -24,41 +24,16 @@ export function defineOtmPortalReport(sequelize) {
         allowNull: true,
         field: "tuition_name",
       },
-      totalClasses: {
-        type: DataTypes.INTEGER.UNSIGNED,
-        allowNull: false,
-        defaultValue: 0,
-        field: "total_classes",
+      groupName: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: "group_name",
       },
-      classDoneCount: {
-        type: DataTypes.INTEGER.UNSIGNED,
+      reportStatus: {
+        type: DataTypes.STRING(50),
         allowNull: false,
-        defaultValue: 0,
-        field: "class_done_count",
-      },
-      classPendingCount: {
-        type: DataTypes.INTEGER.UNSIGNED,
-        allowNull: false,
-        defaultValue: 0,
-        field: "class_pending_count",
-      },
-      missedByTeacherCount: {
-        type: DataTypes.INTEGER.UNSIGNED,
-        allowNull: false,
-        defaultValue: 0,
-        field: "missed_by_teacher_count",
-      },
-      missedByStudentCount: {
-        type: DataTypes.INTEGER.UNSIGNED,
-        allowNull: false,
-        defaultValue: 0,
-        field: "missed_by_student_count",
-      },
-      newTuitionCount: {
-        type: DataTypes.INTEGER.UNSIGNED,
-        allowNull: false,
-        defaultValue: 0,
-        field: "new_tuition_count",
+        defaultValue: "pending report",
+        field: "report_status",
       },
       lastSyncedAt: {
         type: DataTypes.DATE,

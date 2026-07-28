@@ -1,5 +1,6 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { parseDecidedFee } from "../../../backend/src/utils/otmScheduleUtils";
 
 export const DEFAULT_DAY_OPTIONS = [
   "Monday",
@@ -30,13 +31,14 @@ export const GRID_DIMENSIONS = {
   duration: 92,
   startMonth: 98,
   status: 126,
-  newTuition: 130,
+  decidedFee: 92,
   action: 104,
 };
 export const TEXT_COLUMNS = [
   { key: "tuitionName", label: "Tuition Name", width: 118 },
-  { key: "tutorName", label: "Tutor Name", width: 118 },
-  { key: "groupName", label: "Group Name", width: 118 },
+  { key: "tutorName", label: "Tutor Name", width: 118, isTag: true }, // isTag add kiya
+  { key: "groupName", label: "Group Name", width: 118, isTag: true }, // isTag add kiya
+  { key: "decidedFee", label: "Decided Fee", width: 92 },           //
   { key: "classStartTime", label: "Class Start", width: 92, readOnly: true },
   { key: "classEndTime", label: "Class End", width: 92, readOnly: true },
   { key: "notes", label: "Notes", width: 132 },
@@ -991,7 +993,7 @@ export const styles = {
     border: "1px solid #cbd5e1",
     borderRadius: 10,
     boxShadow: "0 12px 24px rgba(15, 23, 42, 0.14)",
-    zIndex: 40,
+    zIndex: 999,
     maxHeight: 180,
     overflowY: "auto",
     padding: 4,

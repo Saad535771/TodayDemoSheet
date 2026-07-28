@@ -90,32 +90,52 @@ export function defineOtmTuitionEntry(sequelize) {
       status: {
         type: DataTypes.STRING(80),
         allowNull: false,
-        defaultValue: "",
+        defaultValue: "class pending",
       },
       reportStatus: {
         type: DataTypes.STRING(80),
         allowNull: true,
         field: "report_status",
       },
+      decidedFee: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: true,
+        field: "decided_fee",
+      },
+      tutorFee: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: true,
+        field: "tutor_fee",
+      },
       notes: {
         type: DataTypes.TEXT,
         allowNull: true,
       },
-      newTuition: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: false,
-        field: "new_tuition",
-      },
-      newTuitionName: {
-        type: DataTypes.STRING(255),
+      rowColor: {
+        type: DataTypes.STRING(20),
         allowNull: true,
-        field: "new_tuition_name",
+        field: "row_color",
       },
       sourceTuitionId: {
         type: DataTypes.STRING(100),
         allowNull: true,
         field: "source_tuition_id",
+      },
+      tuitionStartDate: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+        field: "tuition_start_date",
+      },
+      tuitionStartWeek: {
+        type: DataTypes.STRING(10),
+        allowNull: true,
+        field: "tuition_start_week",
+      },
+      pauseNextCycle: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        field: "pause_next_cycle",
       },
       sortOrder: {
         type: DataTypes.INTEGER.UNSIGNED,
@@ -139,6 +159,5 @@ export function defineOtmTuitionEntry(sequelize) {
       underscored: true,
     }
   );
-
   return OtmTuitionEntry;
 }

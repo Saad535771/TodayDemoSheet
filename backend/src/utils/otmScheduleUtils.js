@@ -250,3 +250,185 @@ export function countBy(values = []) {
     return acc;
   }, {});
 }
+
+export function parseDecidedFee(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/* ==========================================================================
+   ADDED / UPDATED SYNC & ROW BUILDER HELPER FUNCTIONS (UTILS)
+   ========================================================================== */
+
+export function toPlainEntries(entries = []) {
+  return entries.map((item) => (typeof item.get === "function" ? item.get({ plain: true }) : item));
+}
+
+export function sortEntries(entries = []) {
+  return [...entries].sort((a, b) => {
+    const orderA = Number(a.sortOrder || 0);
+    const orderB = Number(b.sortOrder || 0);
+    if (orderA !== orderB) return orderA - orderB;
+    const dayCompare = getDayOrderIndex(a.day) - getDayOrderIndex(b.day);
+    if (dayCompare !== 0) return dayCompare;
+    return Number(a.id || 0) - Number(b.id || 0);
+  });
+}
+
+export function buildSummary(entries = []) {
+  return {
+    totalEntries: entries.length,
+    byStatus: countBy(entries.map((item) => item.status)),
+    byDay: countBy(entries.flatMap((item) => (Array.isArray(item.days) ? item.days : normalizeArrayInput(item.day)))),
+    byTeacher: countBy(entries.map((item) => item.tutorName || "Unassigned")),
+  };
+}
+
+export function buildReportRows(entries = []) {
+  const map = new Map();
+  for (const item of entries) {
+    const teacherName = normalizeString(item.tutorName) || "Unassigned";
+    const tuitionName = normalizeString(item.tuitionName) || "Untitled Tuition";
+    const groupName = normalizeString(item.groupName) || null;
+    const reportStatus = normalizeString(item.reportStatus) || "pending report";
+    const key = `${teacherName}__${tuitionName}`;
+
+    if (!map.has(key)) {
+      map.set(key, {
+        teacherName,
+        tuitionName,
+        groupName,
+        reportStatus,
+        totalClasses: 0,
+        classDoneCount: 0,
+        classPendingCount: 0,
+        missedByTeacherCount: 0,
+        missedByStudentCount: 0,
+        days: [],
+        rowColor: normalizeString(item.rowColor),
+        sortOrder: Number(item.sortOrder || 0),
+      });
+    }
+
+    const row = map.get(key);
+    row.totalClasses += 1;
+    row.rowColor = row.rowColor || normalizeString(item.rowColor);
+    row.sortOrder = Math.min(row.sortOrder, Number(item.sortOrder || 0));
+
+    if (item.status === "class done") row.classDoneCount += 1;
+    if (item.status === "class pending") row.classPendingCount += 1;
+    if (item.status === "missed by teacher") row.missedByTeacherCount += 1;
+    if (item.status === "missed by student") row.missedByStudentCount += 1;
+  }
+
+  return [...map.values()]
+    .map((row) => ({
+      ...row,
+      day: row.days.join(", "),
+    }))
+    .sort((a, b) => {
+      if (a.teacherName === b.teacherName) {
+        return a.tuitionName.localeCompare(b.tuitionName);
+      }
+      return a.teacherName.localeCompare(b.teacherName);
+    });
+}
+
+export function buildTotalClassRows(entries = []) {
+  const map = new Map();
+
+  // Step 1: Group entries by Tuition and Tutor to aggregate schedule info
+  for (const item of entries) {
+    const tuitionName = normalizeString(item.tuitionName) || "Untitled Tuition";
+    const tutorName = normalizeString(item.tutorName) || "Unassigned";
+    const groupName = normalizeString(item.groupName) || null;
+    const key = `${tuitionName}__${tutorName}`;
+
+    if (!map.has(key)) {
+      map.set(key, {
+        tuitionName,
+        tutorName,
+        groupName,
+        daysList: new Set(),
+        duration: item.durationLabel || "1 hour",
+        decidedFee: parseDecidedFee(item.decidedFee) || 0,
+        totalEntriesCount: 0,
+        classDoneCount: 0,
+        classPendingCount: 0,
+        missedByTeacherCount: 0,
+        missedByStudentCount: 0,
+        rowColor: normalizeString(item.rowColor),
+        sortOrder: Number(item.sortOrder || 0),
+      });
+    }
+
+    const row = map.get(key);
+    row.totalEntriesCount += 1;
+    row.rowColor = row.rowColor || normalizeString(item.rowColor);
+    row.sortOrder = Math.min(row.sortOrder, Number(item.sortOrder || 0));
+
+    // Collect individual days configured for this tuition
+    const itemDays = Array.isArray(item.days) ? item.days : normalizeArrayInput(item.day);
+    itemDays.forEach(d => row.daysList.add(d));
+
+    // Count statuses across entries
+    if (item.status === "class done") row.classDoneCount += 1;
+    if (item.status === "class pending") row.classPendingCount += 1;
+    if (item.status === "missed by teacher") row.missedByTeacherCount += 1;
+    if (item.status === "missed by student") row.missedByStudentCount += 1;
+  }
+
+  // Step 2: Calculate Monthly Projections and Fee Logic
+  return [...map.values()].map((row) => {
+    const sortedDaysArray = sortDays([...row.daysList]);
+    const numberOfDecidedDays = sortedDaysArray.length;
+    
+    // As requested: e.g. 3 days a week * 4 weeks = 12 classes in a month
+    const classesInAMonth = numberOfDecidedDays * 4;
+
+    const decidedFee = Number(row.decidedFee || 0);
+    
+    // Per day fee calculation (Decided Fee / Total Classes in a Month)
+    const perDayFee = classesInAMonth > 0 ? decidedFee / classesInAMonth : 0;
+
+    // Teacher missed classes deduct from total fee, student missed classes do NOT deduct
+    const teacherMissedDeduction = row.missedByTeacherCount * perDayFee;
+    let totalFee = decidedFee - teacherMissedDeduction;
+    if (totalFee < 0) totalFee = 0;
+
+    return {
+      tuitionName: row.tuitionName,
+      tutorName: row.tutorName,
+      groupName: row.groupName,
+      numberOfDecidedDays,
+      durationTime: row.duration,
+      classesInAMonth,
+      decidedFee: decidedFee > 0 ? decidedFee : null,
+      totalDoneClasses: row.classDoneCount,
+      missedByStudentClasses: row.missedByStudentCount,
+      missedByTeacherClass: row.missedByTeacherCount,
+      totalFee: totalFee > 0 ? Number(totalFee.toFixed(2)) : null,
+      days: sortedDaysArray.join(", "),
+      time: "", // Can be mapped if needed based on slots
+      duration: row.duration,
+      status:
+        row.classPendingCount > 0
+          ? "class pending"
+          : row.missedByTeacherCount > 0
+          ? "missed by teacher"
+          : row.missedByStudentCount > 0
+          ? "missed by student"
+          : row.classDoneCount > 0
+          ? "class done"
+          : "class pending",
+      totalClasses: classesInAMonth,
+      rowColor: row.rowColor,
+      sortOrder: row.sortOrder,
+    };
+  }).sort(
+    (a, b) =>
+      a.sortOrder - b.sortOrder ||
+      a.tuitionName.localeCompare(b.tuitionName)
+  );
+}

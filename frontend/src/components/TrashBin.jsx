@@ -49,18 +49,15 @@ export default function TrashBin({ onCountChange, isActive = true }) {
           onClick={() => setActiveTab("monthly")}>
           MonthlySheet Trash
         </button>
-
         <button
           style={{
             ...styles.tab,
             ...(activeTab === "paymentClone" ? styles.activeTab : {}),
           }}
-          onClick={() => setActiveTab("paymentClone")}
-        >
+          onClick={() => setActiveTab("paymentClone")}>
           PaymentSheet With Date Trash
         </button>
       </div>
-
       {activeTab === "monthly" ? (
         <MonthlyTrashBin isActive={isActive && activeTab === "monthly"} />
       ) : (

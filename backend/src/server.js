@@ -29,11 +29,10 @@ import { registerNotificationSocket } from "./socket/notificationSocket.js";
 import { requireAuth } from "./middleware/auth.js";
 import { makeApp, socketCorsOptions } from "./app.js";
 import { startDailyJob } from "./jobs/dailyJob.js";
+import reportRoutes from "./routes/reportRoutes.js";
 import { startPaymentChangeRequestCleanup } from "./jobs/startPaymentChangeRequestCleanup.js";
 import { registerChatSocket } from "./socket/chatSocket.js";
-
 const sequelize = makeSequelize();
-
 async function main() {
   try {
     await sequelize.authenticate();
@@ -131,6 +130,7 @@ const notificationRoutes = makeNotificationRoutes(notificationController);
       chatRoutes,
       notificationRoutes,
       notificationService,
+      reportRoutes,
     });
     const httpServer = createServer(app);
     const io = new Server(httpServer, {

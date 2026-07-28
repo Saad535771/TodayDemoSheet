@@ -1,7 +1,6 @@
 import express from "express";
 import morgan from "morgan";
 import { requireAuth } from "./middleware/auth.js";
-
 const allowedOrigins = [
   "https://today-demo-sheet-feedback.vercel.app",
   "http://today-demo-sheet-feedback.vercel.app",
@@ -85,6 +84,7 @@ export function makeApp({
   chatRoutes,
   notificationRoutes,
 notificationService,
+reportRoutes,
 }) {
   const app = express();
 
@@ -105,6 +105,9 @@ notificationService,
   app.get("/api/health", (req, res) => {
     res.json({ ok: true });
   });
+if (reportRoutes) {
+    app.use("/api/reports", reportRoutes);
+  }
   app.use("/api/auth", authRoutes);
   app.use("/api/tuitions", tuitionRoutes);
   app.use("/api/target", targetRoutes);

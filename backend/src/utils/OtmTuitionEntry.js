@@ -97,30 +97,24 @@ export function defineOtmTuitionEntry(sequelize) {
         allowNull: true,
         field: "report_status",
       },
+      decidedFee: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: true,
+        field: "decided_fee",
+      },
+      tutorFee: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: true,
+        field: "tutor_fee",
+      },
       notes: {
         type: DataTypes.TEXT,
         allowNull: true,
-      },
-      newTuition: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: false,
-        field: "new_tuition",
       },
       rowColor: {
         type: DataTypes.STRING(20),
         allowNull: true,
         field: "row_color",
-      },
-      tuitionStartMonth: {
-        type: DataTypes.STRING(7),
-        allowNull: true,
-        field: "tuition_start_month",
-      },
-      tuitionEndMonth: {
-        type: DataTypes.STRING(7),
-        allowNull: true,
-        field: "tuition_end_month",
       },
       sortOrder: {
         type: DataTypes.INTEGER.UNSIGNED,
@@ -144,6 +138,5 @@ export function defineOtmTuitionEntry(sequelize) {
       underscored: true,
     }
   );
-
   return OtmTuitionEntry;
 }
