@@ -1,222 +1,568 @@
-import React, { useState, useRef } from 'react';
-// Yahan hum apna MultiTagInput import kar rahe hain jo badges banata hai
-import { MultiTagInput } from "./OtmPortalEntryForm.jsx"; 
+import React, { useCallback, useMemo, useRef, useState } from "react";
+
+const API_BASE_URL = (
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
+  (typeof process !== "undefined" && process.env?.REACT_APP_API_BASE_URL) ||
+  "http://localhost:5005/api"
+).replace(/\/$/, "");
+
+const REPORT_STATUS_OPTIONS = [
+  { value: "report pending", label: "Report Pending" },
+  { value: "report shared", label: "Report Shared" },
+];
+
+const FORM_COLUMNS = ["tuitionName", "groupName", "tutorName", "reportStatus", "save"];
+
+function normalizeList(value, depth = 0) {
+  if (depth > 8 || value === null || value === undefined) return [];
+
+  if (Array.isArray(value)) {
+    return [
+      ...new Set(
+        value
+          .flatMap((item) => normalizeList(item, depth + 1))
+          .map((item) => String(item).trim())
+          .filter(Boolean)
+      ),
+    ];
+  }
+
+  if (typeof value === "object") {
+    return normalizeList(Object.values(value), depth + 1);
+  }
+
+  const text = String(value).trim();
+  if (!text) return [];
+
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed !== text) return normalizeList(parsed, depth + 1);
+  } catch {
+    // Plain text is handled below.
+  }
+
+  return [
+    ...new Set(
+      text
+        .replace(/\\"/g, '"')
+        .replace(/^[\s\[\]"'\\]+|[\s\[\]"'\\]+$/g, "")
+        .split(/[,|\n]+/)
+        .map((item) =>
+          item
+            .replace(/\\"/g, '"')
+            .replace(/^[\s\[\]"'\\]+|[\s\[\]"'\\]+$/g, "")
+            .trim()
+        )
+        .filter(Boolean)
+    ),
+  ];
+}
+
+function buildReportPayload(draft) {
+  return {
+    tuitionName: String(draft.tuitionName || "").trim(),
+    groupName: JSON.stringify(normalizeList(draft.groupName)),
+    tutorName: JSON.stringify(normalizeList(draft.tutorName)),
+    reportStatus: draft.reportStatus || "report pending",
+    rowColor: draft.rowColor || "",
+  };
+}
+
+function extractCreatedRecord(result) {
+  return (
+    result?.data?.data ||
+    result?.data?.report ||
+    result?.data?.row ||
+    result?.data ||
+    result?.report ||
+    result?.row ||
+    result ||
+    null
+  );
+}
+
+function shouldMoveLeft(element) {
+  if (!element || typeof element.selectionStart !== "number") return true;
+  return element.selectionStart === 0 && element.selectionEnd === 0;
+}
+
+function shouldMoveRight(element) {
+  if (!element || typeof element.selectionStart !== "number") return true;
+  const length = String(element.value || "").length;
+  return element.selectionStart === length && element.selectionEnd === length;
+}
+
+function TagCellEditor({
+  value,
+  onChange,
+  placeholder,
+  inputRef,
+  onFocus,
+  onBlur,
+  onGridKeyDown,
+  variant = "group",
+}) {
+  const tags = useMemo(() => normalizeList(value), [value]);
+  const [draft, setDraft] = useState("");
+
+  const commit = useCallback(
+    (rawValue = draft) => {
+      const incoming = normalizeList(rawValue);
+      if (!incoming.length) return false;
+
+      onChange([...new Set([...tags, ...incoming])]);
+      setDraft("");
+      return true;
+    },
+    [draft, onChange, tags]
+  );
+
+  const remove = useCallback(
+    (tag) => {
+      onChange(tags.filter((item) => item !== tag));
+    },
+    [onChange, tags]
+  );
+
+  return (
+    <div style={styles.tagCell} onClick={(event) => event.stopPropagation()}>
+      {tags.map((tag) => (
+        <span key={tag} style={styles.tagBadge(variant)}>
+          <span>{tag}</span>
+          <button
+            type="button"
+            tabIndex={-1}
+            style={styles.tagRemove}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => remove(tag)}
+            aria-label={`Remove ${tag}`}
+          >
+            ×
+          </button>
+        </span>
+      ))}
+
+      <input
+        ref={inputRef}
+        type="text"
+        value={draft}
+        placeholder={tags.length ? "+ add" : placeholder}
+        style={styles.tagInput}
+        onFocus={onFocus}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if ((event.key === "Enter" || event.key === ",") && draft.trim()) {
+            event.preventDefault();
+            event.stopPropagation();
+            commit();
+            return;
+          }
+
+          if (event.key === "Backspace" && !draft && tags.length) {
+            event.preventDefault();
+            remove(tags[tags.length - 1]);
+            return;
+          }
+
+          onGridKeyDown?.(event);
+        }}
+        onPaste={(event) => {
+          const pasted = event.clipboardData?.getData("text/plain") || "";
+          if (/[,|\n]/.test(pasted)) {
+            event.preventDefault();
+            commit(pasted);
+          }
+        }}
+        onBlur={() => {
+          if (draft.trim()) commit();
+          onBlur?.();
+        }}
+      />
+    </div>
+  );
+}
 
 export default function ReportEntryForm({ onUpdateReport }) {
-  // URL ke end se extra slash (/) hatane ke liye replace ka use kiya gaya hai
-  const BaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-  
   const [reportDraft, setReportDraft] = useState({
-    tuitionName: '',
+    tuitionName: "",
     groupName: [],
-    tutorName: []
+    tutorName: [],
+    reportStatus: "report pending",
+    rowColor: "",
   });
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState({ type: "", text: "" });
+  const [activeCell, setActiveCell] = useState("tuitionName");
+  const cellRefs = useRef(new Map());
 
-  const tuitionInputRef = useRef(null);
+  const registerCell = useCallback((key, node) => {
+    if (node) cellRefs.current.set(key, node);
+    else cellRefs.current.delete(key);
+  }, []);
 
-  const handleChange = (field, value) => {
-    setReportDraft(prev => ({ ...prev, [field]: value }));
-  };
+  const focusCell = useCallback((key) => {
+    const node = cellRefs.current.get(key);
+    if (!node?.focus) return;
+    node.focus({ preventScroll: true });
+    node.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, []);
 
-  // Backend par data send karne ki logic
-  const handleSave = async () => {
-    // Agar required field (Tuition Name) khali ho to rok dein
-    if (!reportDraft.tuitionName) {
-      alert("Tuition Name is required!");
+  const moveHorizontal = useCallback(
+    (currentKey, delta) => {
+      const currentIndex = FORM_COLUMNS.indexOf(currentKey);
+      if (currentIndex < 0) return;
+      const nextIndex = Math.min(
+        FORM_COLUMNS.length - 1,
+        Math.max(0, currentIndex + delta)
+      );
+      focusCell(FORM_COLUMNS[nextIndex]);
+    },
+    [focusCell]
+  );
+
+  const handleChange = useCallback((field, value) => {
+    setReportDraft((previous) => ({ ...previous, [field]: value }));
+    setMessage({ type: "", text: "" });
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    if (saving) return;
+
+    if (!String(reportDraft.tuitionName || "").trim()) {
+      setMessage({ type: "error", text: "Tuition Name is required." });
+      focusCell("tuitionName");
       return;
     }
 
+    setSaving(true);
+    setMessage({ type: "", text: "" });
+
     try {
-      const response = await fetch(`${BaseUrl}/reports`, {
-        method: 'POST',
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE_URL}/reports`, {
+        method: "POST",
+        credentials: "include",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({
-          tuitionName: reportDraft.tuitionName,
-          groupName: reportDraft.groupName,
-          tutorName: reportDraft.tutorName
-        })
+        body: JSON.stringify(buildReportPayload(reportDraft)),
       });
 
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
 
-      if (response.ok && result.success) {
-        alert('Report saved successfully!');
-        
-        // Parent component ko naya data bhejien taake UI update ho sakay
-        if (onUpdateReport) {
-          onUpdateReport(result);
-        }
-
-        // Save hone ke baad form ko wapis khali (clear) kar dein
-        setReportDraft({
-          tuitionName: "",
-          groupName: [],
-          tutorName: []
-        });
-
-        tuitionInputRef.current?.focus();
-      } else {
-        alert('Error saving report: ' + (result.error || 'Unknown error'));
+      if (!response.ok || result?.success === false) {
+        throw new Error(result?.error || result?.message || "Failed to save report.");
       }
-    } catch (error) {
-      console.error('API Request failed:', error);
-      alert('Server connection failed! Please check if backend is running.');
-    }
-  };
+      const createdRecord = extractCreatedRecord(result);
+      onUpdateReport?.(createdRecord, result);
+      window.dispatchEvent(
+        new CustomEvent("otm-report-created", {
+          detail: createdRecord,
+        })
+      );
+      setReportDraft({
+        tuitionName: "",
+        groupName: [],
+        tutorName: [],
+        reportStatus: "report pending",
+        rowColor: "",
+      });
+      setMessage({ type: "saved", text: "Saved" });
 
-  // Excel Spreadsheet ki professional styling
-  const styles = {
-    excelContainer: {
-      border: '1px solid #cbd5e1',
-      borderRadius: '6px',
-      backgroundColor: '#ffffff',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-      marginBottom: '20px',
-      overflow: 'hidden',
-    },
-    excelHeaderBar: {
-      backgroundColor: '#107c41', // Excel green accent
-      color: 'white',
-      padding: '10px 14px',
-      fontSize: '14px',
-      fontWeight: '600',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    table: {
-      width: '100%',
-      borderCollapse: 'collapse',
-      tableLayout: 'fixed',
-    },
-    th: {
-      backgroundColor: '#f8fafc',
-      borderBottom: '2px solid #cbd5e1',
-      borderRight: '1px solid #e2e8f0',
-      padding: '8px 10px',
-      fontSize: '12px',
-      fontWeight: '600',
-      color: '#475569',
-      textAlign: 'center',
-    },
-    tdRowHeader: {
-      backgroundColor: '#f1f5f9',
-      borderBottom: '1px solid #cbd5e1',
-      borderRight: '1px solid #cbd5e1',
-      textAlign: 'center',
-      fontSize: '12px',
-      fontWeight: '600',
-      color: '#64748b',
-      width: '45px',
-    },
-    tdCell: {
-      borderBottom: '1px solid #e2e8f0',
-      borderRight: '1px solid #e2e8f0',
-      padding: '6px 8px',
-      backgroundColor: '#ffffff',
-      verticalAlign: 'middle',
-    },
-    cellInput: {
-      width: '100%',
-      padding: '8px 10px',
-      border: '1px solid #cbd5e1',
-      borderRadius: '4px',
-      fontSize: '14px',
-      outline: 'none',
-      backgroundColor: '#ffffff',
-      boxSizing: 'border-box',
-    },
-    actionBar: {
-      padding: '12px 14px',
-      backgroundColor: '#f8fafc',
-      borderTop: '1px solid #e2e8f0',
-      display: 'flex',
-      justifyContent: 'flex-end',
-      alignItems: 'center',
-    },
-    saveButton: {
-      backgroundColor: '#107c41',
-      color: 'white',
-      border: 'none',
-      padding: '8px 20px',
-      borderRadius: '4px',
-      fontWeight: '600',
-      fontSize: '14px',
-      cursor: 'pointer',
-      boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+      window.setTimeout(() => {
+        setMessage((current) => (current.type === "saved" ? { type: "", text: "" } : current));
+      }, 1200);
+
+      window.requestAnimationFrame(() => focusCell("tuitionName"));
+    } catch (error) {
+      console.error("Report save failed:", error);
+      setMessage({ type: "error", text: error?.message || "Server connection failed." });
+    } finally {
+      setSaving(false);
     }
-  };
+  }, [focusCell, onUpdateReport, reportDraft, saving]);
+
+  const handleGridKeyDown = useCallback(
+    (event, key) => {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+
+      if (event.key === "Tab") {
+        event.preventDefault();
+        moveHorizontal(key, event.shiftKey ? -1 : 1);
+        return;
+      }
+
+      if (event.key === "Enter") {
+        event.preventDefault();
+        if (key === "save") void handleSave();
+        else moveHorizontal(key, 1);
+        return;
+      }
+
+      if (event.key === "ArrowLeft" && shouldMoveLeft(event.currentTarget)) {
+        event.preventDefault();
+        moveHorizontal(key, -1);
+        return;
+      }
+
+      if (event.key === "ArrowRight" && shouldMoveRight(event.currentTarget)) {
+        event.preventDefault();
+        moveHorizontal(key, 1);
+      }
+    },
+    [handleSave, moveHorizontal]
+  );
+
+  const cellProps = useCallback(
+    (key) => ({
+      ref: (node) => registerCell(key, node),
+      onFocus: () => setActiveCell(key),
+      onKeyDown: (event) => handleGridKeyDown(event, key),
+    }),
+    [handleGridKeyDown, registerCell]
+  );
 
   return (
-    <div style={styles.excelContainer}>
-      {/* Excel Title / Header Bar */}
-      <div style={styles.excelHeaderBar}>
-        <span>📊 Spreadsheet Entry Sheet - Report Data</span>
-        <span style={{ fontSize: '11px', opacity: 0.9 }}>Type freely in cells • Use Tab to navigate</span>
-      </div>
-
-      {/* Spreadsheet Grid Table */}
-      <div style={{ overflowX: 'auto' }}>
+    <div style={styles.sheetCard}>
+      <div style={styles.viewport}>
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={{ ...styles.th, width: '45px' }}>#</th>
-              <th style={styles.th}>A (Tuition Name)</th>
-              <th style={styles.th}>B (Group Name)</th>
-              <th style={styles.th}>C (Tutor Name)</th>
+              <th style={{ ...styles.th, width: 44 }}>#</th>
+              <th style={{ ...styles.th, width: 220 }}>Tuition Name</th>
+              <th style={{ ...styles.th, width: 240 }}>Group Name</th>
+              <th style={{ ...styles.th, width: 240 }}>Tutor Name</th>
+              <th style={{ ...styles.th, width: 150 }}>Report Status</th>
+              <th style={{ ...styles.th, width: 110 }}>Action</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              {/* Row Number 1 */}
-              <td style={styles.tdRowHeader}>1</td>
+              <td style={styles.rowNumber}>1</td>
 
-              {/* Cell A1: Tuition Name */}
-              <td style={styles.tdCell}>
+              <td style={styles.td(activeCell === "tuitionName")}>
                 <input
-                  ref={tuitionInputRef}
+                  {...cellProps("tuitionName")}
                   style={styles.cellInput}
                   value={reportDraft.tuitionName}
-                  onChange={(e) =>handleChange('tuitionName', e.target.value)}
-                  placeholder="Enter Tuition Name..."
+                  onChange={(event) => handleChange("tuitionName", event.target.value)}
+                  placeholder="Type tuition name"
                 />
               </td>
 
-              {/* Cell B1: Group Name */}
-              <td style={styles.tdCell}>
-                <div style={{ ...styles.cellInput, padding: '2px 4px', display: 'flex', alignItems: 'center' }}>
-                  <MultiTagInput
-                    value={reportDraft.groupName}
-                    onChange={(val) => handleChange('groupName', val)}
-                    placeholder="Type & press Enter..."
-                  />
-                </div>
+              <td style={styles.td(activeCell === "groupName")}>
+                <TagCellEditor
+                  value={reportDraft.groupName}
+                  variant="group"
+                  placeholder="Type group + Enter"
+                  inputRef={(node) => registerCell("groupName", node)}
+                  onFocus={() => setActiveCell("groupName")}
+                  onGridKeyDown={(event) => handleGridKeyDown(event, "groupName")}
+                  onChange={(value) => handleChange("groupName", value)}
+                />
               </td>
 
-              {/* Cell C1: Tutor Name */}
-              <td style={styles.tdCell}>
-                <div style={{ ...styles.cellInput, padding: '2px 4px', display: 'flex', alignItems: 'center' }}>
-                  <MultiTagInput
-                    value={reportDraft.tutorName}
-                    onChange={(val) => handleChange('tutorName', val)}
-                    placeholder="Type & press Enter..."
-                  />
-                </div>
+              <td style={styles.td(activeCell === "tutorName")}>
+                <TagCellEditor
+                  value={reportDraft.tutorName}
+                  variant="tutor"
+                  placeholder="Type tutor + Enter"
+                  inputRef={(node) => registerCell("tutorName", node)}
+                  onFocus={() => setActiveCell("tutorName")}
+                  onGridKeyDown={(event) => handleGridKeyDown(event, "tutorName")}
+                  onChange={(value) => handleChange("tutorName", value)}
+                />
+              </td>
+
+              <td style={styles.td(activeCell === "reportStatus")}>
+                <select
+                  {...cellProps("reportStatus")}
+                  style={styles.cellSelect(reportDraft.reportStatus)}
+                  value={reportDraft.reportStatus}
+                  onChange={(event) => handleChange("reportStatus", event.target.value)}
+                >
+                  {REPORT_STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </td>
+
+              <td style={styles.td(activeCell === "save")}>
+                <button
+                  {...cellProps("save")}
+                  type="button"
+                  disabled={saving}
+                  style={styles.saveCellButton(saving)}
+                  onClick={() => void handleSave()}
+                >
+                  {saving ? "Saving…" : "Save"}
+                </button>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      {/* Action Toolbar */}
-      <div style={styles.actionBar}>
-        <button style={styles.saveButton} onClick={handleSave}>
-          💾 Save Report
-        </button>
-      </div>
+      {message.type === "error" ? <div style={styles.inlineError}>{message.text}</div> : null}
     </div>
   );
 }
+
+const styles = {
+  sheetCard: {
+    border: "1px solid #64748b",
+    background: "#ffffff",
+    marginBottom: 14,
+    overflow: "hidden",
+    fontFamily: "Calibri, Arial, sans-serif",
+  },
+  titleBar: {
+    minHeight: 46,
+    padding: "8px 12px",
+    background: "#107c41",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  title: { fontWeight: 800, fontSize: 14 },
+  subtitle: { fontSize: 11, opacity: 0.9, marginTop: 2 },
+  saveState: (type) => ({
+    minWidth: 72,
+    textAlign: "right",
+    fontSize: 12,
+    fontWeight: 700,
+    color: type === "error" ? "#fee2e2" : "#ffffff",
+  }),
+  viewport: { overflowX: "auto" },
+  table: {
+    width: "100%",
+    minWidth: 964,
+    borderCollapse: "separate",
+    borderSpacing: 0,
+    tableLayout: "fixed",
+  },
+  th: {
+    height: 30,
+    padding: "5px 7px",
+    background: "#0f172a",
+    color: "#ffffff",
+    borderRight: "1px solid #475569",
+    borderBottom: "1px solid #475569",
+    fontSize: 11,
+    fontWeight: 800,
+    textAlign: "center",
+    whiteSpace: "nowrap",
+  },
+  rowNumber: {
+    height: 38,
+    padding: 0,
+    background: "#f1f5f9",
+    borderRight: "1px solid #94a3b8",
+    borderBottom: "1px solid #94a3b8",
+    textAlign: "center",
+    color: "#64748b",
+    fontWeight: 800,
+    fontSize: 12,
+  },
+  td: (active) => ({
+    height: 38,
+    padding: 0,
+    borderRight: "1px solid #94a3b8",
+    borderBottom: "1px solid #94a3b8",
+    background: active ? "#ecfdf5" : "#ffffff",
+    boxShadow: active ? "inset 0 0 0 2px #16a34a" : "none",
+    position: "relative",
+  }),
+  cellInput: {
+    width: "100%",
+    height: 37,
+    padding: "6px 8px",
+    border: 0,
+    borderRadius: 0,
+    outline: 0,
+    background: "transparent",
+    boxSizing: "border-box",
+    fontSize: 12,
+  },
+  cellSelect: (status) => ({
+    width: "100%",
+    height: 37,
+    padding: "5px 7px",
+    border: 0,
+    borderRadius: 0,
+    outline: 0,
+    background: status === "report shared" ? "#dcfce7" : "#fef3c7",
+    color: status === "report shared" ? "#166534" : "#92400e",
+    fontWeight: 800,
+    fontSize: 11,
+    textAlign: "center",
+    textAlignLast: "center",
+  }),
+  tagCell: {
+    width: "100%",
+    minHeight: 37,
+    padding: "3px 5px",
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 3,
+    boxSizing: "border-box",
+  },
+  tagBadge: (variant) => ({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 3,
+    borderRadius: 999,
+    padding: "2px 4px 2px 7px",
+    border: `1px solid ${variant === "group" ? "#93c5fd" : "#c4b5fd"}`,
+    background: variant === "group" ? "#dbeafe" : "#ede9fe",
+    color: variant === "group" ? "#1d4ed8" : "#6d28d9",
+    fontSize: 10,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  }),
+  tagRemove: {
+    width: 15,
+    height: 15,
+    padding: 0,
+    border: 0,
+    borderRadius: 999,
+    background: "rgba(15,23,42,0.08)",
+    color: "inherit",
+    cursor: "pointer",
+    lineHeight: 1,
+  },
+  tagInput: {
+    flex: "1 1 64px",
+    minWidth: 54,
+    height: 27,
+    padding: "2px 4px",
+    border: 0,
+    outline: 0,
+    background: "transparent",
+    fontSize: 11,
+  },
+  saveCellButton: (saving) => ({
+    width: "100%",
+    height: 37,
+    border: 0,
+    borderRadius: 0,
+    background: saving ? "#94a3b8" : "#16a34a",
+    color: "#ffffff",
+    fontWeight: 800,
+    cursor: saving ? "not-allowed" : "pointer",
+  }),
+  inlineError: {
+    padding: "7px 10px",
+    background: "#fef2f2",
+    color: "#b91c1c",
+    borderTop: "1px solid #fecaca",
+    fontSize: 12,
+    fontWeight: 700,
+  },
+};
