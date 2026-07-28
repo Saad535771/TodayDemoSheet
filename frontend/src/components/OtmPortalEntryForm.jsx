@@ -6,7 +6,7 @@ import {
   styles,
   GRID_DIMENSIONS,
 } from "./otmPortalShared.jsx";
-export function MultiTagInput({ value = [], onChange, placeholder, gridBindings = {} }) {
+export function MultiTagInput({ value = [], onChange, onBlur, placeholder, gridBindings = {} }) {
   const tags = useMemo(() => {
     if (Array.isArray(value)) return value;
     if (typeof value === "string" && value.trim()) return value.split(",").map(t => t.trim());
@@ -14,15 +14,24 @@ export function MultiTagInput({ value = [], onChange, placeholder, gridBindings 
   }, [value]);
   const [inputValue, setInputValue] = useState("");
 
+  const commitInput = useCallback(() => {
+    const newTag = inputValue.trim().replace(/,/g, "");
+    if (!newTag) return tags;
+
+    const nextTags = tags.includes(newTag)
+      ? tags
+      : [...tags, newTag];
+
+    onChange(nextTags);
+    setInputValue("");
+    return nextTags;
+  }, [inputValue, onChange, tags]);
+
   const handleKeyDown = (e) => {
     if ((e.key === "Enter" || e.key === ",") && inputValue.trim()) {
       e.preventDefault();
       e.stopPropagation();
-      const newTag = inputValue.trim().replace(/,/g, "");
-      if (newTag && !tags.includes(newTag)) {
-        onChange([...tags, newTag]);
-      }
-      setInputValue("");
+      commitInput();
     } else if (e.key === "Backspace" && !inputValue && tags.length > 0) {
       e.stopPropagation();
       onChange(tags.slice(0, -1));
@@ -48,8 +57,16 @@ export function MultiTagInput({ value = [], onChange, placeholder, gridBindings 
         className="otm-grid-editor"
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
+        ref={gridBindings.ref}
         onKeyDown={handleKeyDown}
         onFocus={gridBindings.onFocus}
+        onBlur={(event) => {
+          if (inputValue.trim()) {
+            commitInput();
+          }
+          gridBindings.onBlur?.(event);
+          onBlur?.(event);
+        }}
         placeholder={tags.length ? "" : placeholder}
         style={localStyles.tagInput}
         data-grid-editor={gridBindings["data-grid-editor"]}

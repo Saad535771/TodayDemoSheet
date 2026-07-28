@@ -320,7 +320,22 @@ export default function OtmManagement() {
   function applyMutationResult(data = {}) {
     if (Array.isArray(data.entries)) {
       setEntries(data.entries);
+    } else if (data.entry?.id) {
+      setEntries((prev) => {
+        const exists = prev.some(
+          (item) => String(item.id) === String(data.entry.id)
+        );
+
+        return exists
+          ? prev.map((item) =>
+              String(item.id) === String(data.entry.id)
+                ? { ...item, ...data.entry }
+                : item
+            )
+          : [...prev, data.entry];
+      });
     }
+
     if (Array.isArray(data.reportRows)) {
       setReportRows(data.reportRows);
     }
@@ -361,7 +376,7 @@ export default function OtmManagement() {
     const res = await api.post("/otm-management/entries", body);
     const data = res.data || {};
     applyMutationResult(data);
-    return data.entry || data.data;
+    return data.entry || data.data || null;
   }
 
   async function updateEntry(entryId, payload) {
@@ -370,7 +385,7 @@ export default function OtmManagement() {
     const res = await api.put(`/otm-management/entries/${entryId}`, body);
     const data = res.data || {};
     applyMutationResult(data);
-    return data.entry || data.data;
+    return data.entry || data.data || null;
   }
 
   async function reorderEntries(orderedIds) {

@@ -85,31 +85,47 @@ function buildDayTimeSummary(days = [], assignments = {}) {
 
 function computeRow(row, durationOptions) {
   const legacyDay = normalizeString(row.day);
-  const legacyTime = normalizeTimeText(row.time || normalizeArray(row.timeSlots)[0] || "");
- let providedDays = [];
- if (Array.isArray(row.days)) {
-    providedDays = row.days;
-  } else if (typeof row.days === "string" && row.days.trim() !== "") {
-    providedDays = row.days.split(",").map(d => d.trim());
-  } else {
-    providedDays = normalizeArray(row.days);
-  }
-  const assignmentDays =
-    row.timeAssignments && typeof row.timeAssignments === "object" ? Object.keys(row.timeAssignments) : [];
-  const days = sortDays(providedDays.length ? providedDays : legacyDay ? [legacyDay] : assignmentDays);
-  
+  const legacyTime = normalizeTimeText(
+    row.time || normalizeArray(row.timeSlots)[0] || ""
+  );
+  const providedDays = normalizeArray(row.days);
+  const sourceAssignments =
+    row.timeAssignments &&
+    typeof row.timeAssignments === "object" &&
+    !Array.isArray(row.timeAssignments)
+      ? row.timeAssignments
+      : {};
+  const assignmentDays = Object.keys(sourceAssignments);
+  const days = sortDays(
+    providedDays.length
+      ? providedDays
+      : legacyDay
+        ? normalizeArray(legacyDay)
+        : assignmentDays
+  );
+
   const durationMinutes = Number(row.durationMinutes || 60);
-  const timeAssignments = buildTimeAssignments(days, row.timeAssignments || {}, legacyDay, legacyTime);
-  const timeSlots = days.map((day) => normalizeTimeText(timeAssignments[day])).filter(Boolean);
+  const timeAssignments = buildTimeAssignments(
+    days,
+    sourceAssignments,
+    days[0] || legacyDay,
+    legacyTime
+  );
+  const timeSlots = days
+    .map((day) => normalizeTimeText(timeAssignments[day]))
+    .filter(Boolean);
   const time = getPrimaryTime(days, timeAssignments) || legacyTime;
-  const classStartTime = time || normalizeString(row.classStartTime);
-  const classEndTime = classStartTime
-    ? addMinutes(classStartTime, durationMinutes) : normalizeString(row.classEndTime);
+
+  const classStartTime = normalizeTimeText(row.classStartTime) || time;
+  const classEndTime =
+    normalizeTimeText(row.classEndTime) ||
+    (classStartTime ? addMinutes(classStartTime, durationMinutes) : "");
+
   return {
     ...row,
-    day: days[0] || legacyDay,
+    day: days.join(", "),
     days,
-    dayText: Array.isArray(days) ? days.join(", ") : "",
+    dayText: days.join(", "),
     time,
     timeText: buildDayTimeSummary(days, timeAssignments),
     timeSlots,
@@ -119,11 +135,11 @@ function computeRow(row, durationOptions) {
     classStartTime,
     classEndTime,
     tuitionStartMonth: normalizeMonthValue(
-      row.tuitionStartMonth || (row.tuitionStartDate ? String(row.tuitionStartDate).slice(0, 7) : "")
+      row.tuitionStartMonth ||
+        (row.tuitionStartDate ? String(row.tuitionStartDate).slice(0, 7) : "")
     ),
     tuitionEndMonth: normalizeMonthValue(row.tuitionEndMonth),
     notes: row.notes || "",
-
     sourceTuitionId: normalizeString(row.sourceTuitionId),
     status: normalizeString(row.status).toLowerCase() || "",
   };
@@ -246,6 +262,8 @@ export default function OtmPortalSheet({
   const [selectedIds, setSelectedIds] = useState([]);
   const [activeCellPrefix, setActiveCellPrefix] = useState("");
   const saveTimeoutsRef = useRef(new Map());
+  const pendingPatchesRef = useRef(new Map());
+  const flushRowSaveRef = useRef(null);
   const entriesRef = useRef([]);
   const editorRegistryRef = useRef(new Map());
   const [searchByTab, setSearchByTab] = useState({ tuitions: "", reports: "", totalClass: "" });
@@ -285,6 +303,7 @@ export default function OtmPortalSheet({
   useEffect(() => () => {
     saveTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
     saveTimeoutsRef.current.clear();
+    pendingPatchesRef.current.clear();
   }, []);
 
   useEffect(() => {
@@ -478,20 +497,7 @@ export default function OtmPortalSheet({
 
         const persistAndMove = async () => {
           if (rowId && onUpdateEntry) {
-            const timeoutId = saveTimeoutsRef.current.get(rowId);
-            if (timeoutId) {
-              clearTimeout(timeoutId);
-              saveTimeoutsRef.current.delete(rowId);
-            }
-
-            const sourceRow = entriesRef.current.find((item) => item.id === rowId);
-            if (sourceRow) {
-              try {
-                await onUpdateEntry(rowId, buildEntryPayload(sourceRow));
-              } catch (error) {
-                console.error("Failed to update row", error);
-              }
-            }
+            await flushRowSaveRef.current?.(rowId);
           }
 
           focusSequentialEditor(editorKey, event.shiftKey ? -1 : 1);
@@ -542,41 +548,66 @@ export default function OtmPortalSheet({
   }
 
   const flushRowSave = useCallback(
-    async (rowId, overrideRow = null) => {
-      if (!onUpdateEntry || !rowId) return;
+    async (rowId, overridePatch = null) => {
+      if (!onUpdateEntry || rowId === undefined || rowId === null) return;
 
-      const timeoutId = saveTimeoutsRef.current.get(rowId);
+      const rowKey = String(rowId);
+      const timeoutId = saveTimeoutsRef.current.get(rowKey);
       if (timeoutId) {
         clearTimeout(timeoutId);
-        saveTimeoutsRef.current.delete(rowId);
+        saveTimeoutsRef.current.delete(rowKey);
       }
 
-      const sourceRow = overrideRow || entriesRef.current.find((item) => item.id === rowId);
-      if (!sourceRow) return;
+      const pendingPatch = pendingPatchesRef.current.get(rowKey) || {};
+      const patch = {
+        ...pendingPatch,
+        ...(overridePatch || {}),
+      };
+
+      if (Object.keys(patch).length === 0) return;
+      pendingPatchesRef.current.delete(rowKey);
 
       try {
-        await onUpdateEntry(rowId, buildEntryPayload(sourceRow));
+        const savedEntry = await onUpdateEntry(rowId, patch);
+        if (savedEntry) {
+          setEntries((prev) =>
+            prev.map((item) =>
+              String(item.id) === rowKey
+                ? computeRow({ ...item, ...savedEntry }, durationOptions)
+                : item
+            )
+          );
+        }
       } catch (error) {
+        pendingPatchesRef.current.set(rowKey, patch);
         console.error("Failed to update row", error);
       }
     },
-    [onUpdateEntry]
+    [durationOptions, onUpdateEntry]
   );
 
-  const scheduleRowSave = useCallback(
-    (rowId, overrideRow = null, delay = 350) => {
-      if (!onUpdateEntry || !rowId) return;
+  flushRowSaveRef.current = flushRowSave;
 
-      const existingTimeout = saveTimeoutsRef.current.get(rowId);
+  const scheduleRowSave = useCallback(
+    (rowId, patch = {}, delay = 250) => {
+      if (!onUpdateEntry || rowId === undefined || rowId === null) return;
+
+      const rowKey = String(rowId);
+      pendingPatchesRef.current.set(rowKey, {
+        ...(pendingPatchesRef.current.get(rowKey) || {}),
+        ...patch,
+      });
+
+      const existingTimeout = saveTimeoutsRef.current.get(rowKey);
       if (existingTimeout) {
         clearTimeout(existingTimeout);
       }
 
       const timeoutId = window.setTimeout(() => {
-        flushRowSave(rowId, overrideRow);
+        void flushRowSave(rowId);
       }, delay);
 
-      saveTimeoutsRef.current.set(rowId, timeoutId);
+      saveTimeoutsRef.current.set(rowKey, timeoutId);
     },
     [flushRowSave, onUpdateEntry]
   );
@@ -613,43 +644,132 @@ export default function OtmPortalSheet({
   const updateRow = useCallback(
     (rowId, field, value, options = {}) => {
       let nextRowSnapshot = null;
+      let patch = { [field]: value };
 
       setEntries((prev) =>
         prev.map((row) => {
-          if (row.id !== rowId) return row;
+          if (String(row.id) !== String(rowId)) return row;
 
-          let nextRow = row;
+          let nextRow;
 
           if (field === "days") {
             const nextDays = sortDays(value);
             const nextAssignments = buildTimeAssignments(
               nextDays,
               row.timeAssignments || {},
-              row.day,
+              normalizeArray(row.days)[0] || row.day,
               row.time
             );
+            const primaryTime = getPrimaryTime(nextDays, nextAssignments);
+            const nextStart = primaryTime;
+            const nextEnd = nextStart
+              ? addMinutes(nextStart, Number(row.durationMinutes || 60))
+              : "";
+
             nextRow = computeRow(
               {
                 ...row,
-                day: nextDays[0] || "",
+                day: nextDays.join(", "),
                 days: nextDays,
                 timeAssignments: nextAssignments,
-                timeSlots: nextDays.map((day) => nextAssignments[day]).filter(Boolean),
-                time: getPrimaryTime(nextDays, nextAssignments),
+                timeSlots: nextDays
+                  .map((day) => nextAssignments[day])
+                  .filter(Boolean),
+                time: primaryTime,
+                classStartTime: nextStart,
+                classEndTime: nextEnd,
               },
               durationOptions
             );
+
+            patch = {
+              day: nextDays.join(", "),
+              days: nextDays,
+              timeAssignments: nextAssignments,
+              timeSlots: nextRow.timeSlots,
+              time: nextRow.time,
+              durationMinutes: nextRow.durationMinutes,
+              classStartTime: nextRow.classStartTime,
+              classEndTime: nextRow.classEndTime,
+            };
           } else if (field === "timeAssignments") {
-            const nextAssignments = buildTimeAssignments(row.days || [], value, row.day, row.time);
+            const nextDays = sortDays(row.days || row.day);
+            const nextAssignments = buildTimeAssignments(
+              nextDays,
+              value,
+              nextDays[0] || row.day,
+              row.time
+            );
+            const primaryTime = getPrimaryTime(nextDays, nextAssignments);
+            const nextStart = primaryTime;
+            const nextEnd = nextStart
+              ? addMinutes(nextStart, Number(row.durationMinutes || 60))
+              : "";
+
             nextRow = computeRow(
               {
                 ...row,
                 timeAssignments: nextAssignments,
-                timeSlots: (row.days || []).map((day) => nextAssignments[day]).filter(Boolean),
-                time: getPrimaryTime(row.days || [], nextAssignments),
+                timeSlots: nextDays
+                  .map((day) => nextAssignments[day])
+                  .filter(Boolean),
+                time: primaryTime,
+                classStartTime: nextStart,
+                classEndTime: nextEnd,
               },
               durationOptions
             );
+
+            patch = {
+              day: nextDays.join(", "),
+              days: nextDays,
+              timeAssignments: nextAssignments,
+              timeSlots: nextRow.timeSlots,
+              time: nextRow.time,
+              durationMinutes: nextRow.durationMinutes,
+              classStartTime: nextRow.classStartTime,
+              classEndTime: nextRow.classEndTime,
+            };
+          } else if (field === "durationMinutes") {
+            const nextDuration = Number(value || 60);
+            const nextEnd = row.classStartTime
+              ? addMinutes(row.classStartTime, nextDuration)
+              : "";
+
+            nextRow = computeRow(
+              {
+                ...row,
+                durationMinutes: nextDuration,
+                classEndTime: nextEnd,
+              },
+              durationOptions
+            );
+
+            patch = {
+              durationMinutes: nextDuration,
+              durationLabel: nextRow.durationLabel,
+              classEndTime: nextRow.classEndTime,
+            };
+          } else if (field === "classStartTime") {
+            const nextStart = normalizeTimeText(value);
+            nextRow = computeRow(
+              {
+                ...row,
+                classStartTime: nextStart,
+              },
+              durationOptions
+            );
+            patch = { classStartTime: nextStart };
+          } else if (field === "classEndTime") {
+            const nextEnd = normalizeTimeText(value);
+            nextRow = computeRow(
+              {
+                ...row,
+                classEndTime: nextEnd,
+              },
+              durationOptions
+            );
+            patch = { classEndTime: nextEnd };
           } else {
             nextRow = computeRow({ ...row, [field]: value }, durationOptions);
           }
@@ -660,7 +780,7 @@ export default function OtmPortalSheet({
       );
 
       if (options.save !== false && nextRowSnapshot) {
-        scheduleRowSave(rowId, nextRowSnapshot, options.delay ?? 350);
+        scheduleRowSave(rowId, patch, options.delay ?? 250);
       }
 
       return nextRowSnapshot;
@@ -670,17 +790,7 @@ export default function OtmPortalSheet({
 
   async function createRow() {
     if (!onCreateEntry) return;
-    const validDays = sortDays(draft.days);
-    if (!draft.tuitionName || validDays.length === 0) {
-      alert("Please add tuition name and select at least one day.");
-      return;
-    }
-
-    const missingTimeDay = validDays.find((day) => !normalizeTimeText(draft.timeAssignments?.[day]));
-    if (missingTimeDay) {
-      alert(`Please add time for ${missingTimeDay}.`);
-      return;
-    }
+    const validDays = sortDays(draft.days || []);
 
     try {
       setCreating(true);
@@ -753,12 +863,42 @@ export default function OtmPortalSheet({
     }
   }
 
-  function renderTextInput(row, field, isDraft = false, readOnly = false, textarea = false) {
-    const value = row[field] || "";
-    const editorBindings = !isDraft ? getGridEditorBindings(row.id, field, "main", { multiline: textarea }) : {};
+  function renderTextInput(
+    row,
+    field,
+    isDraft = false,
+    readOnly = false,
+    textarea = false
+  ) {
+    const value = row[field] ?? "";
+    const editorBindings = !isDraft
+      ? getGridEditorBindings(row.id, field, "main", { multiline: textarea })
+      : {};
 
     if (readOnly) {
       return <div style={styles.readOnlyCell}>{value || "--"}</div>;
+    }
+
+    if (field === "tutorName" || field === "groupName") {
+      return (
+        <MultiTagInput
+          value={normalizeArray(value)}
+          placeholder={field === "tutorName" ? "Add tutor" : "Add group"}
+          gridBindings={editorBindings}
+          onChange={(nextValues) => {
+            if (isDraft) {
+              updateDraftField(field, nextValues);
+            } else {
+              updateRow(row.id, field, nextValues);
+            }
+          }}
+          onBlur={() => {
+            if (!isDraft) {
+              void saveRow(row.id);
+            }
+          }}
+        />
+      );
     }
 
     const commonProps = {
@@ -769,7 +909,7 @@ export default function OtmPortalSheet({
         else updateRow(row.id, field, event.target.value);
       },
       onBlur: () => {
-        if (!isDraft) saveRow(row.id);
+        if (!isDraft) void saveRow(row.id);
       },
       ...editorBindings,
     };

@@ -1,6 +1,4 @@
-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { parseDecidedFee } from "../../../backend/src/utils/otmScheduleUtils";
 
 export const DEFAULT_DAY_OPTIONS = [
   "Monday",
@@ -39,8 +37,8 @@ export const TEXT_COLUMNS = [
   { key: "tutorName", label: "Tutor Name", width: 118, isTag: true }, // isTag add kiya
   { key: "groupName", label: "Group Name", width: 118, isTag: true }, // isTag add kiya
   { key: "decidedFee", label: "Decided Fee", width: 92 },           //
-  { key: "classStartTime", label: "Class Start", width: 92, readOnly: true },
-  { key: "classEndTime", label: "Class End", width: 92, readOnly: true },
+  { key: "classStartTime", label: "Class Start", width: 92 },
+  { key: "classEndTime", label: "Class End", width: 92 },
   { key: "notes", label: "Notes", width: 132 },
 ];
 export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100, 200, 500];
@@ -66,31 +64,169 @@ export function normalizeString(value) {
   if (value === undefined || value === null) return "";
   return String(value).trim();
 }
-export function normalizeArray(value) {
-  if (Array.isArray(value)) {
-    return [...new Set(value.map((item) => normalizeString(item)).filter(Boolean))];
+
+// Nested/stringified JSON ko normal value mein convert karta hai.
+// Example:
+// ["[\"Monday\"]"] => ["Monday"]
+// "[\"tutor1\",\"tutor2\"]" => ["tutor1", "tutor2"]
+export function decodeSerializedValue(value, maxDepth = 6) {
+  let current = value;
+
+  for (let depth = 0; depth < maxDepth; depth += 1) {
+    if (typeof current !== "string") {
+      return current;
+    }
+
+    const text = current.trim();
+
+    if (!text) {
+      return "";
+    }
+
+    const candidates = [
+      text,
+      text
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, "\\"),
+    ];
+
+    let parsedSuccessfully = false;
+    let parsedValue = current;
+
+    for (const candidate of candidates) {
+      try {
+        parsedValue = JSON.parse(candidate);
+        parsedSuccessfully = true;
+        break;
+      } catch (error) {
+        // Plain text ho to next candidate try karein.
+      }
+    }
+
+    if (!parsedSuccessfully || parsedValue === current) {
+      return current;
+    }
+
+    current = parsedValue;
   }
-  const text = normalizeString(value);
-  if (!text) return [];
-  return [...new Set(text.split(",").map((item) => item.trim()).filter(Boolean))];
+
+  return current;
 }
+
+export function normalizeArray(value) {
+  const collectValues = (input, depth = 0) => {
+    if (
+      depth > 8 ||
+      input === undefined ||
+      input === null
+    ) {
+      return [];
+    }
+
+    const decoded = decodeSerializedValue(input);
+
+    if (Array.isArray(decoded)) {
+      return decoded.flatMap((item) =>
+        collectValues(item, depth + 1)
+      );
+    }
+
+    if (
+      decoded &&
+      typeof decoded === "object"
+    ) {
+      return Object.values(decoded).flatMap((item) =>
+        collectValues(item, depth + 1)
+      );
+    }
+
+    const text = normalizeString(decoded);
+
+    if (!text) {
+      return [];
+    }
+
+    const cleaned = text
+      .replace(/\\"/g, '"')
+      .replace(
+        /^[\s\[\]"'\\]+|[\s\[\]"'\\]+$/g,
+        ""
+      )
+      .trim();
+
+    if (!cleaned) {
+      return [];
+    }
+
+    return cleaned
+      .split(/[,\n|]+/)
+      .map((item) =>
+        item
+          .replace(/\\"/g, '"')
+          .replace(
+            /^[\s\[\]"'\\]+|[\s\[\]"'\\]+$/g,
+            ""
+          )
+          .trim()
+      )
+      .filter(Boolean);
+  };
+
+  return [...new Set(collectValues(value))];
+}
+
 export function sortDays(days = []) {
   return normalizeArray(days).sort(
-    (a, b) => (DAY_INDEX[a.toLowerCase()] ?? 999) - (DAY_INDEX[b.toLowerCase()] ?? 999)
+    (a, b) =>
+      (DAY_INDEX[a.toLowerCase()] ?? 999) -
+      (DAY_INDEX[b.toLowerCase()] ?? 999)
   );
 }
 
 export function normalizeTimeText(value) {
-  const text = normalizeString(value).replace(/\s+/g, "");
-  if (!text) return "";
-  const match = text.match(/^(\d{1,2})(?::?(\d{1,2}))?(am|pm)$/i);
-  if (!match) return normalizeString(value);
+  const firstValue =
+    normalizeArray(value)[0] ||
+    normalizeString(value);
+
+  const text = normalizeString(firstValue)
+    .replace(/\s+/g, "");
+
+  if (!text) {
+    return "";
+  }
+
+  const match = text.match(
+    /^(\d{1,2})(?::?(\d{1,2}))?(am|pm)$/i
+  );
+
+  if (!match) {
+    return normalizeString(firstValue);
+  }
+
   const hour = Number(match[1]);
   const minute = Number(match[2] ?? 0);
   const suffix = match[3].toUpperCase();
-  if (!Number.isFinite(hour) || hour < 1 || hour > 12) return normalizeString(value);
-  if (!Number.isFinite(minute) || minute < 0 || minute > 59) return normalizeString(value);
-  return `${hour}:${String(minute).padStart(2, "0")} ${suffix}`;
+
+  if (
+    !Number.isFinite(hour) ||
+    hour < 1 ||
+    hour > 12
+  ) {
+    return normalizeString(firstValue);
+  }
+
+  if (
+    !Number.isFinite(minute) ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return normalizeString(firstValue);
+  }
+
+  return `${hour}:${String(minute).padStart(
+    2,
+    "0"
+  )} ${suffix}`;
 }
 
 export function toMinutes(timeLabel) {
@@ -241,7 +377,22 @@ export function MultiSelectCell({
   triggerProps = {},
   onRequestMove,
 }) {
-  const selected = useMemo(() => sortDays(value), [value]);
+  const selected = useMemo(() => {
+  const allowedDays = new Map(
+    options.map((item) => [
+      normalizeString(item).toLowerCase(),
+      item,
+    ])
+  );
+
+  return sortDays(value)
+    .map((item) =>
+      allowedDays.get(
+        normalizeString(item).toLowerCase()
+      )
+    )
+    .filter(Boolean);
+}, [options, value]);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const triggerRef = useRef(null);
@@ -303,9 +454,7 @@ export function MultiSelectCell({
     [onChange, selected]
   );
 
-  const selectedLabel = selected.length
-    ? selected.map((item) => item.slice(0, 3)).join(", ")
-    : placeholder;
+
 
   const handleTriggerKeyDown = useCallback(
     (event) => {
@@ -406,8 +555,26 @@ export function MultiSelectCell({
         data-grid-editor={triggerProps["data-grid-editor"]}
         data-grid-key={triggerProps["data-grid-key"]}
       >
-        <span style={styles.dropdownTriggerText(!!selected.length)}>{selectedLabel}</span>
-        <span style={styles.dropdownArrow}>▾</span>
+{selected.length ? (
+  <span style={styles.dropdownBadgeList}>
+    {selected.map((item) => (
+      <span
+        key={item}
+        style={styles.dayValueBadge}
+      >
+        {item}
+      </span>
+    ))}
+  </span>
+) : (
+  <span
+    style={styles.dropdownTriggerText(false)}
+  >
+    {placeholder}
+  </span>
+)}
+
+<span style={styles.dropdownArrow}>▾</span>
       </button>
 
       {open && (
@@ -433,6 +600,172 @@ export function MultiSelectCell({
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+export function BadgeList({
+  value,
+  emptyText = "--",
+  variant = "default",
+}) {
+  const items = useMemo(
+    () => normalizeArray(value),
+    [value]
+  );
+
+  if (!items.length) {
+    return (
+      <span style={styles.badgeEmpty}>
+        {emptyText}
+      </span>
+    );
+  }
+
+  return (
+    <span style={styles.badgeList}>
+      {items.map((item, index) => (
+        <span
+          key={`${item}-${index}`}
+          style={styles.valueBadge(variant)}
+        >
+          {item}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+export function MultiValueBadgeInput({
+  value,
+  onChange,
+  onBlur,
+  placeholder = "Type and press Enter",
+  triggerProps = {},
+}) {
+  const values = useMemo(
+    () => normalizeArray(value),
+    [value]
+  );
+
+  const [draftValue, setDraftValue] =
+    useState("");
+
+  const commitDraft = useCallback(
+    (rawValue = draftValue) => {
+      const incoming = normalizeArray(rawValue);
+
+      if (!incoming.length) {
+        return values;
+      }
+
+      const nextValues = [
+        ...new Set([...values, ...incoming]),
+      ];
+
+      onChange?.(nextValues);
+      setDraftValue("");
+
+      return nextValues;
+    },
+    [draftValue, onChange, values]
+  );
+
+  const removeValue = useCallback(
+    (item) => {
+      onChange?.(
+        values.filter(
+          (valueItem) => valueItem !== item
+        )
+      );
+    },
+    [onChange, values]
+  );
+
+  const handleKeyDown = (event) => {
+    if (
+      event.key === "Enter" ||
+      event.key === ","
+    ) {
+      if (draftValue.trim()) {
+        event.preventDefault();
+        event.stopPropagation();
+        commitDraft();
+        return;
+      }
+    }
+
+    if (
+      event.key === "Backspace" &&
+      !draftValue &&
+      values.length
+    ) {
+      event.preventDefault();
+      removeValue(values[values.length - 1]);
+      return;
+    }
+
+    triggerProps.onKeyDown?.(event);
+  };
+
+  return (
+    <div style={styles.badgeEditorWrap}>
+      <div style={styles.badgeEditorValues}>
+        {values.map((item, index) => (
+          <span
+            key={`${item}-${index}`}
+            style={styles.editableValueBadge}
+          >
+            <span>{item}</span>
+
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label={`Remove ${item}`}
+              style={styles.badgeRemoveBtn}
+              onMouseDown={(event) =>
+                event.preventDefault()
+              }
+              onClick={() => removeValue(item)}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+
+        <input
+          {...triggerProps}
+          className="otm-grid-editor"
+          style={styles.badgeEditorInput}
+          value={draftValue}
+          placeholder={
+            values.length ? "+ add" : placeholder
+          }
+          onChange={(event) =>
+            setDraftValue(event.target.value)
+          }
+          onKeyDown={handleKeyDown}
+          onPaste={(event) => {
+            const pasted =
+              event.clipboardData?.getData(
+                "text"
+              ) || "";
+
+            if (/[,|\n]/.test(pasted)) {
+              event.preventDefault();
+              commitDraft(pasted);
+            }
+          }}
+          onBlur={(event) => {
+            if (draftValue.trim()) {
+              commitDraft();
+            }
+
+            triggerProps.onBlur?.(event);
+            onBlur?.(event);
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -1174,4 +1507,127 @@ export const styles = {
     fontWeight: 800,
     cursor: "pointer",
   },
+  dropdownBadgeList: {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 3,
+  flex: 1,
+  minWidth: 0,
+  maxHeight: 52,
+  overflowY: "auto",
+},
+
+dayValueBadge: {
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: 999,
+  border: "1px solid #86efac",
+  background: "#dcfce7",
+  color: "#166534",
+  padding: "2px 6px",
+  fontSize: 9,
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+},
+
+badgeList: {
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 4,
+},
+
+badgeEmpty: {
+  color: "#94a3b8",
+  fontSize: 11,
+},
+
+valueBadge: (variant = "default") => ({
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: 999,
+  border: `1px solid ${
+    variant === "day"
+      ? "#86efac"
+      : variant === "group"
+        ? "#93c5fd"
+        : "#c4b5fd"
+  }`,
+  background:
+    variant === "day"
+      ? "#dcfce7"
+      : variant === "group"
+        ? "#dbeafe"
+        : "#ede9fe",
+  color:
+    variant === "day"
+      ? "#166534"
+      : variant === "group"
+        ? "#1d4ed8"
+        : "#6d28d9",
+  padding: "3px 7px",
+  fontSize: 10,
+  fontWeight: 800,
+  whiteSpace: "nowrap",
+}),
+
+badgeEditorWrap: {
+  width: "100%",
+  minHeight: 32,
+  padding: 3,
+  boxSizing: "border-box",
+},
+
+badgeEditorValues: {
+  width: "100%",
+  minHeight: 28,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexWrap: "wrap",
+  gap: 3,
+},
+
+editableValueBadge: {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 3,
+  borderRadius: 999,
+  border: "1px solid #93c5fd",
+  background: "#eff6ff",
+  color: "#1e40af",
+  padding: "2px 4px 2px 7px",
+  fontSize: 10,
+  fontWeight: 800,
+  maxWidth: "100%",
+},
+
+badgeRemoveBtn: {
+  width: 16,
+  height: 16,
+  border: "none",
+  borderRadius: 999,
+  background: "rgba(30, 64, 175, 0.12)",
+  color: "#1e40af",
+  padding: 0,
+  lineHeight: 1,
+  fontSize: 12,
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+badgeEditorInput: {
+  flex: "1 1 62px",
+  minWidth: 55,
+  minHeight: 24,
+  border: "none",
+  outline: "none",
+  background: "transparent",
+  textAlign: "center",
+  fontSize: 10,
+  padding: "2px 4px",
+},
 };
