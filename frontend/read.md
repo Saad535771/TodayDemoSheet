@@ -3,3 +3,10 @@
 <!-- numbering with any tutition=> sort waly column sy pehly numbering show ho ta k user ko pata lagy k kon konsi row ko select kiya ha -->
 <!-- form mae source ,status py keyboard py jayn to dropdown double enter sy show ho jay or select hony k baad enter press karny sy select ho k next field py move kar jay or agar keyboard sy left side py aon toh handling work karni chahiye  or date jahan py bhi hai wahan py calender enter press karny py show ho jay -->
 <!-- ctrl z karny sy data jo pehly tha wo ajana chahiye ta k backspace kar di mistakenly to data humara disturb nah ho wo reverse a saky -->
+
+
+<!-- vps path -->
+sudo -u appex1212 -H pm2 restart excel-app --update-env
+
+sudo -u appex1212 -H pm2 save
+sudo -u appex1212 -H pm2 logs excel-app --err --lines 150

@@ -29,6 +29,7 @@ import {
   paginate,
   sortDays,
   styles,
+  toMinutes,
 } from "./otmPortalShared.jsx";
 
 function stableSerialize(value) {
@@ -220,6 +221,196 @@ function shouldNavigateVertically() {
   return true;
 }
 
+const GRID_CLIPBOARD_COLUMNS = [
+  "days",
+  "timeAssignments",
+  "durationMinutes",
+  "tuitionStartMonth",
+  ...TEXT_COLUMNS.map((column) => column.key),
+  "status",
+];
+
+function cloneRows(rows = []) {
+  return rows.map((row) => JSON.parse(JSON.stringify(row)));
+}
+
+function getRowDays(row) {
+  return sortDays(row?.days || row?.dayText || row?.day || []);
+}
+
+function getRowScheduleMinutes(row, selectedDay = "") {
+  const days = getRowDays(row);
+  const requestedDay = normalizeString(selectedDay).toLowerCase();
+  const matchingDay = requestedDay
+    ? days.find((day) => day.toLowerCase() === requestedDay)
+    : "";
+
+  if (matchingDay) {
+    const selectedMinutes = toMinutes(row?.timeAssignments?.[matchingDay]);
+    return Number.isFinite(selectedMinutes) ? selectedMinutes : Number.POSITIVE_INFINITY;
+  }
+
+  const assignmentMinutes = days
+    .map((day) => toMinutes(row?.timeAssignments?.[day]))
+    .filter(Number.isFinite);
+
+  if (assignmentMinutes.length) return Math.min(...assignmentMinutes);
+
+  const fallbackMinutes = toMinutes(row?.time || row?.classStartTime);
+  return Number.isFinite(fallbackMinutes) ? fallbackMinutes : Number.POSITIVE_INFINITY;
+}
+
+function sortRowsBySchedule(rows = [], selectedDay = "") {
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((a, b) => {
+      const timeDifference =
+        getRowScheduleMinutes(a.row, selectedDay) -
+        getRowScheduleMinutes(b.row, selectedDay);
+      return timeDifference || a.index - b.index;
+    })
+    .map(({ row }) => row);
+}
+
+function getClipboardCellValue(row, columnKey, selectedDay = "") {
+  if (columnKey === "days") return getRowDays(row).join(", ");
+  if (columnKey === "timeAssignments") {
+    const matchingDay = getRowDays(row).find(
+      (day) => day.toLowerCase() === normalizeString(selectedDay).toLowerCase()
+    );
+    if (matchingDay) return normalizeTimeText(row?.timeAssignments?.[matchingDay]);
+    return buildDayTimeSummary(getRowDays(row), row?.timeAssignments || {});
+  }
+  if (columnKey === "durationMinutes") return String(row?.durationMinutes || "");
+
+  const value = row?.[columnKey];
+  if (Array.isArray(value)) return value.join(", ");
+  return String(value ?? "");
+}
+
+function parseClipboardDuration(value, fallback = 60) {
+  const text = normalizeString(value).toLowerCase();
+  if (!text) return Number(fallback || 60);
+  const number = Number.parseFloat(text);
+  if (!Number.isFinite(number)) return Number(fallback || 60);
+  if (/hour|hr/.test(text)) return Math.round(number * 60);
+  return Math.round(number);
+}
+
+function parseClipboardAssignments(value, row, selectedDay = "") {
+  const text = normalizeString(value);
+  const days = getRowDays(row);
+  const nextAssignments = { ...(row?.timeAssignments || {}) };
+  const segments = text.split(/[•;\n]+/).map((item) => item.trim()).filter(Boolean);
+  let matchedSummary = false;
+
+  segments.forEach((segment) => {
+    const match = segment.match(/^([^:]+):\s*(.+)$/);
+    if (!match) return;
+    const day = days.find(
+      (item) => item.toLowerCase() === normalizeString(match[1]).toLowerCase()
+    );
+    if (!day) return;
+    nextAssignments[day] = normalizeTimeText(match[2]);
+    matchedSummary = true;
+  });
+
+  if (!matchedSummary) {
+    const requestedDay = normalizeString(selectedDay).toLowerCase();
+    const targetDay =
+      days.find((day) => day.toLowerCase() === requestedDay) || days[0];
+    if (targetDay) nextAssignments[targetDay] = normalizeTimeText(text);
+  }
+
+  return nextAssignments;
+}
+
+function applyClipboardValueToRow(
+  row,
+  columnKey,
+  rawValue,
+  durationOptions,
+  selectedDay = ""
+) {
+  if (!row || !columnKey) return row;
+
+  if (columnKey === "days") {
+    const nextDays = sortDays(normalizeArray(rawValue));
+    const nextAssignments = buildTimeAssignments(
+      nextDays,
+      row.timeAssignments || {},
+      getRowDays(row)[0] || row.day,
+      row.time
+    );
+    const primaryTime = getPrimaryTime(nextDays, nextAssignments);
+    return computeRow(
+      {
+        ...row,
+        day: nextDays.join(", "),
+        days: nextDays,
+        timeAssignments: nextAssignments,
+        time: primaryTime,
+        classStartTime: primaryTime,
+        classEndTime: primaryTime
+          ? addMinutes(primaryTime, Number(row.durationMinutes || 60))
+          : "",
+      },
+      durationOptions
+    );
+  }
+
+  if (columnKey === "timeAssignments") {
+    const nextAssignments = parseClipboardAssignments(rawValue, row, selectedDay);
+    const primaryTime = getPrimaryTime(getRowDays(row), nextAssignments);
+    return computeRow(
+      {
+        ...row,
+        timeAssignments: nextAssignments,
+        time: primaryTime,
+        classStartTime: primaryTime,
+        classEndTime: primaryTime
+          ? addMinutes(primaryTime, Number(row.durationMinutes || 60))
+          : "",
+      },
+      durationOptions
+    );
+  }
+
+  if (columnKey === "durationMinutes") {
+    const durationMinutes = parseClipboardDuration(rawValue, row.durationMinutes);
+    return computeRow(
+      {
+        ...row,
+        durationMinutes,
+        classEndTime: row.classStartTime
+          ? addMinutes(row.classStartTime, durationMinutes)
+          : "",
+      },
+      durationOptions
+    );
+  }
+
+  if (columnKey === "groupName") {
+    return computeRow({ ...row, groupName: normalizeArray(rawValue) }, durationOptions);
+  }
+
+  if (columnKey === "classStartTime" || columnKey === "classEndTime") {
+    return computeRow(
+      { ...row, [columnKey]: normalizeTimeText(rawValue) },
+      durationOptions
+    );
+  }
+
+  if (columnKey === "status") {
+    return computeRow(
+      { ...row, status: normalizeString(rawValue).toLowerCase() },
+      durationOptions
+    );
+  }
+
+  return computeRow({ ...row, [columnKey]: rawValue }, durationOptions);
+}
+
 export default function OtmPortalSheet({
   user,
   portalUser,
@@ -260,9 +451,15 @@ export default function OtmPortalSheet({
   const [draft, setDraft] = useState(() => makeEmptyDraft(durationOptions));
   const [creating, setCreating] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [selectedColumnKey, setSelectedColumnKey] = useState("");
   const [activeCellPrefix, setActiveCellPrefix] = useState("");
   const saveTimeoutsRef = useRef(new Map());
   const pendingPatchesRef = useRef(new Map());
+  const pendingDeleteTimersRef = useRef(new Map());
+  const undoStackRef = useRef([]);
+  const historyCoalesceRef = useRef({ key: "", at: 0 });
+  const activeEditorKeyRef = useRef("");
+  const sheetWrapRef = useRef(null);
   const flushRowSaveRef = useRef(null);
   const entriesRef = useRef([]);
   const editorRegistryRef = useRef(new Map());
@@ -304,6 +501,11 @@ export default function OtmPortalSheet({
     saveTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
     saveTimeoutsRef.current.clear();
     pendingPatchesRef.current.clear();
+    pendingDeleteTimersRef.current.forEach(({ timeoutId, commit }) => {
+      clearTimeout(timeoutId);
+      void commit();
+    });
+    pendingDeleteTimersRef.current.clear();
   }, []);
 
   useEffect(() => {
@@ -323,13 +525,16 @@ export default function OtmPortalSheet({
     return [...years].sort((a, b) => Number(b) - Number(a));
   }, [entries, reportRows, totalClassRows]);
 
-  const filteredEntries = useMemo(
-    () =>
-      entries.filter(
-        (row) => matchesSearch(row, searchByTab.tuitions) && matchesFilters(row, filtersByTab.tuitions)
-      ),
-    [entries, searchByTab.tuitions, filtersByTab.tuitions]
-  );
+  const filteredEntries = useMemo(() => {
+    const matchingRows = entries.filter(
+      (row) =>
+        matchesSearch(row, searchByTab.tuitions) &&
+        matchesFilters(row, filtersByTab.tuitions)
+    );
+
+    // Time is always ascending. With a day filter, that day's assigned time is used.
+    return sortRowsBySchedule(matchingRows, filtersByTab.tuitions.day);
+  }, [entries, searchByTab.tuitions, filtersByTab.tuitions]);
 
   const filteredReportRows = useMemo(
     () =>
@@ -512,9 +717,15 @@ export default function OtmPortalSheet({
   const getCellClassName = useCallback(
     (rowId, columnKey) => {
       const cellPrefix = buildCellPrefix(rowId, columnKey);
-      return `otm-grid-cell ${activeCellPrefix === cellPrefix ? "otm-grid-cell--active" : ""}`;
+      const columnSelected = selectedColumnKey === columnKey
+        ? "otm-grid-cell--column-selected"
+        : "";
+      const active = activeCellPrefix === cellPrefix
+        ? "otm-grid-cell--active"
+        : "";
+      return `otm-grid-cell ${columnSelected} ${active}`;
     },
-    [activeCellPrefix]
+    [activeCellPrefix, selectedColumnKey]
   );
 
   const getGridEditorBindings = useCallback(
@@ -523,7 +734,11 @@ export default function OtmPortalSheet({
       const editorKey = buildEditorKey(rowId, columnKey, editorSubKey);
       return {
         ref: (node) => registerEditor(editorKey, node),
-        onFocus: () => setActiveCellPrefix(cellPrefix),
+        onFocus: () => {
+          activeEditorKeyRef.current = editorKey;
+          setSelectedColumnKey("");
+          setActiveCellPrefix(cellPrefix);
+        },
         onKeyDown: (event) => handleGridEditorKeyDown(event, editorKey, options),
         "data-grid-editor": "true",
         "data-grid-key": editorKey,
@@ -612,6 +827,78 @@ export default function OtmPortalSheet({
     [flushRowSave, onUpdateEntry]
   );
 
+  const recordUndoSnapshot = useCallback((coalesceKey = "") => {
+    const now = Date.now();
+    const previous = historyCoalesceRef.current;
+    const shouldCoalesce =
+      coalesceKey && previous.key === coalesceKey && now - previous.at < 900;
+
+    if (!shouldCoalesce) {
+      undoStackRef.current.push(cloneRows(entriesRef.current));
+      if (undoStackRef.current.length > 60) undoStackRef.current.shift();
+    }
+
+    historyCoalesceRef.current = { key: coalesceKey, at: now };
+  }, []);
+
+  const undoLastChange = useCallback(async () => {
+    const snapshot = undoStackRef.current.pop();
+    if (!snapshot) return;
+
+    historyCoalesceRef.current = { key: "", at: 0 };
+    const currentRows = cloneRows(entriesRef.current);
+    const snapshotIds = new Set(snapshot.map((row) => String(row.id)));
+    const cancelledDeleteIds = new Set();
+
+    // A row deletion is committed after a short grace period. Ctrl+Z cancels it.
+    pendingDeleteTimersRef.current.forEach((pending, rowKey) => {
+      if (snapshotIds.has(rowKey)) {
+        clearTimeout(pending.timeoutId);
+        pendingDeleteTimersRef.current.delete(rowKey);
+        cancelledDeleteIds.add(rowKey);
+      }
+    });
+
+    saveTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+    saveTimeoutsRef.current.clear();
+    pendingPatchesRef.current.clear();
+
+    setEntries(snapshot);
+    entriesRef.current = snapshot;
+
+    const currentById = new Map(currentRows.map((row) => [String(row.id), row]));
+    const changedRows = snapshot.filter((row) => {
+      const current = currentById.get(String(row.id));
+      return current && stableSerialize(current) !== stableSerialize(row);
+    });
+    const committedDeletedRows = snapshot.filter((row) => {
+      const rowKey = String(row.id);
+      return !currentById.has(rowKey) && !cancelledDeleteIds.has(rowKey);
+    });
+
+    try {
+      await Promise.all(
+        changedRows.map((row) =>
+          onUpdateEntry?.(row.id, buildEntryPayload(row))
+        )
+      );
+      await Promise.all(
+        committedDeletedRows.map((row) =>
+          onCreateEntry?.(buildEntryPayload(row))
+        )
+      );
+
+      const reorderableIds = snapshot
+        .map((row) => row.id)
+        .filter((id) => currentById.has(String(id)));
+      if (onReorderEntries && reorderableIds.length === currentRows.length) {
+        await onReorderEntries(reorderableIds);
+      }
+    } catch (error) {
+      console.error("Failed to persist undo", error);
+    }
+  }, [onCreateEntry, onReorderEntries, onUpdateEntry]);
+
   function updateDraftField(field, value) {
     setDraft((prev) => {
       const next = { ...prev, [field]: value };
@@ -646,8 +933,12 @@ export default function OtmPortalSheet({
       let nextRowSnapshot = null;
       let patch = { [field]: value };
 
-      setEntries((prev) =>
-        prev.map((row) => {
+      if (options.recordUndo !== false) {
+        recordUndoSnapshot(`${rowId}:${field}`);
+      }
+
+      setEntries((prev) => {
+        const nextRows = prev.map((row) => {
           if (String(row.id) !== String(rowId)) return row;
 
           let nextRow;
@@ -776,8 +1067,10 @@ export default function OtmPortalSheet({
 
           nextRowSnapshot = nextRow;
           return nextRow;
-        })
-      );
+        });
+        entriesRef.current = nextRows;
+        return nextRows;
+      });
 
       if (options.save !== false && nextRowSnapshot) {
         scheduleRowSave(rowId, patch, options.delay ?? 250);
@@ -785,7 +1078,7 @@ export default function OtmPortalSheet({
 
       return nextRowSnapshot;
     },
-    [durationOptions, scheduleRowSave]
+    [durationOptions, recordUndoSnapshot, scheduleRowSave]
   );
 
   async function createRow() {
@@ -819,14 +1112,196 @@ export default function OtmPortalSheet({
     [flushRowSave]
   );
 
+  const applyClipboardMatrix = useCallback(
+    (matrix, targetRowIds, startColumnIndex = 0) => {
+      if (!Array.isArray(matrix) || !matrix.length || !targetRowIds.length) return;
+
+      recordUndoSnapshot("");
+      historyCoalesceRef.current = { key: "", at: 0 };
+      const targetIdSet = new Set(targetRowIds.map(String));
+      const targetPosition = new Map(targetRowIds.map((id, index) => [String(id), index]));
+      const changedRows = new Map();
+
+      const nextEntries = entriesRef.current.map((sourceRow) => {
+        const rowKey = String(sourceRow.id);
+        if (!targetIdSet.has(rowKey)) return sourceRow;
+
+        const rowPosition = targetPosition.get(rowKey) || 0;
+        const sourceCells = matrix[matrix.length === 1 ? 0 : rowPosition];
+        if (!sourceCells) return sourceRow;
+
+        let nextRow = sourceRow;
+        sourceCells.forEach((cellValue, cellOffset) => {
+          const columnKey = GRID_CLIPBOARD_COLUMNS[startColumnIndex + cellOffset];
+          if (!columnKey) return;
+          nextRow = applyClipboardValueToRow(
+            nextRow,
+            columnKey,
+            cellValue,
+            durationOptions,
+            filtersByTab.tuitions.day
+          );
+        });
+
+        if (stableSerialize(nextRow) !== stableSerialize(sourceRow)) {
+          changedRows.set(rowKey, nextRow);
+        }
+        return nextRow;
+      });
+
+      if (!changedRows.size) return;
+      entriesRef.current = nextEntries;
+      setEntries(nextEntries);
+      changedRows.forEach((row) => {
+        scheduleRowSave(row.id, buildEntryPayload(row), 0);
+      });
+    },
+    [durationOptions, filtersByTab.tuitions.day, recordUndoSnapshot, scheduleRowSave]
+  );
+
+  const handleSheetCopy = useCallback(
+    (event) => {
+      const target = event.target;
+      const hasNativeSelection =
+        (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") &&
+        Number.isInteger(target.selectionStart) &&
+        target.selectionStart !== target.selectionEnd;
+
+      if (hasNativeSelection && !selectedIds.length && !selectedColumnKey) return;
+
+      const selectedSet = new Set(selectedIds.map(String));
+      const selectedRows = pagedEntries.filter((row) => selectedSet.has(String(row.id)));
+      let text = "";
+
+      if (selectedColumnKey) {
+        const rows = selectedRows.length ? selectedRows : pagedEntries;
+        text = rows
+          .map((row) =>
+            getClipboardCellValue(row, selectedColumnKey, filtersByTab.tuitions.day)
+          )
+          .join("\n");
+      } else if (selectedRows.length) {
+        text = selectedRows
+          .map((row) =>
+            GRID_CLIPBOARD_COLUMNS.map((columnKey) =>
+              getClipboardCellValue(row, columnKey, filtersByTab.tuitions.day)
+            ).join("\t")
+          )
+          .join("\n");
+      } else {
+        const [rowId, columnKey] = activeEditorKeyRef.current.split("::");
+        const row = pagedEntries.find((item) => String(item.id) === String(rowId));
+        if (row && GRID_CLIPBOARD_COLUMNS.includes(columnKey)) {
+          text = getClipboardCellValue(row, columnKey, filtersByTab.tuitions.day);
+        }
+      }
+
+      if (!text) return;
+      event.preventDefault();
+      event.clipboardData?.setData("text/plain", text);
+    },
+    [filtersByTab.tuitions.day, pagedEntries, selectedColumnKey, selectedIds]
+  );
+
+  const handleSheetPaste = useCallback(
+    (event) => {
+      const clipboardText = event.clipboardData?.getData("text/plain") || "";
+      if (!clipboardText) return;
+
+      const normalizedText = clipboardText.replace(/\r/g, "").replace(/\n$/, "");
+      const matrix = normalizedText.split("\n").map((line) => line.split("\t"));
+      const selectedSet = new Set(selectedIds.map(String));
+      const selectedRows = pagedEntries.filter((row) => selectedSet.has(String(row.id)));
+
+      if (selectedColumnKey) {
+        const targetRows = selectedRows.length ? selectedRows : pagedEntries;
+        const columnIndex = GRID_CLIPBOARD_COLUMNS.indexOf(selectedColumnKey);
+        if (columnIndex === -1 || !targetRows.length) return;
+        event.preventDefault();
+        applyClipboardMatrix(
+          matrix.map((row) => [row[0] ?? ""]),
+          targetRows.map((row) => row.id),
+          columnIndex
+        );
+        return;
+      }
+
+      if (selectedRows.length) {
+        event.preventDefault();
+        applyClipboardMatrix(matrix, selectedRows.map((row) => row.id), 0);
+        return;
+      }
+
+      const [activeRowId, activeColumnKey] = activeEditorKeyRef.current.split("::");
+      const startRowIndex = pagedEntries.findIndex(
+        (row) => String(row.id) === String(activeRowId)
+      );
+      const startColumnIndex = GRID_CLIPBOARD_COLUMNS.indexOf(activeColumnKey);
+      if (startRowIndex === -1 || startColumnIndex === -1) return;
+
+      const targetRows = pagedEntries
+        .slice(startRowIndex, startRowIndex + Math.max(matrix.length, 1))
+        .map((row) => row.id);
+      event.preventDefault();
+      applyClipboardMatrix(matrix, targetRows, startColumnIndex);
+    },
+    [applyClipboardMatrix, pagedEntries, selectedColumnKey, selectedIds]
+  );
+
+  const handleSheetKeyDownCapture = useCallback(
+    (event) => {
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        void undoLastChange();
+      }
+    },
+    [undoLastChange]
+  );
+
+  useEffect(() => {
+    if (tab !== "tuitions") return undefined;
+    const handleWindowKeyDown = (event) => {
+      if (event.defaultPrevented) return;
+      const target = event.target;
+      const insideSheet = sheetWrapRef.current?.contains(target);
+      const focusIsOnDocument =
+        target === document.body || target === document.documentElement;
+      if (!insideSheet && !focusIsOnDocument) return;
+      handleSheetKeyDownCapture(event);
+    };
+    window.addEventListener("keydown", handleWindowKeyDown, true);
+    return () => window.removeEventListener("keydown", handleWindowKeyDown, true);
+  }, [handleSheetKeyDownCapture, tab]);
+
   async function deleteRow(rowId) {
     if (!onDeleteEntry) return;
-    if (!window.confirm("Delete this row?")) return;
-    try {
-      await onDeleteEntry(rowId);
-    } catch (error) {
-      alert(error?.response?.data?.message || "Failed to delete row");
-    }
+    if (!window.confirm("Delete this row? Ctrl+Z can restore it for a few seconds.")) return;
+
+    const rowKey = String(rowId);
+    recordUndoSnapshot("");
+    historyCoalesceRef.current = { key: "", at: 0 };
+
+    const nextEntries = entriesRef.current.filter(
+      (row) => String(row.id) !== rowKey
+    );
+    entriesRef.current = nextEntries;
+    setEntries(nextEntries);
+    setSelectedIds((prev) => prev.filter((id) => String(id) !== rowKey));
+
+    const commit = async () => {
+      pendingDeleteTimersRef.current.delete(rowKey);
+      try {
+        await onDeleteEntry(rowId);
+      } catch (error) {
+        alert(error?.response?.data?.message || "Failed to delete row");
+      }
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      void commit();
+    }, 30000);
+
+    pendingDeleteTimersRef.current.set(rowKey, { timeoutId, commit });
   }
 
   function toggleSelectRow(rowId) {
@@ -838,7 +1313,9 @@ export default function OtmPortalSheet({
   async function moveSelected(direction) {
     if (!onReorderEntries || selectedIds.length === 0) return;
 
-    const next = [...entries];
+    recordUndoSnapshot("");
+    historyCoalesceRef.current = { key: "", at: 0 };
+    const next = [...entriesRef.current];
     const selectedSet = new Set(selectedIds);
 
     if (direction === "up") {
@@ -855,6 +1332,7 @@ export default function OtmPortalSheet({
       }
     }
 
+    entriesRef.current = next;
     setEntries(next);
     try {
       await onReorderEntries(next.map((item) => item.id));
@@ -870,7 +1348,11 @@ export default function OtmPortalSheet({
     readOnly = false,
     textarea = false
   ) {
-    const value = row[field] ?? "";
+    const rawValue = row[field] ?? "";
+    const value =
+      field === "tutorName" && Array.isArray(rawValue)
+        ? rawValue.join(", ")
+        : rawValue;
     const editorBindings = !isDraft
       ? getGridEditorBindings(row.id, field, "main", { multiline: textarea })
       : {};
@@ -879,11 +1361,11 @@ export default function OtmPortalSheet({
       return <div style={styles.readOnlyCell}>{value || "--"}</div>;
     }
 
-    if (field === "tutorName" || field === "groupName") {
+    if (field === "groupName") {
       return (
         <MultiTagInput
           value={normalizeArray(value)}
-          placeholder={field === "tutorName" ? "Add tutor" : "Add group"}
+          placeholder="Add group"
           gridBindings={editorBindings}
           onChange={(nextValues) => {
             if (isDraft) {
@@ -973,6 +1455,35 @@ export default function OtmPortalSheet({
     );
   }
 
+  function getColumnHeaderProps(columnKey, width) {
+    const selected = selectedColumnKey === columnKey;
+    const toggleColumn = () => {
+      setSelectedColumnKey((prev) => (prev === columnKey ? "" : columnKey));
+      setSelectedIds([]);
+      activeEditorKeyRef.current = "";
+      setActiveCellPrefix("");
+    };
+
+    return {
+      tabIndex: 0,
+      title: "Click to select this column for Ctrl+C / Ctrl+V",
+      onClick: toggleColumn,
+      onKeyDown: (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          toggleColumn();
+        }
+      },
+      style: {
+        ...styles.th,
+        width,
+        cursor: "pointer",
+        background: selected ? "#166534" : "#000000",
+        boxShadow: selected ? "inset 0 -3px 0 #86efac" : "none",
+      },
+    };
+  }
+
   if (loading) {
     return <div style={styles.empty}>Loading OTM portal...</div>;
   }
@@ -1041,6 +1552,9 @@ export default function OtmPortalSheet({
                   position: relative;
                   transition: background-color 0.15s ease, box-shadow 0.15s ease;
                 }
+                .otm-grid-cell--column-selected {
+                  background: #f0fdf4 !important;
+                }
                 .otm-grid-cell--active {
                   background: #ecfdf5 !important;
                   box-shadow: inset 0 0 0 2px #16a34a;
@@ -1051,7 +1565,7 @@ export default function OtmPortalSheet({
                 }
                 .otm-grid-editor:focus {
                   outline: none;
-                  border-color: #16a34a !important;
+                
                   box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.15);
                 }
                 .otm-grid-checkbox {
@@ -1089,23 +1603,28 @@ export default function OtmPortalSheet({
                 statusOptions={statusOptions}
               />
 
-              <div style={styles.sheetWrap}>
+              <div
+                ref={sheetWrapRef}
+                style={styles.sheetWrap}
+                onCopy={handleSheetCopy}
+                onPaste={handleSheetPaste}
+              >
                 <div style={styles.sheetViewport}>
                   <table style={styles.table}>
                     <thead>
                       <tr>
                         <th style={{ ...styles.th, ...styles.checkCell }}>Sel</th>
                         <th style={{ ...styles.th, ...styles.numberCell }}>#</th>
-                        <th style={{ ...styles.th, width: GRID_DIMENSIONS.days }}>Days</th>
-                        <th style={{ ...styles.th, width: GRID_DIMENSIONS.time }}>Time</th>
-                        <th style={{ ...styles.th, width: GRID_DIMENSIONS.duration }}>Duration</th>
-                        <th style={{ ...styles.th, width: GRID_DIMENSIONS.startMonth }}>Month</th>
+                        <th {...getColumnHeaderProps("days", GRID_DIMENSIONS.days)}>Days</th>
+                        <th {...getColumnHeaderProps("timeAssignments", GRID_DIMENSIONS.time)}>Time</th>
+                        <th {...getColumnHeaderProps("durationMinutes", GRID_DIMENSIONS.duration)}>Duration</th>
+                        <th {...getColumnHeaderProps("tuitionStartMonth", GRID_DIMENSIONS.startMonth)}>Month</th>
                         {TEXT_COLUMNS.map((column) => (
-                          <th key={column.key} style={{ ...styles.th, width: column.width }}>
+                          <th key={column.key} {...getColumnHeaderProps(column.key, column.width)}>
                             {column.label}
                           </th>
                         ))}
-                        <th style={{ ...styles.th, width: GRID_DIMENSIONS.status }}>Status</th>
+                        <th {...getColumnHeaderProps("status", GRID_DIMENSIONS.status)}>Status</th>
                     
                         <th style={{ ...styles.th, width: GRID_DIMENSIONS.action }}>Action</th>
                       </tr>

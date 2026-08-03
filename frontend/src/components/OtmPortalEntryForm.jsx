@@ -112,7 +112,7 @@ function MultiSelectDropdown({ value = [], options = [], placeholder = "Select d
     triggerProps.onKeyDown?.(event);
   }, [triggerProps]);
 
-  const selectedLabel = selected.length ? selected.map((item) => item.slice(0, 3)).join(", ") : placeholder;
+  const selectedLabel = selected.length ? selected.join(", ") : placeholder;
 
   return (
     <div style={{ position: "relative", width: "100%" }}>
@@ -247,10 +247,12 @@ export default function OtmPortalEntryForm({
                 />
               </td>
               <td style={localStyles.td}>
-                <MultiTagInput
-                  value={draft.tutorName}
-                  onChange={(next) => onDraftFieldChange("tutorName", next)}
-                  placeholder="Tutor + Enter"
+                <input
+                  type="text"
+                  style={localStyles.inputBase}
+                  value={Array.isArray(draft.tutorName) ? draft.tutorName.join(", ") : (draft.tutorName || "")}
+                  onChange={(e) => onDraftFieldChange("tutorName", e.target.value)}
+                  placeholder="Tutor name"
                 />
               </td>
               <td style={localStyles.td}>
@@ -399,7 +401,8 @@ th: {
   },
   dropdownTrigger: (open, hasValue) => ({
     width: "100%",
-    height: "28px",
+    minHeight: "28px",
+    height: "auto",
     border: `1px solid ${open ? "#16a34a" : hasValue ? "#107c41" : "#cbd5e1"}`,
     borderRadius: "4px",
     padding: "0 6px",
@@ -414,9 +417,11 @@ th: {
     boxSizing: "border-box",
   }),
   dropdownTriggerText: (hasValue) => ({
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    overflow: "visible",
+    textOverflow: "clip",
+    whiteSpace: "normal",
+    lineHeight: 1.3,
+    textAlign: "left",
   }),
   dropdownArrow: { fontSize: "10px", color: "#475569" },
   dropdownMenu: {

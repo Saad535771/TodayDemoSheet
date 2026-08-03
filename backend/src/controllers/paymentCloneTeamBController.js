@@ -1,4 +1,5 @@
 import { movePaymentCloneTeamBWithDateToTrash } from "../utils/syncPaymentCloneTeamBwithdateToTrash.js";
+import { Op } from "sequelize";
 
 function toPlain(instanceOrObject) {
   if (!instanceOrObject) return null;
@@ -697,61 +698,78 @@ export function makePaymentCloneTeamBController({
   }
 
   async function syncCurrentPakistanPaymentCycle({ source = "auto" } = {}) {
-    const rows = await PaymentCloneTeamB.findAll();
     const currentCycleDate = getPakistanMonthStartDateString();
     const previousCycleDate = getPakistanPreviousMonthStartDateString();
+
+    // Previous Pakistan calendar month ki tamam rows uthao.
+    // Date range is liye use ho rahi hai taa-ke 2026-07-01 ke sath
+    // 2026-07-02, 2026-07-13 jaisi accidentally saved dates bhi miss na hon.
+    const transaction = await PaymentCloneTeamB.sequelize.transaction();
+    let candidates = [];
+    let activeMovedToCurrentMonth = 0;
+
+    try {
+      candidates = await PaymentCloneTeamB.findAll({
+        attributes: ["id", "status"],
+        where: {
+          date: {
+            [Op.gte]: previousCycleDate,
+            [Op.lt]: currentCycleDate,
+          },
+        },
+        raw: true,
+        transaction,
+      });
+
+      const movableIds = candidates
+        .filter((row) => !statusHasTuitionCancelled(row?.status))
+        .map((row) => row.id)
+        .filter((id) => id !== null && id !== undefined);
+
+      // Ek hi bulk UPDATE: per-row sequential updates se request timeout aur
+      // aadha rollover hone ka risk khatam ho jata hai.
+      if (movableIds.length > 0) {
+        const [affectedCount] = await PaymentCloneTeamB.update(
+          { date: currentCycleDate },
+          {
+            where: {
+              id: { [Op.in]: movableIds },
+              date: {
+                [Op.gte]: previousCycleDate,
+                [Op.lt]: currentCycleDate,
+              },
+            },
+            transaction,
+          }
+        );
+
+        activeMovedToCurrentMonth = Number(affectedCount || 0);
+      }
+
+      await transaction.commit();
+    } catch (error) {
+      if (!transaction.finished) {
+        await transaction.rollback();
+      }
+      throw error;
+    }
+
+    const movableCount = candidates.filter(
+      (row) => !statusHasTuitionCancelled(row?.status)
+    ).length;
 
     const summary = {
       source,
       currentCycleDate,
       previousCycleDate,
-      activeMovedToCurrentMonth: 0,
+      activeMovedToCurrentMonth,
       cancelledLockedToPreviousMonth: 0,
-      cancelledKept: 0,
-      unchanged: 0,
-      total: rows.length,
+      cancelledKept: candidates.length - movableCount,
+      unchanged: candidates.length - activeMovedToCurrentMonth,
+      total: candidates.length,
     };
 
-for (const row of rows) {
-  const raw = toPlain(row);
-  const cancelled = statusHasTuitionCancelled(raw?.status);
-  const currentDate = normalizeDateOnly(raw?.date ?? null, null);
-
-  if (isManualMonthLockedRow(raw)) {
-    summary.unchanged += 1;
-    continue;
-  }
-
-  if (!currentDate) {
-    await row.update({ date: "2026-03-01" }, { silent: true });
-    summary.unchanged += 1; 
-    continue; 
-  }
-
-  if (cancelled) {
-    const rowIsOldCancellation = wasRowUpdatedBeforeCurrentPakistanCycle(raw);
-    const lockedCycleDate =
-      (currentDate === currentCycleDate && rowIsOldCancellation)
-        ? previousCycleDate
-        : toMonthStartDateString(currentDate, previousCycleDate);
-
-    if (currentDate !== lockedCycleDate) {
-      await row.update({ date: lockedCycleDate }, { silent: true });
-      summary.cancelledLockedToPreviousMonth += 1;
-    } else {
-      summary.cancelledKept += 1;
-    }
-    continue;
-  }
-
-  if (currentDate === previousCycleDate) {
-    await row.update({ date: currentCycleDate }, { silent: true });
-    summary.activeMovedToCurrentMonth += 1;
-  } else {
-    summary.unchanged += 1;
-  }
-}
-    if (summary.activeMovedToCurrentMonth || summary.cancelledLockedToPreviousMonth) {
+    if (summary.activeMovedToCurrentMonth > 0) {
       console.log("[PaymentCycleSync Team B]", summary);
     }
 

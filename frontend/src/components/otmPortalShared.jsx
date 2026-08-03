@@ -34,7 +34,7 @@ export const GRID_DIMENSIONS = {
 };
 export const TEXT_COLUMNS = [
   { key: "tuitionName", label: "Tuition Name", width: 118 },
-  { key: "tutorName", label: "Tutor Name", width: 118, isTag: true }, // isTag add kiya
+  { key: "tutorName", label: "Tutor Name", width: 118 },
   { key: "groupName", label: "Group Name", width: 118, isTag: true }, // isTag add kiya
   { key: "decidedFee", label: "Decided Fee", width: 92 },           //
   { key: "classStartTime", label: "Class Start", width: 92 },
@@ -350,13 +350,16 @@ export function matchesSearch(row, searchTerm) {
 }
 
 export function matchesFilters(row, filters) {
-  const dayText = normalizeString(
-    Array.isArray(row.days) ? row.days.join(", ") : row.dayText || row.day || row.days
-  );
+  const normalizedRowDays = normalizeArray(row.days);
+  const rowDays = normalizeArray(
+    normalizedRowDays.length ? normalizedRowDays : row.dayText || row.day || row.days
+  ).map((day) => normalizeString(day).toLowerCase());
   const status = normalizeString(row.status).toLowerCase();
   const { month, year } = extractMonthYear(row);
+  const selectedDay = normalizeString(filters?.day).toLowerCase();
 
-  if (filters.day && !dayText.toLowerCase().includes(filters.day.toLowerCase())) return false;
+  // Exact day matching prevents partial/serialized values from leaking into the result.
+  if (selectedDay && !rowDays.includes(selectedDay)) return false;
   if (filters.status && status !== filters.status.toLowerCase()) return false;
   if (filters.month && filters.month !== month) return false;
   if (filters.year && filters.year !== year) return false;
@@ -1292,14 +1295,14 @@ export const styles = {
     width: "100%",
     minHeight: 28,
     border: `1px solid ${open ? "#16a34a" : hasValue ? "#107c41" : "#cbd5e1"}`,
-    borderRadius: 999,
+
     padding: "4px 8px",
     fontSize: 10,
     fontWeight: 800,
     color: hasValue ? "#166534" : "#64748b",
     background: hasValue ? "#ecfdf5" : "#ffffff",
     display: "flex",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 6,
     cursor: "pointer",
@@ -1508,26 +1511,26 @@ export const styles = {
     cursor: "pointer",
   },
   dropdownBadgeList: {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 3,
+  display: "grid",
+  gap: 4,
   flex: 1,
   minWidth: 0,
-  maxHeight: 52,
-  overflowY: "auto",
+  overflow: "visible",
 },
 
 dayValueBadge: {
+  width: "100%",
   display: "inline-flex",
   alignItems: "center",
-  borderRadius: 999,
-  border: "1px solid #86efac",
-  background: "#dcfce7",
-  color: "#166534",
-  padding: "2px 6px",
-  fontSize: 9,
+  justifyContent: "center",
+  border: "1px solid #cbd5e1",
+  background: "#eef2f7",
+  color: "#334155",
+  padding: "4px 6px",
+  fontSize: 10,
   fontWeight: 900,
   whiteSpace: "nowrap",
+  boxSizing: "border-box",
 },
 
 badgeList: {
@@ -1546,7 +1549,7 @@ badgeEmpty: {
 valueBadge: (variant = "default") => ({
   display: "inline-flex",
   alignItems: "center",
-  borderRadius: 999,
+ 
   border: `1px solid ${
     variant === "day"
       ? "#86efac"
