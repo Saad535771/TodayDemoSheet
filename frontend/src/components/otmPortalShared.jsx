@@ -24,8 +24,8 @@ export const DEFAULT_DURATION_OPTIONS = [
   { value: 180, label: "3 hours" },
 ];
 export const GRID_DIMENSIONS = {
-  days: 136,
-  time: 140,
+  days: 142,
+  time: 190,
   duration: 92,
   startMonth: 98,
   status: 126,
@@ -176,7 +176,24 @@ export function normalizeArray(value) {
 }
 
 export function sortDays(days = []) {
-  return normalizeArray(days).sort(
+  const canonicalByKey = new Map(
+    DEFAULT_DAY_OPTIONS.map((day) => [day.toLowerCase(), day])
+  );
+  const uniqueDays = new Map();
+
+  normalizeArray(days).forEach((value) => {
+    const normalized = normalizeString(value);
+    if (!normalized) return;
+
+    const key = normalized.toLowerCase();
+    const canonical = canonicalByKey.get(key) || normalized;
+
+    if (!uniqueDays.has(key)) {
+      uniqueDays.set(key, canonical);
+    }
+  });
+
+  return [...uniqueDays.values()].sort(
     (a, b) =>
       (DAY_INDEX[a.toLowerCase()] ?? 999) -
       (DAY_INDEX[b.toLowerCase()] ?? 999)
@@ -781,28 +798,68 @@ export function DayTimeAssignmentsEditor({
   listId = "otm-time-options",
   compact = false,
   getEditorProps,
+  visibleDay = "",
+  emphasizeVisibleDay = false,
 }) {
   const sortedDays = sortDays(days);
+  const requestedDay = normalizeString(visibleDay).toLowerCase();
+  const matchingVisibleDay = requestedDay
+    ? sortedDays.find((day) => day.toLowerCase() === requestedDay)
+    : "";
+
+  // When a day filter is active, only that day's editor is rendered.
+  // This keeps the Time column spreadsheet-like and prevents unrelated
+  // day/time values from remaining visible in the filtered result.
+  const renderedDays = matchingVisibleDay ? [matchingVisibleDay] : sortedDays;
+
   if (sortedDays.length === 0) {
     return <div style={styles.placeholderCell}>Select days first</div>;
   }
 
   return (
     <div style={compact ? styles.dayTimeGridCompact : styles.dayTimeGrid}>
-      {sortedDays.map((day) => {
+      {renderedDays.map((day) => {
         const editorProps = getEditorProps?.(day) || {};
+        const {
+          style: editorStyle,
+          className: editorClassName,
+          ...restEditorProps
+        } = editorProps;
+        const matchingAssignmentKey = Object.keys(assignments || {}).find(
+          (key) => normalizeString(key).toLowerCase() === day.toLowerCase()
+        );
+        const assignedTime =
+          assignments?.[day] ??
+          (matchingAssignmentKey ? assignments?.[matchingAssignmentKey] : "") ??
+          "";
+        const isFilteredDay = Boolean(
+          emphasizeVisibleDay && matchingVisibleDay && day === matchingVisibleDay
+        );
+
         return (
           <div key={day} style={styles.dayTimeCard}>
-            <div style={styles.dayTimeBadge}>{day}</div>
+            <div
+              style={{
+                ...styles.dayTimeBadge,
+                ...(isFilteredDay ? styles.filteredDayTimeBadge : {}),
+              }}
+            >
+              {day}
+            </div>
             <input
               list={listId}
-              className="otm-grid-editor"
-              style={compact ? styles.compactInputTight : styles.compactInput}
+              className={`otm-grid-editor ${editorClassName || ""}`.trim()}
+              style={{
+                ...(compact ? styles.compactInputTight : styles.compactInput),
+                ...(isFilteredDay ? styles.filteredDayTimeInput : {}),
+                ...(editorStyle || {}),
+              }}
+              aria-label={`${day} class time`}
               placeholder="9:15 PM"
-              value={assignments?.[day] || ""}
+              value={assignedTime}
               onChange={(event) => onChange(day, event.target.value)}
               onBlur={(event) => onChange(day, normalizeTimeText(event.target.value))}
-              {...editorProps}
+              {...restEditorProps}
             />
           </div>
         );
@@ -1398,24 +1455,36 @@ export const styles = {
   },
   dayTimeGridCompact: {
     display: "grid",
-    gap: 4,
-    padding: 6,
+    gap: 5,
+    padding: 5,
   },
   dayTimeCard: {
     display: "grid",
-    gridTemplateColumns: "auto 1fr",
-    gap: 4,
+    gridTemplateColumns: "minmax(76px, auto) minmax(88px, 1fr)",
+    gap: 6,
     alignItems: "center",
   },
   dayTimeBadge: {
     fontSize: 11,
-    fontWeight: 800,
-    color: "#334155",
+    fontWeight: 900,
+    color: "#1e293b",
     background: "#eef2f7",
     borderRadius: 999,
     padding: "4px 6px",
     textAlign: "center",
     whiteSpace: "nowrap",
+  },
+  filteredDayTimeBadge: {
+    color: "#0f172a",
+    background: "#dcfce7",
+    border: "1px solid #86efac",
+    fontWeight: 900,
+  },
+  filteredDayTimeInput: {
+    color: "#0f172a",
+    background: "#f0fdf4",
+    borderColor: "#16a34a",
+    fontWeight: 900,
   },
   compactInput: {
     width: "100%",
@@ -1424,6 +1493,8 @@ export const styles = {
     borderRadius: 10,
     padding: "4px 6px",
     fontSize: 11,
+    fontWeight: 800,
+    fontVariantNumeric: "tabular-nums",
     outline: "none",
     boxSizing: "border-box",
     background: "#ffffff",
@@ -1436,6 +1507,8 @@ export const styles = {
     borderRadius: 8,
     padding: "4px 6px",
     fontSize: 11,
+    fontWeight: 800,
+    fontVariantNumeric: "tabular-nums",
     outline: "none",
     boxSizing: "border-box",
     background: "#ffffff",
@@ -1517,7 +1590,6 @@ export const styles = {
   minWidth: 0,
   overflow: "visible",
 },
-
 dayValueBadge: {
   width: "100%",
   display: "inline-flex",
@@ -1532,7 +1604,6 @@ dayValueBadge: {
   whiteSpace: "nowrap",
   boxSizing: "border-box",
 },
-
 badgeList: {
   display: "flex",
   flexWrap: "wrap",
@@ -1540,16 +1611,13 @@ badgeList: {
   justifyContent: "center",
   gap: 4,
 },
-
 badgeEmpty: {
   color: "#94a3b8",
   fontSize: 11,
 },
-
 valueBadge: (variant = "default") => ({
   display: "inline-flex",
   alignItems: "center",
- 
   border: `1px solid ${
     variant === "day"
       ? "#86efac"
@@ -1574,14 +1642,12 @@ valueBadge: (variant = "default") => ({
   fontWeight: 800,
   whiteSpace: "nowrap",
 }),
-
 badgeEditorWrap: {
   width: "100%",
   minHeight: 32,
   padding: 3,
   boxSizing: "border-box",
 },
-
 badgeEditorValues: {
   width: "100%",
   minHeight: 28,
@@ -1591,7 +1657,6 @@ badgeEditorValues: {
   flexWrap: "wrap",
   gap: 3,
 },
-
 editableValueBadge: {
   display: "inline-flex",
   alignItems: "center",
@@ -1605,7 +1670,6 @@ editableValueBadge: {
   fontWeight: 800,
   maxWidth: "100%",
 },
-
 badgeRemoveBtn: {
   width: 16,
   height: 16,
@@ -1621,7 +1685,6 @@ badgeRemoveBtn: {
   alignItems: "center",
   justifyContent: "center",
 },
-
 badgeEditorInput: {
   flex: "1 1 62px",
   minWidth: 55,

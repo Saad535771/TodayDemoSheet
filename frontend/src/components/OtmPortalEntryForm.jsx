@@ -1,11 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DayTimeAssignmentsEditor,
-  getStatusMeta,
   sortDays,
   styles,
-  GRID_DIMENSIONS,
 } from "./otmPortalShared.jsx";
+
+function toSingleText(value) {
+  if (Array.isArray(value)) return value.join(", ");
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
 export function MultiTagInput({ value = [], onChange, onBlur, placeholder, gridBindings = {} }) {
   const tags = useMemo(() => {
     if (Array.isArray(value)) return value;
@@ -85,6 +89,22 @@ function MultiSelectDropdown({ value = [], options = [], placeholder = "Select d
   const [activeIndex, setActiveIndex] = useState(0);
   const triggerRef = useRef(null);
   const optionRefs = useRef([]);
+  const {
+    ref: externalTriggerRef,
+    style: externalTriggerStyle,
+    className: externalTriggerClassName,
+    onKeyDown: externalTriggerKeyDown,
+    ...restTriggerProps
+  } = triggerProps;
+
+  const setTriggerNode = useCallback((node) => {
+    triggerRef.current = node;
+    if (typeof externalTriggerRef === "function") {
+      externalTriggerRef(node);
+    } else if (externalTriggerRef && typeof externalTriggerRef === "object") {
+      externalTriggerRef.current = node;
+    }
+  }, [externalTriggerRef]);
 
   useEffect(() => {
     if (!open) return;
@@ -109,8 +129,13 @@ function MultiSelectDropdown({ value = [], options = [], placeholder = "Select d
       setOpen((prev) => !prev);
       return;
     }
-    triggerProps.onKeyDown?.(event);
-  }, [triggerProps]);
+
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      setOpen(false);
+    }
+
+    externalTriggerKeyDown?.(event);
+  }, [externalTriggerKeyDown]);
 
   const selectedLabel = selected.length ? selected.join(", ") : placeholder;
 
@@ -118,12 +143,15 @@ function MultiSelectDropdown({ value = [], options = [], placeholder = "Select d
     <div style={{ position: "relative", width: "100%" }}>
       <button
         type="button"
-        className="otm-grid-editor"
-        ref={triggerRef}
-        style={localStyles.dropdownTrigger(open, !!selected.length)}
+        className={`otm-grid-editor ${externalTriggerClassName || ""}`.trim()}
+        ref={setTriggerNode}
+        style={{
+          ...localStyles.dropdownTrigger(open, !!selected.length),
+          ...(externalTriggerStyle || {}),
+        }}
         onClick={() => setOpen((prev) => !prev)}
         onKeyDown={handleTriggerKeyDown}
-        {...triggerProps}
+        {...restTriggerProps}
       >
         <span style={localStyles.dropdownTriggerText(!!selected.length)}>{selectedLabel}</span>
         <span style={localStyles.dropdownArrow}>▾</span>
@@ -161,17 +189,128 @@ export default function OtmPortalEntryForm({
   dayOptions = [],
   timeOptions = [],
   durationOptions = [],
-  statusOptions = [],
   creating,
   onDraftFieldChange,
   onDraftTimeChange,
   onCreateEntry,
 }) {
   const sortedDraftDays = useMemo(() => sortDays(draft.days || []), [draft.days]);
+  const [activeEditorKey, setActiveEditorKey] = useState("");
+  const editorRefs = useRef(new Map());
+
+  const navigationOrder = useMemo(
+    () => [
+      "days",
+      ...sortedDraftDays.map((day) => `time:${day}`),
+      "durationMinutes",
+      "tuitionName",
+      "tutorName",
+      "groupName",
+      "decidedFee",
+      "notes",
+      "action",
+    ],
+    [sortedDraftDays]
+  );
+
+  const registerEditor = useCallback((key, node) => {
+    if (node) {
+      editorRefs.current.set(key, node);
+    } else {
+      editorRefs.current.delete(key);
+    }
+  }, []);
+
+  const focusEditor = useCallback((key) => {
+    const node = editorRefs.current.get(key);
+    if (!node || node.disabled) return;
+
+    setActiveEditorKey(key);
+    node.focus?.({ preventScroll: true });
+    node.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+
+    // Spreadsheet-style navigation: when focus lands on a textbox,
+    // keep it immediately ready for typing by placing the caret at the end.
+    requestAnimationFrame(() => {
+      try {
+        const tagName = node.tagName?.toUpperCase();
+        const inputType = String(node.type || "text").toLowerCase();
+        const supportsCaret =
+          tagName === "TEXTAREA" ||
+          (tagName === "INPUT" &&
+            ["text", "search", "email", "tel", "url", "password"].includes(inputType));
+
+        if (supportsCaret) {
+          const valueLength = String(node.value || "").length;
+          node.setSelectionRange?.(valueLength, valueLength);
+        }
+      } catch {
+        // Some native editor types do not expose a text selection API.
+      }
+    });
+  }, []);
+
+  const moveEditorFocus = useCallback((currentKey, direction) => {
+    const currentIndex = navigationOrder.indexOf(currentKey);
+    if (currentIndex < 0) return;
+
+    const nextIndex = Math.max(
+      0,
+      Math.min(navigationOrder.length - 1, currentIndex + direction)
+    );
+    const nextKey = navigationOrder[nextIndex];
+    if (!nextKey || nextKey === currentKey) return;
+
+    // Let the current editor's blur/change commit finish, then focus the
+    // next real input. This is more reliable for controlled React inputs.
+    requestAnimationFrame(() => focusEditor(nextKey));
+  }, [focusEditor, navigationOrder]);
+
+  const handleEditorKeyDown = useCallback((event, key) => {
+    const isButton = event.currentTarget?.tagName === "BUTTON";
+
+    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      event.stopPropagation();
+      moveEditorFocus(key, event.key === "ArrowRight" ? 1 : -1);
+      return;
+    }
+
+    // Enter commits the controlled textbox value and advances to the next
+    // editable field. On the Add button, native Enter behaviour is preserved.
+    if (event.key === "Enter" && !isButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      moveEditorFocus(key, 1);
+      return;
+    }
+
+    // Tab follows the same deterministic spreadsheet order.
+    if (event.key === "Tab") {
+      event.preventDefault();
+      event.stopPropagation();
+      moveEditorFocus(key, event.shiftKey ? -1 : 1);
+    }
+  }, [moveEditorFocus]);
+
+  const getEditorBindings = useCallback((key) => ({
+    ref: (node) => registerEditor(key, node),
+    tabIndex: 0,
+    onFocus: () => setActiveEditorKey(key),
+    onKeyDown: (event) => handleEditorKeyDown(event, key),
+    "data-entry-editor": key,
+    "aria-current": activeEditorKey === key ? "true" : undefined,
+  }), [activeEditorKey, handleEditorKeyDown, registerEditor]);
+
+  useEffect(() => {
+    if (activeEditorKey && !navigationOrder.includes(activeEditorKey)) {
+      setActiveEditorKey("");
+    }
+  }, [activeEditorKey, navigationOrder]);
 
   const COL_WIDTHS = {
-    days: "120px",
-    time: "140px",
+    days: "130px",
+    time: "190px",
     duration: "90px",
     tuition: "130px",
     tutor: "140px",
@@ -180,12 +319,22 @@ export default function OtmPortalEntryForm({
     start: "80px",
     end: "80px",
     notes: "130px",
-    status: "100px",
     action: "90px",
   };
 
   return (
     <div style={styles.formCard}>
+      <style>{`
+        .otm-entry-editor-active {
+          outline: 2px solid #16a34a !important;
+          outline-offset: -2px !important;
+          border-color: #16a34a !important;
+          background: #ecfdf5 !important;
+          box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.16) !important;
+          position: relative;
+          z-index: 3;
+        }
+      `}</style>
       <div style={{ ...styles.formHeader, padding: "8px 12px", borderBottom: "1px solid #e2e8f0" }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a" }}>Add OTM Tuition Entry</div>
       </div>
@@ -204,7 +353,6 @@ export default function OtmPortalEntryForm({
               <th style={{ ...localStyles.th, width: COL_WIDTHS.start }}>Class Start</th>
               <th style={{ ...localStyles.th, width: COL_WIDTHS.end }}>Class End</th>
               <th style={{ ...localStyles.th, width: COL_WIDTHS.notes }}>Notes</th>
-              <th style={{ ...localStyles.th, width: COL_WIDTHS.status }}>Status</th>
               <th style={{ ...localStyles.th, width: COL_WIDTHS.action }}>Action</th>
             </tr>
           </thead>
@@ -214,7 +362,13 @@ export default function OtmPortalEntryForm({
                 <MultiSelectDropdown
                   value={draft.days}
                   options={dayOptions}
-                  onChange={(next) => onDraftFieldChange("days", next)} />
+                  onChange={(next) => onDraftFieldChange("days", next)}
+                  triggerProps={{
+                    ...getEditorBindings("days"),
+                    className: activeEditorKey === "days" ? "otm-entry-editor-active" : "",
+                    style: activeEditorKey === "days" ? localStyles.activeEditor : undefined,
+                  }}
+                />
               </td>
               <td style={localStyles.td}>
                 <DayTimeAssignmentsEditor
@@ -223,12 +377,23 @@ export default function OtmPortalEntryForm({
                   timeOptions={timeOptions}
                   listId="otm-draft-time-options"
                   compact
+                  getEditorProps={(day) => ({
+                    ...getEditorBindings(`time:${day}`),
+                    className: `otm-grid-editor ${
+                      activeEditorKey === `time:${day}` ? "otm-entry-editor-active" : ""
+                    }`.trim(),
+                  })}
                   onChange={onDraftTimeChange}
                 />
               </td>
               <td style={localStyles.td}>
                 <select
-                  style={localStyles.inputBase}
+                  {...getEditorBindings("durationMinutes")}
+                  className={`otm-grid-editor ${activeEditorKey === "durationMinutes" ? "otm-entry-editor-active" : ""}`}
+                  style={{
+                    ...localStyles.inputBase,
+                    ...(activeEditorKey === "durationMinutes" ? localStyles.activeEditor : {}),
+                  }}
                   value={draft.durationMinutes || durationOptions[0]?.value || 60}
                   onChange={(e) => onDraftFieldChange("durationMinutes", Number(e.target.value))}
                 >
@@ -239,8 +404,13 @@ export default function OtmPortalEntryForm({
               </td>
               <td style={localStyles.td}>
                 <input
+                  {...getEditorBindings("tuitionName")}
                   type="text"
-                  style={localStyles.inputBase}
+                  className={`otm-grid-editor ${activeEditorKey === "tuitionName" ? "otm-entry-editor-active" : ""}`}
+                  style={{
+                    ...localStyles.inputBase,
+                    ...(activeEditorKey === "tuitionName" ? localStyles.activeEditor : {}),
+                  }}
                   value={draft.tuitionName || ""}
                   onChange={(e) => onDraftFieldChange("tuitionName", e.target.value)}
                   placeholder="Tuition"
@@ -248,24 +418,50 @@ export default function OtmPortalEntryForm({
               </td>
               <td style={localStyles.td}>
                 <input
+                  {...getEditorBindings("tutorName")}
                   type="text"
-                  style={localStyles.inputBase}
+                  className={`otm-grid-editor ${activeEditorKey === "tutorName" ? "otm-entry-editor-active" : ""}`}
+                  style={{
+                    ...localStyles.inputBase,
+                    ...(activeEditorKey === "tutorName" ? localStyles.activeEditor : {}),
+                  }}
                   value={Array.isArray(draft.tutorName) ? draft.tutorName.join(", ") : (draft.tutorName || "")}
                   onChange={(e) => onDraftFieldChange("tutorName", e.target.value)}
                   placeholder="Tutor name"
                 />
               </td>
               <td style={localStyles.td}>
-                <MultiTagInput
-                  value={draft.groupName}
-                  onChange={(next) => onDraftFieldChange("groupName", next)}
-                  placeholder="Group + Enter"
+                {/* Entry form only: one normal Group Name textbox, never badges/tags. */}
+                <input
+                  key="otm-entry-group-name-single-text"
+                  {...getEditorBindings("groupName")}
+                  type="text"
+                  autoComplete="off"
+                  data-input-mode="single-text"
+                  className={`otm-grid-editor ${activeEditorKey === "groupName" ? "otm-entry-editor-active" : ""}`}
+                  style={{
+                    ...localStyles.inputBase,
+                    ...(activeEditorKey === "groupName" ? localStyles.activeEditor : {}),
+                  }}
+                  value={toSingleText(draft.groupName)}
+                  onChange={(event) =>
+                    onDraftFieldChange("groupName", event.target.value)
+                  }
+                  onBlur={(event) =>
+                    onDraftFieldChange("groupName", event.target.value)
+                  }
+                  placeholder="Group name"
                 />
               </td>
               <td style={localStyles.td}>
                 <input
+                  {...getEditorBindings("decidedFee")}
                   type="number"
-                  style={localStyles.inputBase}
+                  className={`otm-grid-editor ${activeEditorKey === "decidedFee" ? "otm-entry-editor-active" : ""}`}
+                  style={{
+                    ...localStyles.inputBase,
+                    ...(activeEditorKey === "decidedFee" ? localStyles.activeEditor : {}),
+                  }}
                   value={draft.decidedFee || ""}
                   onChange={(e) => onDraftFieldChange("decidedFee", e.target.value)}
                   placeholder="Fee"
@@ -275,33 +471,35 @@ export default function OtmPortalEntryForm({
               <td style={localStyles.td}><div style={localStyles.readOnly}>Auto</div></td>
               <td style={localStyles.td}>
                 <input
+                  {...getEditorBindings("notes")}
                   type="text"
-                  style={localStyles.inputBase}
+                  className={`otm-grid-editor ${activeEditorKey === "notes" ? "otm-entry-editor-active" : ""}`}
+                  style={{
+                    ...localStyles.inputBase,
+                    ...(activeEditorKey === "notes" ? localStyles.activeEditor : {}),
+                  }}
                   value={draft.notes || ""}
                   onChange={(e) => onDraftFieldChange("notes", e.target.value)}
                   placeholder="Notes"
                 />
               </td>
               <td style={localStyles.td}>
-                <select
-                  style={{ ...localStyles.inputBase, background: draft.status === 'Active' ? '#dcfce7' : '#fff' }}
-                  value={draft.status || ""}
-                  onChange={(e) => onDraftFieldChange("status", e.target.value)}
-                >
-                  <option value="" disabled>Select</option>
-                  {statusOptions.map((item) => (
-                    <option key={item} value={item}>{getStatusMeta(item)?.label || item}</option>
-                  ))}
-                </select>
-              </td>
-              <td style={localStyles.td}>
                 <button
+                  {...getEditorBindings("action")}
                   type="button"
-                  style={localStyles.actionBtn}
+                  className={activeEditorKey === "action" ? "otm-entry-editor-active" : ""}
+                  style={{
+                    ...localStyles.actionBtn,
+                    ...(activeEditorKey === "action" ? localStyles.activeEditor : {}),
+                  }}
                   disabled={creating}
                   onClick={() => {
-                    // Safe guard: Payload me se agar ghalti se bhi koi purani field ho toh remove kar dein
-                    const payload = { ...draft };
+                    // Status is intentionally hidden from the entry form.
+                    // New rows still start as Class Pending in the spreadsheet table.
+                    const payload = {
+                      ...draft,
+                      status: draft.status || "class pending",
+                    };
                     onCreateEntry(payload);
                   }}
                 >
@@ -374,6 +572,14 @@ th: {
     outline: "none",
     boxSizing: "border-box",
     background: "#fff",
+  },
+  activeEditor: {
+    borderColor: "#16a34a",
+    background: "#ecfdf5",
+    boxShadow: "inset 0 0 0 1px #16a34a, 0 0 0 2px rgba(22, 163, 74, 0.14)",
+    outline: "none",
+    position: "relative",
+    zIndex: 2,
   },
   readOnly: {
     width: "100%",

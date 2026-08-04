@@ -60,10 +60,20 @@ function areRowListsEqual(prevRows, nextRows) {
 function buildTimeAssignments(days = [], assignments = {}, fallbackDay = "", fallbackTime = "") {
   const safeDays = sortDays(days);
   const normalizedFallbackTime = normalizeTimeText(fallbackTime);
+  const normalizedFallbackDay = normalizeString(fallbackDay).toLowerCase();
+  const assignmentEntries = Object.entries(assignments || {});
+
   return Object.fromEntries(
     safeDays.map((day) => {
-      const directValue = assignments?.[day];
-      const legacyValue = fallbackDay === day ? normalizedFallbackTime : "";
+      const matchingEntry = assignmentEntries.find(
+        ([key]) => normalizeString(key).toLowerCase() === day.toLowerCase()
+      );
+      const directValue = matchingEntry?.[1];
+      const legacyValue =
+        normalizedFallbackDay === day.toLowerCase()
+          ? normalizedFallbackTime
+          : "";
+
       return [day, normalizeTimeText(directValue ?? legacyValue)];
     })
   );
@@ -142,7 +152,7 @@ function computeRow(row, durationOptions) {
     tuitionEndMonth: normalizeMonthValue(row.tuitionEndMonth),
     notes: row.notes || "",
     sourceTuitionId: normalizeString(row.sourceTuitionId),
-    status: normalizeString(row.status).toLowerCase() || "",
+    status: normalizeString(row.status).toLowerCase() || "class pending",
   };
 }
 
@@ -167,6 +177,7 @@ function buildEntryPayload(row) {
     timeSlots: normalizedDays.map((day) => normalizedAssignments[day]).filter(Boolean),
     classStartTime: primaryTime,
     classEndTime: primaryTime ? addMinutes(primaryTime, row.durationMinutes) : "",
+    status: normalizeString(row.status).toLowerCase() || "class pending",
   };
 }
 
@@ -182,7 +193,7 @@ function makeEmptyDraft(durationOptions) {
     decidedFee: "",
     classStartTime: "",
     classEndTime: "",
-    status: "",
+    status: "class pending",
     notes: "",
   };
 }
@@ -905,8 +916,14 @@ export default function OtmPortalSheet({
       if (field === "days") {
         const sorted = sortDays(value);
         const nextAssignments = {};
+        const previousAssignmentEntries = Object.entries(
+          prev.timeAssignments || {}
+        );
         sorted.forEach((day) => {
-          nextAssignments[day] = prev.timeAssignments?.[day] || "";
+          const matchingEntry = previousAssignmentEntries.find(
+            ([key]) => normalizeString(key).toLowerCase() === day.toLowerCase()
+          );
+          nextAssignments[day] = matchingEntry?.[1] || "";
         });
         next.days = sorted;
         next.timeAssignments = nextAssignments;
@@ -1090,6 +1107,7 @@ export default function OtmPortalSheet({
       await onCreateEntry(
         buildEntryPayload({
           ...draft,
+          status: draft.status || "class pending",
           day: validDays[0] || "",
           days: validDays,
           timeAssignments: Object.fromEntries(
@@ -1425,6 +1443,8 @@ export default function OtmPortalSheet({
             timeOptions={timeOptions}
             listId={`time-options-${row.id}`}
             compact
+            visibleDay={filtersByTab.tuitions.day}
+            emphasizeVisibleDay={Boolean(filtersByTab.tuitions.day)}
             getEditorProps={(day) => getGridEditorBindings(row.id, "timeAssignments", day)}
             onChange={(day, value) => {
               updateRow(row.id, "timeAssignments", {
@@ -1580,7 +1600,6 @@ export default function OtmPortalSheet({
                 dayOptions={dayOptions}
                 timeOptions={timeOptions}
                 durationOptions={durationOptions}
-                statusOptions={statusOptions}
                 creating={creating}
                 onDraftFieldChange={updateDraftField}
                 onDraftTimeChange={updateDraftTime}
