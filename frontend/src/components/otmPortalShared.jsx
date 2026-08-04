@@ -484,26 +484,30 @@ export function MultiSelectCell({
         return;
       }
 
-      if (event.key === "ArrowDown") {
+      if (event.altKey && event.key === "ArrowDown") {
         event.preventDefault();
-        if (!open) {
-          setOpen(true);
-        } else {
-          setActiveIndex((prev) => Math.min(options.length - 1, prev + 1));
-        }
+        setOpen(true);
         return;
       }
 
-      if (event.key === "ArrowUp") {
+      if (open && event.key === "ArrowDown") {
         event.preventDefault();
-        if (!open) {
-          setOpen(true);
-        } else {
-          setActiveIndex((prev) => Math.max(0, prev - 1));
-        }
+        setActiveIndex((prev) =>
+          Math.min(options.length - 1, prev + 1)
+        );
         return;
       }
 
+      if (open && event.key === "ArrowUp") {
+        event.preventDefault();
+        setActiveIndex((prev) =>
+          Math.max(0, prev - 1)
+        );
+        return;
+      }
+
+      // Closed dropdown behaves like a spreadsheet cell:
+      // arrows/tab are delegated to the grid navigation handler.
       triggerProps.onKeyDown?.(event);
     },
     [open, options.length, triggerProps]
@@ -795,6 +799,7 @@ export function DayTimeAssignmentsEditor({
   assignments = {},
   timeOptions = [],
   onChange,
+  onCommit,
   listId = "otm-time-options",
   compact = false,
   getEditorProps,
@@ -823,6 +828,7 @@ export function DayTimeAssignmentsEditor({
         const {
           style: editorStyle,
           className: editorClassName,
+          onBlur: editorOnBlur,
           ...restEditorProps
         } = editorProps;
         const matchingAssignmentKey = Object.keys(assignments || {}).find(
@@ -857,8 +863,22 @@ export function DayTimeAssignmentsEditor({
               aria-label={`${day} class time`}
               placeholder="9:15 PM"
               value={assignedTime}
-              onChange={(event) => onChange(day, event.target.value)}
-              onBlur={(event) => onChange(day, normalizeTimeText(event.target.value))}
+              onChange={(event) =>
+                onChange?.(day, event.target.value)
+              }
+              onBlur={(event) => {
+                const normalizedValue = normalizeTimeText(
+                  event.target.value
+                );
+
+                if (onCommit) {
+                  onCommit(day, normalizedValue);
+                } else {
+                  onChange?.(day, normalizedValue);
+                }
+
+                editorOnBlur?.(event);
+              }}
               {...restEditorProps}
             />
           </div>
@@ -1590,6 +1610,7 @@ export const styles = {
   minWidth: 0,
   overflow: "visible",
 },
+
 dayValueBadge: {
   width: "100%",
   display: "inline-flex",
@@ -1604,6 +1625,7 @@ dayValueBadge: {
   whiteSpace: "nowrap",
   boxSizing: "border-box",
 },
+
 badgeList: {
   display: "flex",
   flexWrap: "wrap",
@@ -1611,13 +1633,16 @@ badgeList: {
   justifyContent: "center",
   gap: 4,
 },
+
 badgeEmpty: {
   color: "#94a3b8",
   fontSize: 11,
 },
+
 valueBadge: (variant = "default") => ({
   display: "inline-flex",
   alignItems: "center",
+ 
   border: `1px solid ${
     variant === "day"
       ? "#86efac"
@@ -1642,12 +1667,14 @@ valueBadge: (variant = "default") => ({
   fontWeight: 800,
   whiteSpace: "nowrap",
 }),
+
 badgeEditorWrap: {
   width: "100%",
   minHeight: 32,
   padding: 3,
   boxSizing: "border-box",
 },
+
 badgeEditorValues: {
   width: "100%",
   minHeight: 28,
@@ -1657,6 +1684,7 @@ badgeEditorValues: {
   flexWrap: "wrap",
   gap: 3,
 },
+
 editableValueBadge: {
   display: "inline-flex",
   alignItems: "center",
@@ -1670,6 +1698,7 @@ editableValueBadge: {
   fontWeight: 800,
   maxWidth: "100%",
 },
+
 badgeRemoveBtn: {
   width: 16,
   height: 16,
@@ -1685,6 +1714,7 @@ badgeRemoveBtn: {
   alignItems: "center",
   justifyContent: "center",
 },
+
 badgeEditorInput: {
   flex: "1 1 62px",
   minWidth: 55,

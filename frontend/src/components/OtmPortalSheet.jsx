@@ -16,6 +16,7 @@ import {
   Toolbar,
   MultiSelectCell,
   addMinutes,
+  decodeSerializedValue,
   extractMonthYear,
   getDisplayName,
   getDurationLabel,
@@ -57,25 +58,268 @@ function areRowListsEqual(prevRows, nextRows) {
   return true;
 }
 
+function resolveCanonicalDay(dayValue, allowedDays = []) {
+  const normalized = normalizeString(dayValue).toLowerCase();
+  if (!normalized) return "";
+
+  const fromAllowed = sortDays(allowedDays).find(
+    (day) => day.toLowerCase() === normalized
+  );
+  if (fromAllowed) return fromAllowed;
+
+  const fromDefaults = DEFAULT_DAY_OPTIONS.find(
+    (day) => day.toLowerCase() === normalized
+  );
+  return fromDefaults || normalizeString(dayValue);
+}
+
+function normalizeTimeSlotSequence(value) {
+  const decoded = decodeSerializedValue(value);
+
+  if (Array.isArray(decoded)) {
+    return decoded.map((item) => normalizeTimeText(item));
+  }
+
+  if (decoded && typeof decoded === "object") {
+    return Object.values(decoded).map((item) =>
+      normalizeTimeText(item)
+    );
+  }
+
+  return normalizeArray(decoded).map((item) =>
+    normalizeTimeText(item)
+  );
+}
+
+function normalizeTimeAssignmentsValue(
+  value,
+  days = [],
+  timeSlots = [],
+  fallbackDay = "",
+  fallbackTime = ""
+) {
+  const safeDays = sortDays(days);
+  const result = {};
+  const assignedDays = new Set();
+
+  const assign = (dayValue, timeValue) => {
+    const day = resolveCanonicalDay(dayValue, safeDays);
+    if (!day) return;
+    result[day] = normalizeTimeText(timeValue);
+    assignedDays.add(day.toLowerCase());
+  };
+
+  const ingest = (input, depth = 0) => {
+    if (depth > 8 || input === null || input === undefined || input === "") return;
+
+    const decoded = decodeSerializedValue(input);
+    if (decoded !== input) {
+      ingest(decoded, depth + 1);
+      return;
+    }
+
+    if (Array.isArray(input)) {
+      const objectItems = input.filter(
+        (item) => item && typeof item === "object" && !Array.isArray(item)
+      );
+
+      if (objectItems.length) {
+        objectItems.forEach((item) => {
+          const day =
+            item.day ??
+            item.dayName ??
+            item.day_name ??
+            item.label ??
+            item.name ??
+            item.key;
+          const time =
+            item.time ??
+            item.startTime ??
+            item.start_time ??
+            item.value ??
+            item.classTime ??
+            item.class_time;
+          if (day !== undefined) {
+            assign(day, time);
+            return;
+          }
+
+          Object.entries(item).forEach(
+            ([nestedDay, nestedTime]) => {
+              const canonicalDay = resolveCanonicalDay(
+                nestedDay,
+                safeDays
+              );
+              if (
+                DEFAULT_DAY_OPTIONS.some(
+                  (defaultDay) =>
+                    defaultDay.toLowerCase() ===
+                    canonicalDay.toLowerCase()
+                )
+              ) {
+                assign(canonicalDay, nestedTime);
+              }
+            }
+          );
+        });
+        return;
+      }
+
+      const summaryItems = input.filter(
+        (item) =>
+          typeof item === "string" &&
+          /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*:/i.test(
+            item.trim()
+          )
+      );
+      if (summaryItems.length) {
+        summaryItems.forEach((item) => ingest(item, depth + 1));
+        return;
+      }
+
+      input.forEach((timeValue, index) => {
+        if (safeDays[index]) assign(safeDays[index], timeValue);
+      });
+      return;
+    }
+
+    if (input && typeof input === "object") {
+      const entries = Object.entries(input);
+      const dayEntries = entries.filter(([day]) => {
+        const canonicalDay = resolveCanonicalDay(
+          day,
+          safeDays
+        );
+        return DEFAULT_DAY_OPTIONS.some(
+          (defaultDay) =>
+            defaultDay.toLowerCase() ===
+            canonicalDay.toLowerCase()
+        );
+      });
+
+      if (dayEntries.length) {
+        dayEntries.forEach(([day, time]) =>
+          assign(day, time)
+        );
+      } else {
+        entries.forEach(([, nestedValue]) =>
+          ingest(nestedValue, depth + 1)
+        );
+      }
+      return;
+    }
+
+    const text = normalizeString(input);
+    if (!text) return;
+
+    const segments = text
+      .split(/[•;\n|]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    let matched = false;
+    segments.forEach((segment) => {
+      const match = segment.match(
+        /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*:\s*(.+)$/i
+      );
+      if (!match) return;
+      assign(match[1], match[2]);
+      matched = true;
+    });
+
+    if (!matched && safeDays.length === 1) {
+      assign(safeDays[0], text);
+    }
+  };
+
+  ingest(value);
+
+  const normalizedSlots = normalizeTimeSlotSequence(
+    timeSlots
+  );
+  normalizedSlots.forEach((timeValue, index) => {
+    const day = safeDays[index];
+    if (
+      day &&
+      !assignedDays.has(day.toLowerCase())
+    ) {
+      assign(day, timeValue);
+    }
+  });
+
+  const canonicalFallbackDay = resolveCanonicalDay(fallbackDay, safeDays);
+  if (
+    canonicalFallbackDay &&
+    !assignedDays.has(canonicalFallbackDay.toLowerCase()) &&
+    normalizeString(fallbackTime)
+  ) {
+    assign(canonicalFallbackDay, fallbackTime);
+  }
+
+  return result;
+}
+
 function buildTimeAssignments(days = [], assignments = {}, fallbackDay = "", fallbackTime = "") {
   const safeDays = sortDays(days);
-  const normalizedFallbackTime = normalizeTimeText(fallbackTime);
-  const normalizedFallbackDay = normalizeString(fallbackDay).toLowerCase();
-  const assignmentEntries = Object.entries(assignments || {});
+  const normalizedAssignments = normalizeTimeAssignmentsValue(
+    assignments,
+    safeDays,
+    [],
+    fallbackDay,
+    fallbackTime
+  );
 
   return Object.fromEntries(
     safeDays.map((day) => {
-      const matchingEntry = assignmentEntries.find(
-        ([key]) => normalizeString(key).toLowerCase() === day.toLowerCase()
+      const matchingKey = Object.keys(normalizedAssignments).find(
+        (key) => normalizeString(key).toLowerCase() === day.toLowerCase()
       );
-      const directValue = matchingEntry?.[1];
-      const legacyValue =
-        normalizedFallbackDay === day.toLowerCase()
-          ? normalizedFallbackTime
-          : "";
-
-      return [day, normalizeTimeText(directValue ?? legacyValue)];
+      return [
+        day,
+        normalizeTimeText(
+          matchingKey ? normalizedAssignments[matchingKey] : ""
+        ),
+      ];
     })
+  );
+}
+
+function hasMeaningfulTimeAssignments(value) {
+  return Object.values(value || {}).some((time) => Boolean(normalizeString(time)));
+}
+
+function mergeIncomingRowWithLocal(
+  incomingRow,
+  localRow,
+  durationOptions,
+  preserveLocalSchedule = false
+) {
+  const incoming = computeRow(incomingRow || {}, durationOptions);
+  if (!localRow) return incoming;
+
+  const local = computeRow(localRow, durationOptions);
+  const incomingHasTimes = hasMeaningfulTimeAssignments(incoming.timeAssignments);
+  const localHasTimes = hasMeaningfulTimeAssignments(local.timeAssignments);
+
+  if (!preserveLocalSchedule && (incomingHasTimes || !localHasTimes)) {
+    return incoming;
+  }
+
+  return computeRow(
+    {
+      ...incoming,
+      day: local.day,
+      days: local.days,
+      dayText: local.dayText,
+      time: local.time,
+      timeText: local.timeText,
+      timeSlots: local.timeSlots,
+      timeAssignments: local.timeAssignments,
+      classStartTime: local.classStartTime,
+      classEndTime: local.classEndTime,
+      durationMinutes: local.durationMinutes,
+    },
+    durationOptions
   );
 }
 
@@ -94,43 +338,94 @@ function buildDayTimeSummary(days = [], assignments = {}) {
     .join(" • ");
 }
 
-function computeRow(row, durationOptions) {
-  const legacyDay = normalizeString(row.day);
-  const legacyTime = normalizeTimeText(
-    row.time || normalizeArray(row.timeSlots)[0] || ""
+function computeRow(row = {}, durationOptions) {
+  const legacyDay = normalizeString(
+    row.day ?? row.dayText ?? row.day_text
   );
-  const providedDays = normalizeArray(row.days);
-  const sourceAssignments =
-    row.timeAssignments &&
-    typeof row.timeAssignments === "object" &&
-    !Array.isArray(row.timeAssignments)
-      ? row.timeAssignments
-      : {};
-  const assignmentDays = Object.keys(sourceAssignments);
-  const days = sortDays(
+  const rawTimeSlots =
+    row.timeSlots ??
+    row.time_slots ??
+    [];
+  const legacyTime = normalizeTimeText(
+    row.time ??
+    row.classStartTime ??
+    row.class_start_time ??
+    normalizeArray(rawTimeSlots)[0] ??
+    ""
+  );
+
+  const providedDays = normalizeArray(
+    row.days ??
+    row.dayText ??
+    row.day_text ??
+    legacyDay
+  );
+  const baseDays = sortDays(
     providedDays.length
       ? providedDays
       : legacyDay
         ? normalizeArray(legacyDay)
-        : assignmentDays
+        : []
   );
 
-  const durationMinutes = Number(row.durationMinutes || 60);
+  const sourceAssignments = normalizeTimeAssignmentsValue(
+    row.timeAssignments ??
+      row.time_assignments ??
+      row.dayTimeAssignments ??
+      row.day_time_assignments ??
+      {},
+    baseDays,
+    rawTimeSlots,
+    baseDays[0] || legacyDay,
+    legacyTime
+  );
+
+  const assignmentDays = Object.keys(sourceAssignments);
+  const days = sortDays(
+    baseDays.length ? baseDays : assignmentDays
+  );
+
+  const durationMinutes = Number(
+    row.durationMinutes ??
+    row.duration_minutes ??
+    60
+  );
   const timeAssignments = buildTimeAssignments(
     days,
     sourceAssignments,
     days[0] || legacyDay,
     legacyTime
   );
-  const timeSlots = days
-    .map((day) => normalizeTimeText(timeAssignments[day]))
-    .filter(Boolean);
+  const timeSlots = days.map((day) =>
+    normalizeTimeText(timeAssignments[day])
+  );
   const time = getPrimaryTime(days, timeAssignments) || legacyTime;
 
-  const classStartTime = normalizeTimeText(row.classStartTime) || time;
+  const classStartTime =
+    normalizeTimeText(
+      row.classStartTime ??
+      row.class_start_time
+    ) || time;
   const classEndTime =
-    normalizeTimeText(row.classEndTime) ||
+    normalizeTimeText(
+      row.classEndTime ??
+      row.class_end_time
+    ) ||
     (classStartTime ? addMinutes(classStartTime, durationMinutes) : "");
+
+  const tuitionStartMonth = normalizeMonthValue(
+    row.tuitionStartMonth ??
+      row.tuition_start_month ??
+      (
+        row.tuitionStartDate ??
+        row.tuition_start_date
+          ? String(
+              row.tuitionStartDate ??
+              row.tuition_start_date
+            ).slice(0, 7)
+          : ""
+      )
+  );
 
   return {
     ...row,
@@ -145,14 +440,19 @@ function computeRow(row, durationOptions) {
     durationLabel: getDurationLabel(durationOptions, durationMinutes),
     classStartTime,
     classEndTime,
-    tuitionStartMonth: normalizeMonthValue(
-      row.tuitionStartMonth ||
-        (row.tuitionStartDate ? String(row.tuitionStartDate).slice(0, 7) : "")
+    tuitionStartMonth,
+    tuitionEndMonth: normalizeMonthValue(
+      row.tuitionEndMonth ??
+      row.tuition_end_month
     ),
-    tuitionEndMonth: normalizeMonthValue(row.tuitionEndMonth),
     notes: row.notes || "",
-    sourceTuitionId: normalizeString(row.sourceTuitionId),
-    status: normalizeString(row.status).toLowerCase() || "class pending",
+    sourceTuitionId: normalizeString(
+      row.sourceTuitionId ??
+      row.source_tuition_id
+    ),
+    status:
+      normalizeString(row.status).toLowerCase() ||
+      "class pending",
   };
 }
 
@@ -174,7 +474,9 @@ function buildEntryPayload(row) {
     time: primaryTime,
     timeText: buildDayTimeSummary(normalizedDays, normalizedAssignments),
     timeAssignments: normalizedAssignments,
-    timeSlots: normalizedDays.map((day) => normalizedAssignments[day]).filter(Boolean),
+    timeSlots: normalizedDays.map(
+      (day) => normalizedAssignments[day] || ""
+    ),
     classStartTime: primaryTime,
     classEndTime: primaryTime ? addMinutes(primaryTime, row.durationMinutes) : "",
     status: normalizeString(row.status).toLowerCase() || "class pending",
@@ -474,6 +776,7 @@ export default function OtmPortalSheet({
   const flushRowSaveRef = useRef(null);
   const entriesRef = useRef([]);
   const editorRegistryRef = useRef(new Map());
+  const recentScheduleEditsRef = useRef(new Map());
   const [searchByTab, setSearchByTab] = useState({ tuitions: "", reports: "", totalClass: "" });
   const [filtersByTab, setFiltersByTab] = useState({
     tuitions: { day: "", month: "", year: "", status: "" },
@@ -492,10 +795,34 @@ export default function OtmPortalSheet({
   }, []);
 
   useEffect(() => {
-    const nextEntries = (Array.isArray(initialEntries) ? initialEntries : []).map((row) =>
-      computeRow(row, durationOptions)
+    const localById = new Map(
+      entriesRef.current.map((row) => [String(row.id), row])
+    );
+    const now = Date.now();
+
+    const nextEntries = (Array.isArray(initialEntries) ? initialEntries : []).map(
+      (row) => {
+        const rowKey = String(row.id);
+        const localRow = localById.get(rowKey);
+        const lastLocalEdit = recentScheduleEditsRef.current.get(rowKey) || 0;
+        const preserveLocalSchedule = now - lastLocalEdit < 10000;
+
+        return mergeIncomingRowWithLocal(
+          row,
+          localRow,
+          durationOptions,
+          preserveLocalSchedule
+        );
+      }
     );
 
+    recentScheduleEditsRef.current.forEach((editedAt, rowKey) => {
+      if (now - editedAt >= 10000) {
+        recentScheduleEditsRef.current.delete(rowKey);
+      }
+    });
+
+    entriesRef.current = nextEntries;
     setEntries((prev) => (areRowListsEqual(prev, nextEntries) ? prev : nextEntries));
     setSelectedIds((prev) => {
       const validIds = new Set(nextEntries.map((row) => row.id));
@@ -537,14 +864,14 @@ export default function OtmPortalSheet({
   }, [entries, reportRows, totalClassRows]);
 
   const filteredEntries = useMemo(() => {
-    const matchingRows = entries.filter(
+    // Keep the saved/manual row order stable while editing. Re-sorting on
+    // every time keystroke makes the active row jump and breaks spreadsheet
+    // focus, especially when one row has several day/time editors.
+    return entries.filter(
       (row) =>
         matchesSearch(row, searchByTab.tuitions) &&
         matchesFilters(row, filtersByTab.tuitions)
     );
-
-    // Time is always ascending. With a day filter, that day's assigned time is used.
-    return sortRowsBySchedule(matchingRows, filtersByTab.tuitions.day);
   }, [entries, searchByTab.tuitions, filtersByTab.tuitions]);
 
   const filteredReportRows = useMemo(
@@ -598,30 +925,206 @@ export default function OtmPortalSheet({
       });
   }, []);
 
-  const focusEditorByKey = useCallback((editorKey) => {
-    const element = editorRegistryRef.current.get(editorKey);
-    if (!element?.focus) return;
-    element.focus({ preventScroll: true });
-    element.scrollIntoView({ block: "nearest", inline: "nearest" });
+  const focusEditorByKey = useCallback((editorKey, selectContents = true) => {
+    const focusNow = () => {
+      const element = editorRegistryRef.current.get(editorKey);
+      if (!element?.focus) return false;
+
+      element.focus({ preventScroll: true });
+      element.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+      });
+
+      activeEditorKeyRef.current = editorKey;
+      const [rowId, columnKey] = String(editorKey).split("::");
+      if (rowId && columnKey) {
+        setSelectedColumnKey("");
+        setActiveCellPrefix(buildCellPrefix(rowId, columnKey));
+      }
+
+      if (
+        selectContents &&
+        (element.tagName === "INPUT" || element.tagName === "TEXTAREA") &&
+        !["checkbox", "radio", "color", "date", "month"].includes(
+          String(element.type || "").toLowerCase()
+        )
+      ) {
+        window.requestAnimationFrame(() => {
+          try {
+            element.select?.();
+          } catch {
+            // Some input types do not support selection.
+          }
+        });
+      }
+
+      return true;
+    };
+
+    if (focusNow()) return true;
+
+    window.requestAnimationFrame(() => {
+      focusNow();
+    });
+    return false;
   }, []);
 
-  const focusSequentialEditor = useCallback(
-    (currentKey, direction = 1) => {
-      const items = getEditorSnapshotList();
-      const currentIndex = items.findIndex((item) => item.key === currentKey);
-      if (currentIndex === -1) return;
-      const nextIndex = currentIndex + direction;
-      if (nextIndex < 0 || nextIndex >= items.length) return;
-      focusEditorByKey(items[nextIndex].key);
+  const getVisibleTimeDays = useCallback(
+    (row) => {
+      const days = getRowDays(row);
+      const selectedDay = normalizeString(
+        filtersByTab.tuitions.day
+      ).toLowerCase();
+
+      if (!selectedDay) return days;
+
+      const matchingDay = days.find(
+        (day) => day.toLowerCase() === selectedDay
+      );
+      return matchingDay ? [matchingDay] : [];
     },
-    [focusEditorByKey, getEditorSnapshotList]
+    [filtersByTab.tuitions.day]
+  );
+
+  const findRegisteredKey = useCallback(
+    (row, columnKey, preferredSubKey = "main") => {
+      if (!row) return "";
+
+      if (columnKey === "timeAssignments") {
+        const visibleDays = getVisibleTimeDays(row);
+        if (!visibleDays.length) return "";
+
+        const preferredDay = visibleDays.find(
+          (day) =>
+            day.toLowerCase() ===
+            normalizeString(preferredSubKey).toLowerCase()
+        );
+        const orderedDays = preferredDay
+          ? [
+              preferredDay,
+              ...visibleDays.filter((day) => day !== preferredDay),
+            ]
+          : visibleDays;
+
+        for (const day of orderedDays) {
+          const key = buildEditorKey(
+            row.id,
+            "timeAssignments",
+            day
+          );
+          if (editorRegistryRef.current.has(key)) return key;
+        }
+        return "";
+      }
+
+      const key = buildEditorKey(row.id, columnKey, "main");
+      return editorRegistryRef.current.has(key) ? key : "";
+    },
+    [getVisibleTimeDays]
+  );
+
+  const getLogicalTargetKey = useCallback(
+    (currentKey, direction) => {
+      const [rowId, columnKey, editorSubKey = "main"] =
+        String(currentKey || "").split("::");
+      const rowIndex = pagedEntries.findIndex(
+        (row) => String(row.id) === String(rowId)
+      );
+      const columnIndex = GRID_CLIPBOARD_COLUMNS.indexOf(columnKey);
+
+      if (rowIndex === -1 || columnIndex === -1) return "";
+
+      const currentRow = pagedEntries[rowIndex];
+
+      if (
+        columnKey === "timeAssignments" &&
+        (direction === "up" || direction === "down")
+      ) {
+        const visibleDays = getVisibleTimeDays(currentRow);
+        const dayIndex = visibleDays.findIndex(
+          (day) =>
+            day.toLowerCase() ===
+            normalizeString(editorSubKey).toLowerCase()
+        );
+        const localNextIndex =
+          dayIndex + (direction === "up" ? -1 : 1);
+
+        if (
+          dayIndex !== -1 &&
+          localNextIndex >= 0 &&
+          localNextIndex < visibleDays.length
+        ) {
+          const localKey = buildEditorKey(
+            currentRow.id,
+            "timeAssignments",
+            visibleDays[localNextIndex]
+          );
+          if (editorRegistryRef.current.has(localKey)) {
+            return localKey;
+          }
+        }
+      }
+
+      if (direction === "left" || direction === "right") {
+        const step = direction === "left" ? -1 : 1;
+
+        for (
+          let nextColumnIndex = columnIndex + step;
+          nextColumnIndex >= 0 &&
+          nextColumnIndex < GRID_CLIPBOARD_COLUMNS.length;
+          nextColumnIndex += step
+        ) {
+          const nextColumn =
+            GRID_CLIPBOARD_COLUMNS[nextColumnIndex];
+          const key = findRegisteredKey(
+            currentRow,
+            nextColumn,
+            editorSubKey
+          );
+          if (key) return key;
+        }
+
+        return "";
+      }
+
+      const rowStep = direction === "up" ? -1 : 1;
+      for (
+        let nextRowIndex = rowIndex + rowStep;
+        nextRowIndex >= 0 &&
+        nextRowIndex < pagedEntries.length;
+        nextRowIndex += rowStep
+      ) {
+        const key = findRegisteredKey(
+          pagedEntries[nextRowIndex],
+          columnKey,
+          editorSubKey
+        );
+        if (key) return key;
+      }
+
+      return "";
+    },
+    [findRegisteredKey, getVisibleTimeDays, pagedEntries]
   );
 
   const focusDirectionalCell = useCallback(
     (currentKey, direction) => {
+      const logicalTarget = getLogicalTargetKey(
+        currentKey,
+        direction
+      );
+      if (logicalTarget) {
+        focusEditorByKey(logicalTarget);
+        return;
+      }
+
       const items = getEditorSnapshotList();
-      const currentIndex = items.findIndex((item) => item.key === currentKey);
+      const currentIndex = items.findIndex(
+        (item) => item.key === currentKey
+      );
       if (currentIndex === -1) return;
+
       const current = items[currentIndex];
       let candidate = null;
       let bestScore = Number.POSITIVE_INFINITY;
@@ -635,22 +1138,30 @@ export default function OtmPortalSheet({
         if (direction === "left") {
           isMatch = item.right <= current.left + 2;
           if (isMatch) {
-            score = (current.left - item.right) * 8 + Math.abs(item.centerY - current.centerY);
+            score =
+              (current.left - item.right) * 8 +
+              Math.abs(item.centerY - current.centerY);
           }
         } else if (direction === "right") {
           isMatch = item.left >= current.right - 2;
           if (isMatch) {
-            score = (item.left - current.right) * 8 + Math.abs(item.centerY - current.centerY);
+            score =
+              (item.left - current.right) * 8 +
+              Math.abs(item.centerY - current.centerY);
           }
         } else if (direction === "up") {
           isMatch = item.bottom <= current.top + 2;
           if (isMatch) {
-            score = (current.top - item.bottom) * 8 + Math.abs(item.centerX - current.centerX);
+            score =
+              (current.top - item.bottom) * 8 +
+              Math.abs(item.centerX - current.centerX);
           }
         } else if (direction === "down") {
           isMatch = item.top >= current.bottom - 2;
           if (isMatch) {
-            score = (item.top - current.bottom) * 8 + Math.abs(item.centerX - current.centerX);
+            score =
+              (item.top - current.bottom) * 8 +
+              Math.abs(item.centerX - current.centerX);
           }
         }
 
@@ -660,89 +1171,127 @@ export default function OtmPortalSheet({
         }
       }
 
-      if (!candidate) {
-        if (direction === "left" || direction === "up") {
-          candidate = items[currentIndex - 1] || null;
-        } else if (direction === "right" || direction === "down") {
-          candidate = items[currentIndex + 1] || null;
-        }
-      }
-
       if (candidate) {
         focusEditorByKey(candidate.key);
       }
     },
-    [focusEditorByKey, getEditorSnapshotList]
+    [
+      focusEditorByKey,
+      getEditorSnapshotList,
+      getLogicalTargetKey,
+    ]
   );
 
   function getRowIdFromEditorKey(editorKey) {
     return String(editorKey || "").split("::")[0] || "";
   }
 
+  const moveFocusAndPersist = useCallback(
+    (editorKey, direction) => {
+      const rowId = getRowIdFromEditorKey(editorKey);
+
+      focusDirectionalCell(editorKey, direction);
+
+      if (rowId && onUpdateEntry) {
+        window.setTimeout(() => {
+          void flushRowSaveRef.current?.(rowId);
+        }, 0);
+      }
+    },
+    [focusDirectionalCell, onUpdateEntry]
+  );
+
   const handleGridEditorKeyDown = useCallback(
     (event, editorKey, { multiline = false } = {}) => {
+      if (event.isComposing) return;
       if (event.altKey || event.ctrlKey || event.metaKey) return;
 
-      if (event.key === "ArrowLeft" && shouldNavigateHorizontally(event)) {
+      if (
+        event.key === "ArrowLeft" &&
+        shouldNavigateHorizontally(event)
+      ) {
         event.preventDefault();
-        focusDirectionalCell(editorKey, "left");
+        moveFocusAndPersist(editorKey, "left");
         return;
       }
 
-      if (event.key === "ArrowRight" && shouldNavigateHorizontally(event)) {
+      if (
+        event.key === "ArrowRight" &&
+        shouldNavigateHorizontally(event)
+      ) {
         event.preventDefault();
-        focusDirectionalCell(editorKey, "right");
+        moveFocusAndPersist(editorKey, "right");
         return;
       }
 
-      if (event.key === "ArrowUp" && shouldNavigateVertically(event)) {
+      if (
+        event.key === "ArrowUp" &&
+        shouldNavigateVertically(event)
+      ) {
         event.preventDefault();
-        focusDirectionalCell(editorKey, "up");
+        moveFocusAndPersist(editorKey, "up");
         return;
       }
 
-      if (event.key === "ArrowDown" && shouldNavigateVertically(event)) {
+      if (
+        event.key === "ArrowDown" &&
+        shouldNavigateVertically(event)
+      ) {
         event.preventDefault();
-        focusDirectionalCell(editorKey, "down");
+        moveFocusAndPersist(editorKey, "down");
+        return;
+      }
+
+      if (event.key === "Tab") {
+        event.preventDefault();
+        moveFocusAndPersist(
+          editorKey,
+          event.shiftKey ? "left" : "right"
+        );
         return;
       }
 
       if (event.key === "Enter" && !multiline) {
         event.preventDefault();
-        const rowId = getRowIdFromEditorKey(editorKey);
-
-        const persistAndMove = async () => {
-          if (rowId && onUpdateEntry) {
-            await flushRowSaveRef.current?.(rowId);
-          }
-
-          focusSequentialEditor(editorKey, event.shiftKey ? -1 : 1);
-        };
-
-        void persistAndMove();
+        moveFocusAndPersist(
+          editorKey,
+          event.shiftKey ? "up" : "down"
+        );
       }
     },
-    [focusDirectionalCell, focusSequentialEditor, onUpdateEntry]
+    [moveFocusAndPersist]
   );
 
   const getCellClassName = useCallback(
     (rowId, columnKey) => {
       const cellPrefix = buildCellPrefix(rowId, columnKey);
-      const columnSelected = selectedColumnKey === columnKey
-        ? "otm-grid-cell--column-selected"
-        : "";
-      const active = activeCellPrefix === cellPrefix
-        ? "otm-grid-cell--active"
-        : "";
+      const columnSelected =
+        selectedColumnKey === columnKey
+          ? "otm-grid-cell--column-selected"
+          : "";
+      const active =
+        activeCellPrefix === cellPrefix
+          ? "otm-grid-cell--active"
+          : "";
       return `otm-grid-cell ${columnSelected} ${active}`;
     },
     [activeCellPrefix, selectedColumnKey]
   );
 
   const getGridEditorBindings = useCallback(
-    (rowId, columnKey, editorSubKey = "main", options = {}) => {
+    (
+      rowId,
+      columnKey,
+      editorSubKey = "main",
+      options = {}
+    ) => {
       const cellPrefix = buildCellPrefix(rowId, columnKey);
-      const editorKey = buildEditorKey(rowId, columnKey, editorSubKey);
+      const editorKey = buildEditorKey(
+        rowId,
+        columnKey,
+        editorSubKey
+      );
+
       return {
         ref: (node) => registerEditor(editorKey, node),
         onFocus: () => {
@@ -750,7 +1299,12 @@ export default function OtmPortalSheet({
           setSelectedColumnKey("");
           setActiveCellPrefix(cellPrefix);
         },
-        onKeyDown: (event) => handleGridEditorKeyDown(event, editorKey, options),
+        onKeyDown: (event) =>
+          handleGridEditorKeyDown(
+            event,
+            editorKey,
+            options
+          ),
         "data-grid-editor": "true",
         "data-grid-key": editorKey,
       };
@@ -796,13 +1350,33 @@ export default function OtmPortalSheet({
       try {
         const savedEntry = await onUpdateEntry(rowId, patch);
         if (savedEntry) {
-          setEntries((prev) =>
-            prev.map((item) =>
-              String(item.id) === rowKey
-                ? computeRow({ ...item, ...savedEntry }, durationOptions)
-                : item
-            )
-          );
+          const preserveLocalSchedule =
+            Object.prototype.hasOwnProperty.call(
+              patch,
+              "timeAssignments"
+            ) ||
+            Object.prototype.hasOwnProperty.call(
+              patch,
+              "timeSlots"
+            ) ||
+            Object.prototype.hasOwnProperty.call(
+              patch,
+              "days"
+            );
+
+          const nextEntries = entriesRef.current.map((item) => {
+            if (String(item.id) !== rowKey) return item;
+
+            return mergeIncomingRowWithLocal(
+              { ...item, ...savedEntry },
+              item,
+              durationOptions,
+              preserveLocalSchedule
+            );
+          });
+
+          entriesRef.current = nextEntries;
+          setEntries(nextEntries);
         }
       } catch (error) {
         pendingPatchesRef.current.set(rowKey, patch);
@@ -947,155 +1521,251 @@ export default function OtmPortalSheet({
 
   const updateRow = useCallback(
     (rowId, field, value, options = {}) => {
+      const rowKey = String(rowId);
       let nextRowSnapshot = null;
       let patch = { [field]: value };
 
       if (options.recordUndo !== false) {
-        recordUndoSnapshot(`${rowId}:${field}`);
+        recordUndoSnapshot(
+          options.undoKey || `${rowId}:${field}`
+        );
       }
 
-      setEntries((prev) => {
-        const nextRows = prev.map((row) => {
-          if (String(row.id) !== String(rowId)) return row;
+      const nextRows = entriesRef.current.map((row) => {
+        if (String(row.id) !== rowKey) return row;
 
-          let nextRow;
+        let nextRow;
 
-          if (field === "days") {
-            const nextDays = sortDays(value);
-            const nextAssignments = buildTimeAssignments(
-              nextDays,
-              row.timeAssignments || {},
-              normalizeArray(row.days)[0] || row.day,
-              row.time
-            );
-            const primaryTime = getPrimaryTime(nextDays, nextAssignments);
-            const nextStart = primaryTime;
-            const nextEnd = nextStart
-              ? addMinutes(nextStart, Number(row.durationMinutes || 60))
-              : "";
+        if (field === "days") {
+          const nextDays = sortDays(value);
+          const nextAssignments = buildTimeAssignments(
+            nextDays,
+            row.timeAssignments || {},
+            normalizeArray(row.days)[0] || row.day,
+            row.time
+          );
+          const primaryTime = getPrimaryTime(
+            nextDays,
+            nextAssignments
+          );
+          const nextStart = primaryTime;
+          const nextEnd = nextStart
+            ? addMinutes(
+                nextStart,
+                Number(row.durationMinutes || 60)
+              )
+            : "";
 
-            nextRow = computeRow(
-              {
-                ...row,
-                day: nextDays.join(", "),
-                days: nextDays,
-                timeAssignments: nextAssignments,
-                timeSlots: nextDays
-                  .map((day) => nextAssignments[day])
-                  .filter(Boolean),
-                time: primaryTime,
-                classStartTime: nextStart,
-                classEndTime: nextEnd,
-              },
-              durationOptions
-            );
-
-            patch = {
+          nextRow = computeRow(
+            {
+              ...row,
               day: nextDays.join(", "),
               days: nextDays,
               timeAssignments: nextAssignments,
-              timeSlots: nextRow.timeSlots,
-              time: nextRow.time,
-              durationMinutes: nextRow.durationMinutes,
-              classStartTime: nextRow.classStartTime,
-              classEndTime: nextRow.classEndTime,
-            };
-          } else if (field === "timeAssignments") {
-            const nextDays = sortDays(row.days || row.day);
-            const nextAssignments = buildTimeAssignments(
-              nextDays,
+              timeSlots: nextDays.map(
+                (day) => nextAssignments[day] || ""
+              ),
+              time: primaryTime,
+              classStartTime: nextStart,
+              classEndTime: nextEnd,
+            },
+            durationOptions
+          );
+
+          patch = {
+            day: nextDays.join(", "),
+            days: nextDays,
+            timeAssignments: nextAssignments,
+            timeSlots: nextRow.timeSlots,
+            time: nextRow.time,
+            timeText: nextRow.timeText,
+            durationMinutes: nextRow.durationMinutes,
+            classStartTime: nextRow.classStartTime,
+            classEndTime: nextRow.classEndTime,
+          };
+
+          recentScheduleEditsRef.current.set(
+            rowKey,
+            Date.now()
+          );
+        } else if (field === "timeAssignments") {
+          const nextDays = getRowDays(row);
+          const currentAssignments = buildTimeAssignments(
+            nextDays,
+            row.timeAssignments || {},
+            nextDays[0] || row.day,
+            row.time
+          );
+          const incomingAssignments =
+            normalizeTimeAssignmentsValue(
               value,
-              nextDays[0] || row.day,
-              row.time
+              nextDays
             );
-            const primaryTime = getPrimaryTime(nextDays, nextAssignments);
-            const nextStart = primaryTime;
-            const nextEnd = nextStart
-              ? addMinutes(nextStart, Number(row.durationMinutes || 60))
-              : "";
+          const mergedAssignments = {
+            ...currentAssignments,
+            ...incomingAssignments,
+          };
+          const nextAssignments = buildTimeAssignments(
+            nextDays,
+            mergedAssignments,
+            nextDays[0] || row.day,
+            row.time
+          );
+          const primaryTime = getPrimaryTime(
+            nextDays,
+            nextAssignments
+          );
+          const nextStart = primaryTime;
+          const nextEnd = nextStart
+            ? addMinutes(
+                nextStart,
+                Number(row.durationMinutes || 60)
+              )
+            : "";
 
-            nextRow = computeRow(
-              {
-                ...row,
-                timeAssignments: nextAssignments,
-                timeSlots: nextDays
-                  .map((day) => nextAssignments[day])
-                  .filter(Boolean),
-                time: primaryTime,
-                classStartTime: nextStart,
-                classEndTime: nextEnd,
-              },
-              durationOptions
-            );
-
-            patch = {
-              day: nextDays.join(", "),
-              days: nextDays,
+          nextRow = computeRow(
+            {
+              ...row,
               timeAssignments: nextAssignments,
-              timeSlots: nextRow.timeSlots,
-              time: nextRow.time,
-              durationMinutes: nextRow.durationMinutes,
-              classStartTime: nextRow.classStartTime,
-              classEndTime: nextRow.classEndTime,
-            };
-          } else if (field === "durationMinutes") {
-            const nextDuration = Number(value || 60);
-            const nextEnd = row.classStartTime
-              ? addMinutes(row.classStartTime, nextDuration)
-              : "";
+              timeSlots: nextDays.map(
+                (day) => nextAssignments[day] || ""
+              ),
+              time: primaryTime,
+              classStartTime: nextStart,
+              classEndTime: nextEnd,
+            },
+            durationOptions
+          );
 
-            nextRow = computeRow(
-              {
-                ...row,
-                durationMinutes: nextDuration,
-                classEndTime: nextEnd,
-              },
-              durationOptions
-            );
+          patch = {
+            day: nextDays.join(", "),
+            days: nextDays,
+            timeAssignments: nextAssignments,
+            timeSlots: nextRow.timeSlots,
+            time: nextRow.time,
+            timeText: nextRow.timeText,
+            durationMinutes: nextRow.durationMinutes,
+            classStartTime: nextRow.classStartTime,
+            classEndTime: nextRow.classEndTime,
+          };
 
-            patch = {
+          recentScheduleEditsRef.current.set(
+            rowKey,
+            Date.now()
+          );
+        } else if (field === "durationMinutes") {
+          const nextDuration = Number(value || 60);
+          const nextEnd = row.classStartTime
+            ? addMinutes(
+                row.classStartTime,
+                nextDuration
+              )
+            : "";
+
+          nextRow = computeRow(
+            {
+              ...row,
               durationMinutes: nextDuration,
-              durationLabel: nextRow.durationLabel,
-              classEndTime: nextRow.classEndTime,
-            };
-          } else if (field === "classStartTime") {
-            const nextStart = normalizeTimeText(value);
-            nextRow = computeRow(
-              {
-                ...row,
-                classStartTime: nextStart,
-              },
-              durationOptions
-            );
-            patch = { classStartTime: nextStart };
-          } else if (field === "classEndTime") {
-            const nextEnd = normalizeTimeText(value);
-            nextRow = computeRow(
-              {
-                ...row,
-                classEndTime: nextEnd,
-              },
-              durationOptions
-            );
-            patch = { classEndTime: nextEnd };
-          } else {
-            nextRow = computeRow({ ...row, [field]: value }, durationOptions);
-          }
+              classEndTime: nextEnd,
+            },
+            durationOptions
+          );
 
-          nextRowSnapshot = nextRow;
-          return nextRow;
-        });
-        entriesRef.current = nextRows;
-        return nextRows;
+          patch = {
+            durationMinutes: nextDuration,
+            durationLabel: nextRow.durationLabel,
+            classEndTime: nextRow.classEndTime,
+          };
+        } else if (field === "classStartTime") {
+          const nextStart = normalizeTimeText(value);
+          nextRow = computeRow(
+            {
+              ...row,
+              classStartTime: nextStart,
+            },
+            durationOptions
+          );
+          patch = { classStartTime: nextStart };
+        } else if (field === "classEndTime") {
+          const nextEnd = normalizeTimeText(value);
+          nextRow = computeRow(
+            {
+              ...row,
+              classEndTime: nextEnd,
+            },
+            durationOptions
+          );
+          patch = { classEndTime: nextEnd };
+        } else {
+          nextRow = computeRow(
+            { ...row, [field]: value },
+            durationOptions
+          );
+        }
+
+        nextRowSnapshot = nextRow;
+        return nextRow;
       });
 
-      if (options.save !== false && nextRowSnapshot) {
-        scheduleRowSave(rowId, patch, options.delay ?? 250);
+      if (!nextRowSnapshot) return null;
+
+      entriesRef.current = nextRows;
+      setEntries(nextRows);
+
+      if (options.save !== false) {
+        scheduleRowSave(
+          rowId,
+          patch,
+          options.delay ?? 350
+        );
+
+        if (options.immediate) {
+          window.setTimeout(() => {
+            void flushRowSaveRef.current?.(rowId);
+          }, 0);
+        }
       }
 
       return nextRowSnapshot;
     },
-    [durationOptions, recordUndoSnapshot, scheduleRowSave]
+    [
+      durationOptions,
+      recordUndoSnapshot,
+      scheduleRowSave,
+    ]
+  );
+
+  const updateTimeAssignment = useCallback(
+    (
+      rowId,
+      day,
+      value,
+      {
+        normalize = false,
+        immediate = false,
+        recordUndo = true,
+      } = {}
+    ) => {
+      const normalizedDay = resolveCanonicalDay(day);
+      if (!normalizedDay) return null;
+
+      return updateRow(
+        rowId,
+        "timeAssignments",
+        {
+          [normalizedDay]: normalize
+            ? normalizeTimeText(value)
+            : value,
+        },
+        {
+          delay: immediate ? 0 : 500,
+          immediate,
+          recordUndo,
+          undoKey: `${rowId}:timeAssignments:${normalizedDay}`,
+        }
+      );
+    },
+    [updateRow]
   );
 
   async function createRow() {
@@ -1265,6 +1935,39 @@ export default function OtmPortalSheet({
     },
     [applyClipboardMatrix, pagedEntries, selectedColumnKey, selectedIds]
   );
+
+  const handleSheetFocusCapture = useCallback((event) => {
+    const target = event.target?.closest?.(
+      "[data-grid-key]"
+    );
+    const editorKey = target?.dataset?.gridKey || "";
+    if (!editorKey) return;
+
+    const [rowId, columnKey] = editorKey.split("::");
+    activeEditorKeyRef.current = editorKey;
+    setSelectedColumnKey("");
+    setActiveCellPrefix(
+      buildCellPrefix(rowId, columnKey)
+    );
+  }, []);
+
+  const handleSheetBlurCapture = useCallback(() => {
+    window.setTimeout(() => {
+      const activeElement = document.activeElement;
+      const activeKey =
+        activeElement?.dataset?.gridKey || "";
+
+      if (
+        activeKey &&
+        sheetWrapRef.current?.contains(activeElement)
+      ) {
+        return;
+      }
+
+      activeEditorKeyRef.current = "";
+      setActiveCellPrefix("");
+    }, 0);
+  }, []);
 
   const handleSheetKeyDownCapture = useCallback(
     (event) => {
@@ -1445,12 +2148,31 @@ export default function OtmPortalSheet({
             compact
             visibleDay={filtersByTab.tuitions.day}
             emphasizeVisibleDay={Boolean(filtersByTab.tuitions.day)}
-            getEditorProps={(day) => getGridEditorBindings(row.id, "timeAssignments", day)}
+            getEditorProps={(day) =>
+              getGridEditorBindings(
+                row.id,
+                "timeAssignments",
+                day
+              )
+            }
             onChange={(day, value) => {
-              updateRow(row.id, "timeAssignments", {
-                ...(row.timeAssignments || {}),
-                [day]: value,
-              });
+              updateTimeAssignment(
+                row.id,
+                day,
+                value
+              );
+            }}
+            onCommit={(day, value) => {
+              updateTimeAssignment(
+                row.id,
+                day,
+                value,
+                {
+                  normalize: true,
+                  immediate: true,
+                  recordUndo: false,
+                }
+              );
             }}
           />
         </td>
@@ -1585,8 +2307,17 @@ export default function OtmPortalSheet({
                 }
                 .otm-grid-editor:focus {
                   outline: none;
-                
-                  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.15);
+                  border-color: #16a34a !important;
+                  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.2) !important;
+                }
+                .otm-grid-cell--active .otm-grid-editor {
+                  background: #f0fdf4 !important;
+                }
+                .otm-grid-cell--active textarea.otm-grid-editor,
+                .otm-grid-cell--active input.otm-grid-editor,
+                .otm-grid-cell--active select.otm-grid-editor,
+                .otm-grid-cell--active button.otm-grid-editor {
+                  border-color: #16a34a !important;
                 }
                 .otm-grid-checkbox {
                   width: 14px;
@@ -1627,6 +2358,8 @@ export default function OtmPortalSheet({
                 style={styles.sheetWrap}
                 onCopy={handleSheetCopy}
                 onPaste={handleSheetPaste}
+                onFocusCapture={handleSheetFocusCapture}
+                onBlurCapture={handleSheetBlurCapture}
               >
                 <div style={styles.sheetViewport}>
                   <table style={styles.table}>
