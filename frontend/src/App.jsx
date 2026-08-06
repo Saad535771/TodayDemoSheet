@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import { getStoredToken, setAuthToken } from "./api/api.js";
@@ -24,35 +25,38 @@ export default function App() {
     }
   }, []);
   return (
-    <Routes>
-      {/* Login */}
-      <Route path="/login" element={<Login />} />
-      {/* Protected Route */}
-      <Route
-        path="/"
-        element={
-          <PrivateRoute>
-            <Dashboard />
-          </PrivateRoute>
-        }/>
-       <Route
-        path="/admin/otm/:userId"
-        element={
-          <PrivateRoute>
-            <AdminOtmUserDetail />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/admin/paymentsheet-date-request"
-        element={
-         
-            <PaymentChangeRequestsPanel />
-          
-        }
-      />
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      <Routes>
+        {/* Login */}
+        <Route path="/login" element={<Login />} />
+        {/* Protected Route */}
+        <Route
+          path="/"
+          element={
+            <PrivateRoute>
+              <Dashboard />
+            </PrivateRoute>
+          }/>
+         <Route
+          path="/admin/otm/:userId"
+          element={
+            <PrivateRoute>
+              <AdminOtmUserDetail />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/admin/paymentsheet-date-request"
+          element={
+           
+              <PaymentChangeRequestsPanel />
+            
+          }
+        />
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <SpeedInsights />
+    </>
   );
 }
