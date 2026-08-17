@@ -13,20 +13,12 @@ export function makeOtmManagementRoutes(otmManagementController) {
     [body("orderedIds").isArray({ min: 1 }), body("orderedIds.*").isInt({ min: 1 })],
     otmManagementController.reorderEntries
   );
-  router.put(
-    "/entries/:entryId",
-    requireAuth,
-    [param("entryId").isInt({ min: 1 })],
-    otmManagementController.updateEntry
-  );
-  router.delete(
-    "/entries/:entryId",
-    requireAuth,
-    [param("entryId").isInt({ min: 1 })],
-    otmManagementController.deleteEntry
-  );
+  router.put("/entries/:entryId",requireAuth,[param("entryId").isInt({ min: 1 })],otmManagementController.updateEntry);
+  router.delete("/entries/:entryId",requireAuth, [param("entryId").isInt({ min: 1 })],otmManagementController.deleteEntry);
   router.get("/reports", requireAuth, otmManagementController.reports);
   router.get("/total-class", requireAuth, otmManagementController.totalClass);
   router.get("/admin/:userId",requireAuth,[param("userId").isInt({ min: 1 })],otmManagementController.adminUserDetails);
+  // OTM Cell History Route
+  router.get('/history/:type/:recordId/:field', requireAuth, otmManagementController.getOtmCellHistory);
   return router;
 }

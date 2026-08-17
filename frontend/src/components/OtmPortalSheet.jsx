@@ -5,6 +5,7 @@ import OtmReportTable, { REPORT_STATUS_OPTIONS } from "./OtmReportTable.jsx";
 import ReportEntryForm from "./ReportEntryForm.jsx";
 import OtmNotifications from "./OtmNotifications.jsx";
 import OtmTotalClassSheet from "./OtmTotalClassSheet.jsx";
+import CellHistoryPopup from './CellHistoryPopup';
 import {
   DEFAULT_DAY_OPTIONS,
   DEFAULT_DURATION_OPTIONS,
@@ -781,11 +782,12 @@ export default function OtmPortalSheet({
   const [filtersByTab, setFiltersByTab] = useState({
     tuitions: { day: "", month: "", year: "", status: "" },
     reports: { day: "", month: "", year: "", status: "" },
-    totalClass: { day: "", month: "", year: "", status: "" },
-  });
+    totalClass: { day: "", month: "", year: "", status: "" },});
   const [pageByTab, setPageByTab] = useState({ tuitions: 1, reports: 1, totalClass: 1 });
   const [pageSizeByTab, setPageSizeByTab] = useState({ tuitions: 20, reports: 20, totalClass: 20 });
-
+  const [searchQuery, setSearchQuery] = useState('');
+  const [historyConfig, setHistoryConfig] = useState({ 
+    isOpen: false, recordId: null, field: null, type: 'tuition', x: 0, y: 0 });
   useEffect(() => {
     const newSocket = io("/notifications", {
       auth: { token: localStorage.getItem("token") }
@@ -1185,7 +1187,32 @@ export default function OtmPortalSheet({
   function getRowIdFromEditorKey(editorKey) {
     return String(editorKey || "").split("::")[0] || "";
   }
+// Arrow key navigation (Spreadsheet feel)
+const handleKeyDown = (e, rowIndex, colIndex) => {
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    e.preventDefault();
+    let nextRow = rowIndex;
+    let nextCol = colIndex;
+    if (e.key === 'ArrowUp') nextRow = Math.max(0, rowIndex - 1);
+    if (e.key === 'ArrowDown') nextRow = rowIndex + 1; 
+    if (e.key === 'ArrowLeft') nextCol = Math.max(0, colIndex - 1);
+    if (e.key === 'ArrowRight') nextCol = colIndex + 1;
+    const nextInput = document.getElementById(`tuition-cell-${nextRow}-${nextCol}`);
+    if (nextInput) nextInput.focus();
+};
 
+// Right click for History
+const handleContextMenu = (e, recordId, field) => {
+    e.preventDefault();
+    setHistoryConfig({
+        isOpen: true,
+        recordId,
+        field,
+        type: 'tuition', // Backend history type
+        x: e.clientX,
+        y: e.clientY
+    });
+};
   const moveFocusAndPersist = useCallback(
     (editorKey, direction) => {
       const rowId = getRowIdFromEditorKey(editorKey);
@@ -2114,6 +2141,9 @@ export default function OtmPortalSheet({
       onBlur: () => {
         if (!isDraft) void saveRow(row.id);
       },
+      onContextMenu: (e) => {
+      if (!isDraft) handleContextMenu(e, row.id, field);
+    },
       ...editorBindings,
     };
 
@@ -2127,7 +2157,11 @@ export default function OtmPortalSheet({
   function renderExistingRowDayTimeDuration(row) {
     return (
       <>
-        <td className={getCellClassName(row.id, "days")} style={{ ...styles.td, width: GRID_DIMENSIONS.days, position: "relative" }}>
+        <td
+          className={getCellClassName(row.id, "days")}
+          style={{ ...styles.td, width: GRID_DIMENSIONS.days, position: "relative" }}
+          onContextMenu={(event) => handleContextMenu(event, row.id, "days")}
+        >
           <MultiSelectCell
           style={{zIndex:'999',}}
             value={row.days || []}
@@ -2139,7 +2173,11 @@ export default function OtmPortalSheet({
           />
         </td>
 
-        <td className={getCellClassName(row.id, "timeAssignments")} style={{ ...styles.td, width: GRID_DIMENSIONS.time }}>
+        <td
+          className={getCellClassName(row.id, "timeAssignments")}
+          style={{ ...styles.td, width: GRID_DIMENSIONS.time }}
+          onContextMenu={(event) => handleContextMenu(event, row.id, "timeAssignments")}
+        >
           <DayTimeAssignmentsEditor
             days={row.days || []}
             assignments={row.timeAssignments || {}}
@@ -2184,6 +2222,7 @@ export default function OtmPortalSheet({
             value={row.durationMinutes || durationOptions[0]?.value || 60}
             onChange={(event) => updateRow(row.id, "durationMinutes", Number(event.target.value))}
             onBlur={() => saveRow(row.id)}
+            onContextMenu={(e) => handleContextMenu(e, row.id, "durationMinutes")}
             {...getGridEditorBindings(row.id, "durationMinutes")}
           >
             {durationOptions.map((item) => (
@@ -2406,20 +2445,19 @@ export default function OtmPortalSheet({
                             <td style={{ ...styles.td, ...styles.numberCell, textAlign: "center", verticalAlign: "middle" }}>
                               {(pageByTab.tuitions - 1) * pageSizeByTab.tuitions + index + 1}
                             </td>
-
                             {renderExistingRowDayTimeDuration(row)}
-
-                            <td className={getCellClassName(row.id, "tuitionStartMonth")} style={{ ...styles.td, width: GRID_DIMENSIONS.startMonth }}>
-                              <input
-                                type="month"
-                                className="otm-grid-editor"
-                                style={styles.cellInput}
-                                value={row.tuitionStartMonth || ""}
-                                onChange={(event) => updateRow(row.id, "tuitionStartMonth", event.target.value)}
-                                onBlur={() => saveRow(row.id)}
-                                {...getGridEditorBindings(row.id, "tuitionStartMonth")}
-                              />
-                            </td>
+                           <td className={getCellClassName(row.id, "tuitionStartMonth")} style={{ ...styles.td, width: GRID_DIMENSIONS.startMonth }}>
+            <input
+              type="month"
+              className="otm-grid-editor"
+              style={styles.cellInput}
+              value={row.tuitionStartMonth || ""}
+              onChange={(event) => updateRow(row.id, "tuitionStartMonth", event.target.value)}
+              onBlur={() => saveRow(row.id)}
+              onContextMenu={(e) => handleContextMenu(e, row.id, "tuitionStartMonth")}
+              {...getGridEditorBindings(row.id, "tuitionStartMonth")}
+            />
+          </td>
 
                             {TEXT_COLUMNS.map((column) => (
                               <td key={column.key} className={getCellClassName(row.id, column.key)} style={{ ...styles.td, width: column.width }}>
@@ -2427,15 +2465,16 @@ export default function OtmPortalSheet({
                               </td>
                             ))}
 
-                            <td className={getCellClassName(row.id, "status")} style={{ ...styles.td, width: GRID_DIMENSIONS.status }}>
-                              <select
-                                className="otm-grid-editor"
-                                style={styles.statusSelect(row.status)}
-                                value={row.status || ""}
-                                onChange={(event) => updateRow(row.id, "status", event.target.value)}
-                                onBlur={() => saveRow(row.id)}
-                                {...getGridEditorBindings(row.id, "status")}
-                              >
+                          <td className={getCellClassName(row.id, "status")} style={{ ...styles.td, width: GRID_DIMENSIONS.status }}>
+            <select
+              className="otm-grid-editor"
+              style={styles.statusSelect(row.status)}
+              value={row.status || ""}
+              onChange={(event) => updateRow(row.id, "status", event.target.value)}
+              onBlur={() => saveRow(row.id)}
+              onContextMenu={(e) => handleContextMenu(e, row.id, "status")}
+              {...getGridEditorBindings(row.id, "status")}
+            >
                                 {statusOptions.map((item) => (
                                   <option key={item} value={item}>
                                     {getStatusMeta(item).label}
@@ -2550,6 +2589,12 @@ export default function OtmPortalSheet({
           />
         )}
         </div>
+        {historyConfig.isOpen && (
+            <CellHistoryPopup 
+                config={historyConfig} 
+                onClose={() => setHistoryConfig({ ...historyConfig, isOpen: false })} 
+            />
+        )}
       </div>
     </div>
   );

@@ -1163,20 +1163,17 @@ export function makePaymentCloneTeamBController({
         });
       }
     },
-
     async notificationCount(req, res) {
       try {
         if (!PaymentChangeRequest) {
           return res.json({ count: 0 });
         }
-
         const count = await PaymentChangeRequest.count({
           where: {
             moduleName: "payment_sheet_clone_team_b", // CHANGED HERE
             notificationStatus: "unread",
           },
         });
-
         return res.json({ count });
       } catch (err) {
         console.error("PAYMENT NOTIFICATION COUNT ERROR:", err);
@@ -1185,13 +1182,11 @@ export function makePaymentCloneTeamBController({
         });
       }
     },
-
     async markNotificationsRead(req, res) {
       try {
         if (!PaymentChangeRequest) {
           return res.json({ success: true });
         }
-
         await PaymentChangeRequest.update(
           {
             notificationStatus: "read",
@@ -1204,7 +1199,6 @@ export function makePaymentCloneTeamBController({
             },
           }
         );
-
         return res.json({ success: true });
       } catch (err) {
         console.error("PAYMENT NOTIFICATION READ ERROR:", err);

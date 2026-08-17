@@ -1,14 +1,16 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import Login from "./pages/Login.jsx";
-import Dashboard from "./pages/Dashboard.jsx";
 import { getStoredToken, setAuthToken } from "./api/api.js";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
-import AdminOtmUserDetail from "./components/AdminOtmUserDetail.jsx";
-import PaymentChangeRequestsPanel from "./pages/PaymentChangeRequestsPanel.jsx";
 import 'react-data-grid/lib/styles.css';
-import FloatingChatWidget from "./components/FloatingChatWidget.jsx";
+
+const Login = lazy(() => import("./pages/Login.jsx"));
+const Dashboard = lazy(() => import("./pages/Dashboard.jsx"));
+const AdminOtmUserDetail = lazy(() => import("./components/AdminOtmUserDetail.jsx"));
+const PaymentChangeRequestsPanel = lazy(() =>
+  import("./pages/PaymentChangeRequestsPanel.jsx")
+);
 function PrivateRoute({ children }) {
   const token = getStoredToken();
   if (!token) {
@@ -24,7 +26,22 @@ export default function App() {
     }
   }, []);
   return (
-    <Routes>
+    <Suspense
+      fallback={
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "grid",
+            placeItems: "center",
+            color: "#64748b",
+            fontWeight: 700,
+          }}
+        >
+          Loading...
+        </div>
+      }
+    >
+      <Routes>
       {/* Login */}
       <Route path="/login" element={<Login />} />
       {/* Protected Route */}
@@ -53,6 +70,7 @@ export default function App() {
       />
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }

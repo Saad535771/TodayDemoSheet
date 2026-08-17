@@ -1,20 +1,24 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import MainTuitions from "../components/MainTuitions.jsx";
-import TargetBoard from "../components/TargetBoard.jsx";
-import StaffManager from "../components/StaffManager.jsx";
-import TrashBin from "../components/TrashBin.jsx";
-import PaymentSheet from "../components/PaymentSheet.jsx";
-import PaymentSheetTeamB from "../components/PaymentSheetTeamB.jsx"; 
-import PaymentCloneTeamBTrashTable from "../components/PaymentCloneTeamBTrashTable.jsx"; // Team B Trash
-import HodApprovals from "../components/HodApprovals.jsx";
-import ActiveUsersPanel from "../components/ActiveUsersPanel.jsx";
-import FloatingChatWidget from "../components/FloatingChatWidget.jsx";
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { api, clearToken, getStoredToken, setAuthToken } from "../api/api.js";
 import { getRealtimeSocket } from "../api/realtime.js";
-import NewStaffCreate from "../components/NewStaffCreate.jsx";
 import Logo from "../assets/Logo-1-Blue.png";
-import OtmManagement from "../components/OtmManagement.jsx";
-import TeamChat from "../components/TeamChat.jsx";
+
+const MainTuitions = lazy(() => import("../components/MainTuitions.jsx"));
+const TargetBoard = lazy(() => import("../components/TargetBoard.jsx"));
+const StaffManager = lazy(() => import("../components/StaffManager.jsx"));
+const TrashBin = lazy(() => import("../components/TrashBin.jsx"));
+const PaymentSheet = lazy(() => import("../components/PaymentSheet.jsx"));
+const PaymentSheetTeamB = lazy(() => import("../components/PaymentSheetTeamB.jsx"));
+const PaymentCloneTeamBTrashTable = lazy(() =>
+  import("../components/PaymentCloneTeamBTrashTable.jsx")
+);
+const HodApprovals = lazy(() => import("../components/HodApprovals.jsx"));
+const ActiveUsersPanel = lazy(() => import("../components/ActiveUsersPanel.jsx"));
+const FloatingChatWidget = lazy(() => import("../components/FloatingChatWidget.jsx"));
+const NewStaffCreate = lazy(() => import("../components/NewStaffCreate.jsx"));
+const OtmManagement = lazy(() => import("../components/OtmManagement.jsx"));
+const TeamChat = lazy(() => import("../components/TeamChat.jsx"));
+
 
 const LAST_TAB_KEY = "dashboard_active_tab";
 const TAB_SCROLL_KEY = "dashboard_tab_scroll_positions";
@@ -842,32 +846,45 @@ export default function Dashboard() {
             {currentTitle}
           </div>
 
-          {allowedTabs.map((tabConfig) => {
-            const isActive = tab === tabConfig.key;
-            return (
-              <div
-                key={tabConfig.key}
-                ref={(node) => {
-                  if (node) {
-                    contentRefs.current[tabConfig.key] = node;
-                  }
-                }}
-                style={{
-                  display: isActive ? "block" : "none",
-                  minHeight: "calc(100vh - 180px)",
-                }}
+          {activeTabConfig ? (
+            <div
+              key={activeTabConfig.key}
+              ref={(node) => {
+                if (node) {
+                  contentRefs.current[activeTabConfig.key] = node;
+                }
+              }}
+              style={{
+                minHeight: "calc(100vh - 180px)",
+              }}
+            >
+              <Suspense
+                fallback={
+                  <div
+                    style={{
+                      padding: 32,
+                      textAlign: "center",
+                      color: "#64748b",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Loading {activeTabConfig.label}...
+                  </div>
+                }
               >
-                {React.cloneElement(tabConfig.component, {
-                  isActive: isActive,
+                {React.cloneElement(activeTabConfig.component, {
+                  isActive: true,
                 })}
-              </div>
-            );
-          })}
+              </Suspense>
+            </div>
+          ) : null}
         </div>
       </div>
 
       {me && (role === "admin" || Number(me?.access_chat || 0) === 1) ? (
-        <FloatingChatWidget me={me} />
+        <Suspense fallback={null}>
+          <FloatingChatWidget me={me} />
+        </Suspense>
       ) : null}
     </div>
   );

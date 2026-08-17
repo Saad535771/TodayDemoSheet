@@ -3303,7 +3303,6 @@ export function makeOtmManagementController({
         });
       }
     },
-
     async totalClass(req, res) {
       const target =
         await resolveTargetUser(req);
@@ -3400,7 +3399,6 @@ export function makeOtmManagementController({
         });
       }
     },
-
     async adminUserDetails(
       req,
       res
@@ -3539,5 +3537,39 @@ export function makeOtmManagementController({
         });
       }
     },
+// History Logging Helper (Use this inside your update logic)
+    async logOtmHistory(tableName, recordId, fieldName, oldValue, newValue, userId) {
+        if (String(oldValue) !== String(newValue)) {
+            await db.query(
+                `INSERT INTO ${tableName} (record_id, field_name, old_value, new_value, changed_by) VALUES (?, ?, ?, ?, ?)`,
+                [recordId, fieldName, oldValue, newValue, userId]
+            );
+        }
+    },
+    // API Endpoint to fetch history
+    async getOtmCellHistory(req, res) {
+        const { type, recordId, field } = req.params;
+        let tableName = '';
+        if (type === 'tuition') tableName = 'otm_tuition_entries_history';
+        else if (type === 'report') tableName = 'otm_portal_reports_history';
+        else if (type === 'totalClasses') tableName = 'otm_total_classes_history';
+        else return res.status(400).json({ success: false, message: 'Invalid type' });
+
+        try {
+            const [rows] = await db.query(
+                `SELECT h.*, u.name as changed_by_name 
+                 FROM ${tableName} h 
+                 LEFT JOIN users u ON h.changed_by = u.id 
+                 WHERE h.record_id = ? AND h.field_name = ? 
+                 ORDER BY h.changed_at DESC`,
+                [recordId, field]
+            );
+            res.json({ success: true, data: rows });
+        } catch (error) {
+            console.error("History fetch error:", error);
+            res.status(500).json({ success: false, message: 'Server error' });
+        }
+    },
+    
   };
 }

@@ -401,6 +401,63 @@ export default function OtmManagement() {
     applyMutationResult(res.data || {});
   }
 
+  async function createTotalClass(payload) {
+    const targetUserId = isAdmin ? Number(requestedUserId || selectedUser?.id || 0) : null;
+    const body = isAdmin ? { ...payload, userId: targetUserId } : payload;
+    const res = await api.post("/otm-management/total-class", body);
+    const data = res.data || {};
+    if (Array.isArray(data.rows)) {
+      setTotalClassRows(data.rows);
+    }
+    applyMutationResult(data);
+    return data.row || data.data || null;
+  }
+
+  async function updateTotalClass(rowId, payload) {
+    const targetUserId = isAdmin ? Number(requestedUserId || selectedUser?.id || 0) : null;
+    const body = isAdmin ? { ...payload, userId: targetUserId } : payload;
+    const res = await api.put(`/otm-management/total-class/${rowId}`, body);
+    const data = res.data || {};
+    if (Array.isArray(data.rows)) {
+      setTotalClassRows(data.rows);
+    }
+    applyMutationResult(data);
+    return data.row || data.data || null;
+  }
+
+  async function bulkUpdateTotalClasses(rows) {
+    const targetUserId = isAdmin ? Number(requestedUserId || selectedUser?.id || 0) : null;
+    const body = isAdmin ? { rows, userId: targetUserId } : { rows };
+    const res = await api.put("/otm-management/total-class/bulk", body);
+    const data = res.data || {};
+    if (Array.isArray(data.rows)) {
+      setTotalClassRows(data.rows);
+    }
+    applyMutationResult(data);
+    return data.rows || [];
+  }
+
+  async function reorderTotalClasses(orderedIds) {
+    const targetUserId = isAdmin ? Number(requestedUserId || selectedUser?.id || 0) : null;
+    const body = isAdmin ? { orderedIds, userId: targetUserId } : { orderedIds };
+    const res = await api.post("/otm-management/total-class/reorder", body);
+    const data = res.data || {};
+    if (Array.isArray(data.rows)) {
+      setTotalClassRows(data.rows);
+    }
+    return data.rows || [];
+  }
+
+  async function deleteTotalClass(rowId) {
+    const suffix = isAdmin ? `?userId=${requestedUserId || selectedUser?.id}` : "";
+    const res = await api.delete(`/otm-management/total-class/${rowId}${suffix}`);
+    const data = res.data || {};
+    if (Array.isArray(data.rows)) {
+      setTotalClassRows(data.rows);
+    }
+    return data.rows || [];
+  }
+
   function handleOpenPortal(userId) {
     setSearchParams({ userId: String(userId) });
   }
@@ -456,6 +513,11 @@ export default function OtmManagement() {
       onUpdateEntry={updateEntry}
       onReorderEntries={reorderEntries}
       onDeleteEntry={deleteEntry}
+      onCreateTotalClass={createTotalClass}
+      onUpdateTotalClass={updateTotalClass}
+      onBulkUpdateTotalClasses={bulkUpdateTotalClasses}
+      onReorderTotalClasses={reorderTotalClasses}
+      onDeleteTotalClass={deleteTotalClass}
       onAdminUserChange={handleAdminUserChange}
       onBackToDirectory={isAdmin ? handleBackToDirectory : undefined}
     />

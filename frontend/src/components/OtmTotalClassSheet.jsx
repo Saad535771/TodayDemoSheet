@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pagination, Toolbar, styles } from "./otmPortalShared.jsx";
+import CellHistoryPopup from "./CellHistoryPopup.jsx";
 
 const REPORT_STATUS_OPTIONS = ["pending report", "report pending", "report shared"];
 
@@ -70,12 +71,91 @@ function normalizeBadgeValues(value, depth = 0) {
   )];
 }
 
+const DERIVED_COLUMNS = new Set([
+  "numberOfDecidedDays",
+  "classesInAMonth",
+  "totalClasses",
+  "totalFee",
+]);
+
+function parseNonNegativeInteger(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0
+    ? Math.trunc(number)
+    : fallback;
+}
+
+function applyAutomaticClassTotals(row = {}) {
+  const days = normalizeBadgeValues(row.days);
+  const decidedDays = days.length
+    ? days.length
+    : parseNonNegativeInteger(row.numberOfDecidedDays, 0);
+
+  const explicitClasses = parseNonNegativeInteger(row.classesInAMonth, 0);
+  const classesInAMonth = decidedDays > 0 ? decidedDays * 4 : explicitClasses;
+
+  let totalDoneClasses = parseNonNegativeInteger(row.totalDoneClasses, 0);
+  let missedByStudentClasses = parseNonNegativeInteger(
+    row.missedByStudentClasses,
+    0
+  );
+  let missedByTeacherClass = parseNonNegativeInteger(
+    row.missedByTeacherClass,
+    0
+  );
+
+  const status = String(row.status || "").trim().toLowerCase();
+  if (status === "class done") totalDoneClasses = Math.max(totalDoneClasses, 1);
+  if (status === "missed by student") {
+    missedByStudentClasses = Math.max(missedByStudentClasses, 1);
+  }
+  if (status === "missed by teacher") {
+    missedByTeacherClass = Math.max(missedByTeacherClass, 1);
+  }
+
+  if (classesInAMonth > 0) {
+    totalDoneClasses = Math.min(totalDoneClasses, classesInAMonth);
+    missedByStudentClasses = Math.min(missedByStudentClasses, classesInAMonth);
+    missedByTeacherClass = Math.min(missedByTeacherClass, classesInAMonth);
+  }
+
+  const next = {
+    ...row,
+    numberOfDecidedDays: decidedDays,
+    classesInAMonth,
+    totalDoneClasses,
+    missedByStudentClasses,
+    missedByTeacherClass,
+    totalClasses: classesInAMonth,
+  };
+
+  const rawDecidedFee = row.decidedFee;
+  const hasDecidedFee =
+    rawDecidedFee !== null &&
+    rawDecidedFee !== undefined &&
+    String(rawDecidedFee).trim() !== "";
+  const decidedFee = Number(String(rawDecidedFee ?? "").replace(/,/g, ""));
+  if (
+    hasDecidedFee &&
+    Number.isFinite(decidedFee) &&
+    decidedFee >= 0 &&
+    classesInAMonth > 0
+  ) {
+    const perClassFee = decidedFee / classesInAMonth;
+    next.totalFee = Number(
+      Math.max(0, decidedFee - missedByTeacherClass * perClassFee).toFixed(2)
+    );
+  }
+
+  return next;
+}
+
 function normalizeRowForUi(row = {}) {
-  return {
+  return applyAutomaticClassTotals({
     ...row,
     tutorName: normalizeBadgeValues(row.tutorName),
     groupName: normalizeBadgeValues(row.groupName),
-  };
+  });
 }
 
 function getClassStatusStyle(status = "") {
@@ -254,6 +334,14 @@ export default function OtmTotalClassSheet({
   const [activeCell, setActiveCell] = useState("");
   const [draggedId, setDraggedId] = useState(null);
   const [savingIds, setSavingIds] = useState([]);
+  const [historyConfig, setHistoryConfig] = useState({
+    isOpen: false,
+    recordId: null,
+    field: "",
+    type: "totalClasses",
+    x: 0,
+    y: 0,
+  });
   const editorRefs = useRef(new Map());
   const saveTimers = useRef(new Map());
   const rowsRef = useRef(localRows);
@@ -330,9 +418,13 @@ export default function OtmTotalClassSheet({
       const current = rowsRef.current.find((row) => row.id === rowId);
       if (!current) return;
 
-      const snapshot = { ...current, [column.key]: value };
+      let snapshot = { ...current, [column.key]: value };
       if (column.key === "duration") snapshot.durationTime = value;
       if (column.key === "classStartTime" && !snapshot.time) snapshot.time = value;
+      if (column.key === "days") {
+        snapshot.numberOfDecidedDays = normalizeBadgeValues(value).length;
+      }
+      snapshot = applyAutomaticClassTotals(snapshot);
 
       const nextRows = rowsRef.current.map((row) => (row.id === rowId ? snapshot : row));
       rowsRef.current = nextRows;
@@ -408,9 +500,12 @@ export default function OtmTotalClassSheet({
           if (column.key === "duration") target.durationTime = target.duration;
           if (column.key === "classStartTime" && !target.time) target.time = target.classStartTime;
         });
+        const recalculated = applyAutomaticClassTotals(target);
+        Object.assign(target, recalculated);
         changed.set(target.id, target);
       });
 
+      rowsRef.current = nextRows;
       setLocalRows(nextRows);
       const changedRows = [...changed.values()];
       if (changedRows.length === 0) return;
@@ -462,6 +557,19 @@ export default function OtmTotalClassSheet({
     },
     [draggedId, localRows, onReorderRows]
   );
+
+  const openCellHistory = useCallback((event, rowId, field) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setHistoryConfig({
+      isOpen: true,
+      recordId: rowId,
+      field,
+      type: "totalClasses",
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }, []);
 
   function editorProps(row, column) {
     return {
@@ -574,8 +682,19 @@ export default function OtmTotalClassSheet({
         step={column.type === "money" ? "0.01" : undefined}
         min={column.type === "number" ? "0" : undefined}
         value={value}
+        readOnly={DERIVED_COLUMNS.has(column.key)}
+        title={
+          DERIVED_COLUMNS.has(column.key)
+            ? "Calculated automatically by the system"
+            : undefined
+        }
         onChange={(event) => updateCell(row.id, column, event.target.value)}
-        style={cellInputStyle}
+        style={{
+          ...cellInputStyle,
+          ...(DERIVED_COLUMNS.has(column.key)
+            ? { background: "#f8fafc", color: "#334155", fontWeight: 700 }
+            : {}),
+        }}
       />
     );
   }
@@ -651,7 +770,7 @@ export default function OtmTotalClassSheet({
         <div>
           <div style={{ fontWeight: 900, color: "#0f172a" }}>Total Classes Spreadsheet</div>
           <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
-            Arrow keys move focus. Excel/Google Sheets tab-separated rows can be pasted directly.
+            Arrow keys move focus. Paste works like Excel/Google Sheets. Scheduled classes and payable fee recalculate automatically.
           </div>
         </div>
         <button type="button" onClick={() => void addRow()} style={addButtonStyle}>
@@ -723,6 +842,9 @@ export default function OtmTotalClassSheet({
                           key={column.key}
                           className={`otm-total-cell ${activeCell === key ? "otm-total-cell--active" : ""}`}
                           style={{ ...styles.td, width: column.width, minWidth: column.width }}
+                          onContextMenu={(event) =>
+                            openCellHistory(event, row.id, column.key)
+                          }
                         >
                           {renderEditor(row, column)}
                         </td>
@@ -746,6 +868,16 @@ export default function OtmTotalClassSheet({
         page={safePage}
         pageSize={pageSize}
         onPageChange={onPageChange}
+      />
+
+      <CellHistoryPopup
+        config={historyConfig}
+        onClose={() =>
+          setHistoryConfig((previous) => ({
+            ...previous,
+            isOpen: false,
+          }))
+        }
       />
     </div>
   );

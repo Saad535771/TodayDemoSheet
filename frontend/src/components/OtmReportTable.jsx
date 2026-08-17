@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import axios from "axios";
+import CellHistoryPopup from "./CellHistoryPopup.jsx";
 
 const API_BASE_URL = (
   import.meta.env?.VITE_API_BASE_URL ||
@@ -416,6 +417,15 @@ export default function OtmReportTable() {
 
   const [draggedId, setDraggedId] =
     useState(null);
+
+  const [historyConfig, setHistoryConfig] = useState({
+    isOpen: false,
+    recordId: null,
+    field: "",
+    apiUrl: "/reports/history/track",
+    x: 0,
+    y: 0,
+  });
 
   const rowsRef = useRef([]);
   const refs = useRef(new Map());
@@ -1424,6 +1434,19 @@ export default function OtmReportTable() {
     ]
   );
 
+  const openHistory = useCallback((event, rowId, field) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setHistoryConfig({
+      isOpen: true,
+      recordId: rowId,
+      field,
+      apiUrl: "/reports/history/track",
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }, []);
+
   return (
     <div className="report-table-module">
       <style>{TABLE_CSS}</style>
@@ -1580,6 +1603,8 @@ export default function OtmReportTable() {
                             ? "sheet-cell active"
                             : "sheet-cell"
                         }
+                      
+                        onContextMenu={(event) => openHistory(event, row.id, "tuitionName")}
                       >
                         <input
                           {...props(
@@ -1610,6 +1635,8 @@ export default function OtmReportTable() {
                             ? "sheet-cell active"
                             : "sheet-cell"
                         }
+                      
+                        onContextMenu={(event) => openHistory(event, row.id, "groupName")}
                       >
                         <BadgeEditor
                           value={
@@ -1683,6 +1710,8 @@ export default function OtmReportTable() {
                             ? "sheet-cell active"
                             : "sheet-cell"
                         }
+                      
+                        onContextMenu={(event) => openHistory(event, row.id, "tutorName")}
                       >
                         <BadgeEditor
                           value={
@@ -1756,6 +1785,8 @@ export default function OtmReportTable() {
                             ? "sheet-cell active"
                             : "sheet-cell"
                         }
+                      
+                        onContextMenu={(event) => openHistory(event, row.id, "reportStatus")}
                       >
                         <select
                           {...props(
@@ -1810,6 +1841,8 @@ export default function OtmReportTable() {
                             ? "sheet-cell active"
                             : "sheet-cell"
                         }
+                      
+                        onContextMenu={(event) => openHistory(event, row.id, "rowColor")}
                       >
                         <input
                           {...props(
@@ -1871,6 +1904,16 @@ export default function OtmReportTable() {
           </table>
         </div>
       </div>
+
+      <CellHistoryPopup
+        config={historyConfig}
+        onClose={() =>
+          setHistoryConfig((previous) => ({
+            ...previous,
+            isOpen: false,
+          }))
+        }
+      />
     </div>
   );
 }
